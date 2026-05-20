@@ -1,0 +1,106 @@
+shell:
+  - pwsh
+  - -NoProfile
+  - -Command
+display:
+  list: "{{.description}}"
+  details: |
+    Description: {{.description}}
+    Cluster Name:       {{.clusterName}}
+    Cluster IP:         {{.clusterIp}}
+    Load Balancer Name: {{.loadBalancerName}}
+    Load Balancer IP:   {{.loadBalancerIp}}
+
+items:
+  - name: Nightly CDM
+    description: Nightly build CDM
+    clusterIp: 10.20.30.40
+    clusterName: test-cluster1
+    loadBalancerIp: 11.20.30.40
+    loadBalancerName: test-lb1
+  - name: Staging
+    description: Staging build
+    clusterIp: 20.20.30.40
+    clusterName: test-cluster2
+    loadBalancerIp: 21.20.30.40
+    loadBalancerName: test-lb2
+  - name: Production EU
+    description: Production EU region
+    clusterIp: 30.20.30.40
+    clusterName: prod-cluster-eu
+    loadBalancerIp: 31.20.30.40
+    loadBalancerName: prod-lb-eu
+  - name: Production US
+    description: Production US region
+    clusterIp: 40.20.30.40
+    clusterName: prod-cluster-us
+    loadBalancerIp: 41.20.30.40
+    loadBalancerName: prod-lb-us
+  - name: Production APAC
+    description: Production APAC region
+    clusterIp: 50.20.30.40
+    clusterName: prod-cluster-apac
+    loadBalancerIp: 51.20.30.40
+    loadBalancerName: prod-lb-apac
+  - name: QA Environment
+    description: QA testing environment
+    clusterIp: 60.20.30.40
+    clusterName: qa-cluster1
+    loadBalancerIp: 61.20.30.40
+    loadBalancerName: qa-lb1
+  - name: Dev Alpha
+    description: Developer sandbox alpha
+    clusterIp: 70.20.30.40
+    clusterName: dev-cluster-alpha
+    loadBalancerIp: 71.20.30.40
+    loadBalancerName: dev-lb-alpha
+  - name: Dev Beta
+    description: Developer sandbox beta
+    clusterIp: 80.20.30.40
+    clusterName: dev-cluster-beta
+    loadBalancerIp: 81.20.30.40
+    loadBalancerName: dev-lb-beta
+  - name: Load Test
+    description: Load testing cluster
+    clusterIp: 90.20.30.40
+    clusterName: loadtest-cluster1
+    loadBalancerIp: 91.20.30.40
+    loadBalancerName: loadtest-lb1
+  - name: DR Failover
+    description: Disaster recovery failover
+    clusterIp: 100.20.30.40
+    clusterName: dr-cluster1
+    loadBalancerIp: 101.20.30.40
+    loadBalancerName: dr-lb1
+actions:
+  - title: Test output
+    cmd: Get-Content C:\Windows\System32\drivers\etc\hosts
+  - title: Test input
+    cmd: Read-Host "Enter something"
+  - title: Start k9s
+    cmd: k9s --kubeconfig kubeconfig.yaml
+  - title: Open UI in browser
+    cmd: Start-Process http://localhost:8080
+  - title: System info
+    cmd: |
+      Write-Host "=== Hostname ===" -ForegroundColor Cyan
+      hostname
+      Write-Host ""
+      Write-Host "=== Uptime ===" -ForegroundColor Cyan
+      (Get-Date) - (gcim Win32_OperatingSystem).LastBootUpTime
+      Write-Host ""
+      Write-Host "=== Disk usage ===" -ForegroundColor Cyan
+      Get-PSDrive -PSProvider FileSystem | Select-Object Name, Used, Free
+      Write-Host ""
+      Write-Host "=== Memory ===" -ForegroundColor Cyan
+      $mem = gcim Win32_OperatingSystem
+      "Total: {0:N1} GB  Free: {1:N1} GB" -f ($mem.TotalVisibleMemorySize/1MB), ($mem.FreePhysicalMemory/1MB)
+      Write-Host ""
+      Write-Host "=== CPU ===" -ForegroundColor Cyan
+      gcim Win32_Processor | Select-Object Name, NumberOfCores, NumberOfLogicalProcessors
+      Write-Host ""
+      Write-Host "=== Network interfaces ===" -ForegroundColor Cyan
+      Get-NetIPAddress -AddressFamily IPv4 | Where-Object IPAddress -ne "127.0.0.1" | Select-Object InterfaceAlias, IPAddress
+      Write-Host ""
+      Write-Host "=== Current user ===" -ForegroundColor Cyan
+      whoami

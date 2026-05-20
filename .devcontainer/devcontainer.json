@@ -1,0 +1,22 @@
+{
+  "name": "Go Script Manager",
+  "image": "mcr.microsoft.com/devcontainers/go:1.25-bookworm",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go"
+      ],
+      "settings": {
+        "go.useLanguageServer": true,
+        "[go]": {
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+          }
+        }
+      }
+    }
+  },
+  "postCreateCommand": "go mod download",
+  "remoteUser": "vscode"
+}

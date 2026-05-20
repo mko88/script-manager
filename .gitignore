@@ -1,0 +1,26 @@
+# Binaries
+script-manager
+script-manager.exe
+
+# Go build/test artifacts
+*.test
+*.out
+/vendor/
+
+# Environment files
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Claude Code internal storage
+.claude/
+
+# Dev container lock file (no features used, nothing to pin)
+.devcontainer/devcontainer-lock.json
