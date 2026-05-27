@@ -98,7 +98,7 @@ func newActionsTile(actions []config.Action) *ActionsTile {
 	return &ActionsTile{
 		BaseTile: &tl.BaseTile{
 			Name: "actions",
-			Size: tl.Size{Weight: 2},
+			Size: tl.Size{Weight: 1},
 		},
 		actions: actions,
 	}

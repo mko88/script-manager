@@ -12,36 +12,68 @@ A terminal UI for organising and running shell scripts across a list of configur
 - **Command preview** — the expanded command for the selected action is shown in a dedicated pane with clipboard copy support
 - **State preserved** — returns to the same position after an action completes
 
+## Two-step flow
+
+The UI works in two modes:
+
+**1 — Item selection** (start here)
+Navigate the items list and press `Enter` to select an item.
+
+**2 — Action selection**
+The items list shrinks to show only the selected item. Navigate and run actions, browse details, or copy the command. Press `Esc` to go back to item selection.
+
 ## Layout
 
+**Item selection mode**
 ```
 ┌─────────────────┬──────────────────────────────────┐
 │ Items           │ Details                          │
-│  ▶ Nightly CDM │  Description: Nightly build CDM  │
+│  > Nightly CDM  │  Description: Nightly build CDM  │
 │    Staging      │  Cluster Name: test-cluster1     │
 │    Production…  │  Cluster IP:  10.20.30.40        │
-│                 │                                  │
-├─────────────────├──────────────────────────────────┤
-│ Actions         │ Command                          │
-│  ▶ 1  Test out │  $ cat /etc/hosts                │
-│    2  Test inp  │                                  │
-│    3  Start k9s │                                  │
+│    ...          │                                  │
 └─────────────────┴──────────────────────────────────┘
-  ↑↓/kj Navigate   Tab/←→ Focus   Enter/1-9 Run   y Copy   Q Quit
+  ↑↓/kj Navigate items   Enter Select   Q/Esc Quit
+```
+
+**Action selection mode**
+```
+┌─────────────────┬──────────────────────────────────┐
+│  > Nightly CDM  │ Details                          │
+├─────────────────┤  Description: Nightly build CDM  │
+│ Actions         │  Cluster Name: test-cluster1     │
+│  > 1  Test out  │                                  │
+│    2  Test inp  ├──────────────────────────────────┤
+│    3  Start k9s │ Command                          │
+│    ...          │  $ cat /etc/hosts                │
+└─────────────────┴──────────────────────────────────┘
+  ↑↓/kj Navigate   Tab/←→ Focus   Enter/1-9 Run   y Copy   Esc Back
 ```
 
 ## Keybindings
+
+### Item selection mode
+
+| Key | Action |
+|-----|--------|
+| `↑` / `k` | Move up |
+| `↓` / `j` | Move down |
+| `Enter` | Select item, enter action mode |
+| `Q` / `Esc` / `Ctrl+C` | Quit |
+
+### Action selection mode
 
 | Key | Action |
 |-----|--------|
 | `↑` / `k` | Move up / scroll up |
 | `↓` / `j` | Move down / scroll down |
-| `Tab` / `→` | Next pane: Items → Actions → Details → Command |
+| `Tab` / `→` | Next pane: Actions → Details → Command |
 | `Shift+Tab` / `←` | Previous pane |
 | `Enter` | Run the selected action |
-| `1`–`9` | Run action by number (works from any pane) |
+| `1`–`9` | Run action by number |
 | `y` | Copy the expanded command to clipboard |
-| `Q` / `Esc` / `Ctrl+C` | Quit |
+| `Esc` | Back to item selection |
+| `Q` / `Ctrl+C` | Quit |
 
 ## Usage
 

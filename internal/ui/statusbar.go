@@ -16,17 +16,24 @@ var (
 	statusSepStyle   = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("240"))
 )
 
-var helpEntries = []struct{ key, desc string }{
+var itemModeHelp = []struct{ key, desc string }{
+	{"↑↓ / k j", "Navigate items"},
+	{"Enter", "Select item"},
+	{"Q / Esc", "Quit"},
+}
+
+var actionModeHelp = []struct{ key, desc string }{
 	{"↑↓ / k j", "Navigate / Scroll"},
 	{"Tab / ←→", "Switch focus"},
 	{"Enter / 1-9", "Run action"},
 	{"y", "Copy command"},
-	{"Q / Esc", "Quit"},
+	{"Esc", "Back to items"},
 }
 
 type StatusBarTile struct {
 	*tl.BaseTile
 	message string
+	mode    appMode
 }
 
 func newStatusBarTile() *StatusBarTile {
@@ -40,6 +47,7 @@ func newStatusBarTile() *StatusBarTile {
 
 func (t *StatusBarTile) SetMessage(msg string) { t.message = msg }
 func (t *StatusBarTile) ClearMessage()         { t.message = "" }
+func (t *StatusBarTile) SetMode(m appMode)     { t.mode = m }
 
 func (t *StatusBarTile) Init() tea.Cmd                            { return nil }
 func (t *StatusBarTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
@@ -55,17 +63,20 @@ func (t *StatusBarTile) View() string {
 		return statusBarBgStyle.Width(w).Render(statusMsgStyle.Render(content))
 	}
 
-	var parts []string
-	sep := statusSepStyle.Render("  │  ")
+	entries := itemModeHelp
+	if t.mode == modeSelectAction {
+		entries = actionModeHelp
+	}
 
-	for i, e := range helpEntries {
+	sep := statusSepStyle.Render("  │  ")
+	var parts []string
+	for i, e := range entries {
 		part := statusKeyStyle.Render(e.key) + statusDescStyle.Render(" "+e.desc)
 		parts = append(parts, part)
-		if i < len(helpEntries)-1 {
+		if i < len(entries)-1 {
 			parts = append(parts, sep)
 		}
 	}
 
-	bar := strings.Join(parts, "")
-	return statusBarBgStyle.Width(w).Render("  " + bar)
+	return statusBarBgStyle.Width(w).Render("  " + strings.Join(parts, ""))
 }
