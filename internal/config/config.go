@@ -1,4 +1,4 @@
-package main
+package config
 
 import (
 	"os"
@@ -25,19 +25,30 @@ type Config struct {
 	Actions []Action         `yaml:"actions"`
 }
 
-func loadConfig() *Config {
+// Load resolves the config file automatically: next to the binary first,
+// then the working directory. On Windows, config-win.yaml takes precedence.
+// Pass an explicit path via LoadFrom to override this behaviour.
+func Load() *Config {
 	name := "config.yaml"
 	if runtime.GOOS == "windows" {
 		name = "config-win.yaml"
 	}
 
-	// Look next to the executable first, fall back to the working directory.
 	var paths []string
 	if exe, err := os.Executable(); err == nil {
 		paths = append(paths, filepath.Join(filepath.Dir(exe), name))
 	}
 	paths = append(paths, name)
 
+	return loadPaths(paths)
+}
+
+// LoadFrom loads a config from an explicit file path.
+func LoadFrom(path string) *Config {
+	return loadPaths([]string{path})
+}
+
+func loadPaths(paths []string) *Config {
 	for _, p := range paths {
 		data, err := os.ReadFile(p)
 		if err != nil {

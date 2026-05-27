@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"strings"
@@ -9,17 +9,18 @@ import (
 )
 
 var (
-	statusBarBgStyle  = lipgloss.NewStyle().Background(lipgloss.Color("236"))
-	statusKeyStyle    = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("11")).Bold(true)
-	statusDescStyle   = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("245"))
-	statusMsgStyle    = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("9")).Bold(true)
-	statusSepStyle    = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("240"))
+	statusBarBgStyle = lipgloss.NewStyle().Background(lipgloss.Color("236"))
+	statusKeyStyle   = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("11")).Bold(true)
+	statusDescStyle  = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("245"))
+	statusMsgStyle   = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("9")).Bold(true)
+	statusSepStyle   = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("240"))
 )
 
 var helpEntries = []struct{ key, desc string }{
 	{"↑↓ / k j", "Navigate / Scroll"},
-	{"Tab", "Switch focus"},
+	{"Tab / ←→", "Switch focus"},
 	{"Enter / 1-9", "Run action"},
+	{"y", "Copy command"},
 	{"Q / Esc", "Quit"},
 }
 
@@ -37,16 +38,10 @@ func newStatusBarTile() *StatusBarTile {
 	}
 }
 
-func (t *StatusBarTile) SetMessage(msg string) {
-	t.message = msg
-}
+func (t *StatusBarTile) SetMessage(msg string) { t.message = msg }
+func (t *StatusBarTile) ClearMessage()         { t.message = "" }
 
-func (t *StatusBarTile) ClearMessage() {
-	t.message = ""
-}
-
-func (t *StatusBarTile) Init() tea.Cmd { return nil }
-
+func (t *StatusBarTile) Init() tea.Cmd                            { return nil }
 func (t *StatusBarTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
 
 func (t *StatusBarTile) View() string {

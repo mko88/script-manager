@@ -2,10 +2,10 @@
 set -e
 
 echo "Building Linux (amd64)..."
-GOOS=linux GOARCH=amd64 go build -o script-manager .
+GOOS=linux GOARCH=amd64 go build -o script-manager ./cmd/script-manager/
 
 echo "Building Windows (amd64)..."
-GOOS=windows GOARCH=amd64 go build -o /tmp/script-manager.exe .
+GOOS=windows GOARCH=amd64 go build -o /tmp/script-manager.exe ./cmd/script-manager/
 cp /tmp/script-manager.exe script-manager.exe
 
 echo "Done."

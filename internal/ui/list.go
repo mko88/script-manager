@@ -1,4 +1,4 @@
-package main
+package ui
 
 import (
 	"bytes"
@@ -11,7 +11,6 @@ import (
 	tl "github.com/mko88/bubbletea-tilelayout"
 )
 
-// Shared selection styles used by any selectable list tile.
 var (
 	selFocusedStyle = lipgloss.NewStyle().Background(lipgloss.Color("3")).Foreground(lipgloss.Color("0")).Bold(true)
 	selBlurredStyle = lipgloss.NewStyle().Background(lipgloss.Color("58")).Foreground(lipgloss.Color("11"))
@@ -36,8 +35,6 @@ func (s *selectableList) moveDown(count int) {
 	}
 }
 
-// renderRows builds innerH rows of width innerW, keeping the selected row in view.
-// Each label is the full display string for that item (prefix + text).
 func (s *selectableList) renderRows(labels []string, innerW, innerH int, focused bool) []string {
 	if s.selected < s.offset {
 		s.offset = s.selected
@@ -105,7 +102,7 @@ func (t *ListTile) renderLabel(item map[string]any) string {
 	return buf.String()
 }
 
-func (t *ListTile) Init() tea.Cmd                             { return nil }
+func (t *ListTile) Init() tea.Cmd                            { return nil }
 func (t *ListTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
 
 func (t *ListTile) View() string {
