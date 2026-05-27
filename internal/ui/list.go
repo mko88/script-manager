@@ -78,6 +78,7 @@ type ListTile struct {
 	selectableList
 	items []map[string]any
 	tmpl  *template.Template
+	title string
 }
 
 func newListTile(items []map[string]any, listTmpl string) *ListTile {
@@ -89,6 +90,7 @@ func newListTile(items []map[string]any, listTmpl string) *ListTile {
 		},
 		items: items,
 		tmpl:  tmpl,
+		title: "Items",
 	}
 }
 
@@ -126,7 +128,7 @@ func (t *ListTile) View() string {
 	}
 
 	rows := t.renderRows(labels, innerW, innerH, t.IsFocused())
-	return renderBox("Items", strings.Join(rows, "\n"), w, h, t.IsFocused())
+	return renderBox(t.title, strings.Join(rows, "\n"), w, t.IsFocused())
 }
 
 func (t *ListTile) MoveUp()   { t.moveUp() }

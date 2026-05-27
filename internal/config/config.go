@@ -18,9 +18,17 @@ type DisplayConfig struct {
 	Details string `yaml:"details"`
 }
 
+type TitlesConfig struct {
+	Items   string `yaml:"items"`
+	Actions string `yaml:"actions"`
+	Details string `yaml:"details"`
+	Command string `yaml:"command"`
+}
+
 type Config struct {
 	Shell   []string         `yaml:"shell"`
 	Display DisplayConfig    `yaml:"display"`
+	Titles  TitlesConfig     `yaml:"titles"`
 	Items   []map[string]any `yaml:"items"`
 	Actions []Action         `yaml:"actions"`
 }

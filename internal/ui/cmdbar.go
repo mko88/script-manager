@@ -9,14 +9,15 @@ import (
 )
 
 var (
-	cmdBarStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("245")).Italic(true)
-	cmdBarPfxStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	cmdBarStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	cmdBarPfxStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 )
 
 type CmdBarTile struct {
 	*tl.BaseTile
 	cmd          string
 	scrollOffset int
+	title        string
 }
 
 func newCmdBarTile() *CmdBarTile {
@@ -25,6 +26,7 @@ func newCmdBarTile() *CmdBarTile {
 			Name: "cmdbar",
 			Size: tl.Size{FixedHeight: 5},
 		},
+		title: "Command",
 	}
 }
 
@@ -70,5 +72,5 @@ func (t *CmdBarTile) View() string {
 	}
 
 	content := padToLines(strings.Join(lines[t.scrollOffset:], "\n"), innerH)
-	return renderBox("Command", content, w, h, t.IsFocused())
+	return renderBox(t.title, content, w, t.IsFocused())
 }

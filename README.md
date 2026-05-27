@@ -100,6 +100,12 @@ display:
     Description: {{.description}}
     Cluster:     {{.clusterName}}
 
+titles:                           # optional — override pane header labels
+  items: Servers
+  actions: Tasks
+  details: Info
+  command: Preview
+
 items:
   - name: Production
     description: Production cluster

@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func renderBox(title, content string, w, h int, focused bool) string {
+func renderBox(title, content string, w int, focused bool) string {
 	borderColor := lipgloss.Color("240")
 	if focused {
 		borderColor = lipgloss.Color("12")

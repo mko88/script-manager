@@ -21,6 +21,7 @@ type DescriptionTile struct {
 	item         map[string]any
 	tmpl         *template.Template
 	scrollOffset int
+	title        string
 }
 
 func newDescriptionTile(item map[string]any, detailTmpl string) *DescriptionTile {
@@ -30,8 +31,9 @@ func newDescriptionTile(item map[string]any, detailTmpl string) *DescriptionTile
 			Name: "description",
 			Size: tl.Size{Weight: 1},
 		},
-		item: item,
-		tmpl: tmpl,
+		item:  item,
+		tmpl:  tmpl,
+		title: "Details",
 	}
 }
 
@@ -84,7 +86,7 @@ func (t *DescriptionTile) View() string {
 	}
 
 	content := padToLines(strings.Join(lines[t.scrollOffset:], "\n"), innerH)
-	return renderBox("Details", content, w, h, t.IsFocused())
+	return renderBox(t.title, content, w, t.IsFocused())
 }
 
 // ActionsTile shows the configured actions and tracks the highlighted selection.
@@ -92,6 +94,7 @@ type ActionsTile struct {
 	*tl.BaseTile
 	selectableList
 	actions []config.Action
+	title   string
 }
 
 func newActionsTile(actions []config.Action) *ActionsTile {
@@ -101,6 +104,7 @@ func newActionsTile(actions []config.Action) *ActionsTile {
 			Size: tl.Size{Weight: 1},
 		},
 		actions: actions,
+		title:   "Actions",
 	}
 }
 
@@ -139,5 +143,5 @@ func (t *ActionsTile) View() string {
 	}
 
 	rows := t.renderRows(labels, innerW, innerH, t.IsFocused())
-	return renderBox("Actions", strings.Join(rows, "\n"), w, h, t.IsFocused())
+	return renderBox(t.title, strings.Join(rows, "\n"), w, t.IsFocused())
 }

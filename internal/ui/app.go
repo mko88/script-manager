@@ -43,11 +43,25 @@ type State struct {
 	Mode             appMode // 0=selectItem, 1=selectAction
 }
 
+func orTitle(configured, def string) string {
+	if configured != "" {
+		return configured
+	}
+	return def
+}
+
 func NewApp(cfg *config.Config) *App {
 	list := newListTile(cfg.Items, cfg.Display.List)
+	list.title = orTitle(cfg.Titles.Items, list.title)
+
 	description := newDescriptionTile(list.Selected(), cfg.Display.Details)
+	description.title = orTitle(cfg.Titles.Details, description.title)
+
 	actionsPanel := newActionsTile(cfg.Actions)
+	actionsPanel.title = orTitle(cfg.Titles.Actions, actionsPanel.title)
+
 	cmdBar := newCmdBarTile()
+	cmdBar.title = orTitle(cfg.Titles.Command, cmdBar.title)
 	status := newStatusBarTile()
 	list.SetFocused(true)
 
@@ -106,13 +120,13 @@ func (a *App) SaveState() State {
 func (a *App) RestoreState(s State) {
 	a.list.selected = s.ListSel
 	a.list.offset = s.ListOff
-	a.actionsPanel.selected = s.ActSel
 	a.actionsPanel.offset = s.ActOff
 	a.description.scrollOffset = s.DescScroll
 	a.cmdBar.scrollOffset = s.CmdScroll
 	a.description.SetItem(a.list.Selected())
 
 	if s.Mode == modeSelectAction {
+		a.actionsPanel.selected = s.ActSel
 		a.cmdBar.SetCmd(a.expandCmd())
 		a.mode = modeSelectAction
 		a.list.Size = tl.Size{FixedHeight: 3}
