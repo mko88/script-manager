@@ -106,6 +106,10 @@ titles:                           # optional — override pane header labels
   details: Info
   command: Preview
 
+env:                              # optional — global variables available to all actions
+  region: eu-west-1               # can be used in templates: {{.region}}
+  sshUser: admin                  # overridden per item if the item defines the same key
+
 items:
   - name: Production
     description: Production cluster
@@ -130,11 +134,12 @@ actions:
 
 ### Environment variables
 
-When an action runs, all item fields are exported as uppercase environment variables so scripts can reference them directly:
+When an action runs, global `env` values and all item fields are exported as uppercase environment variables. Item fields override globals with the same name.
 
 ```bash
-# For an item with clusterIp: 10.0.0.1
+# For an item with clusterIp: 10.0.0.1 and global env region: eu-west-1
 echo $CLUSTERIP   # → 10.0.0.1
+echo $REGION      # → eu-west-1
 ```
 
 ### Windows config

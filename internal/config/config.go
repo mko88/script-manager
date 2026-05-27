@@ -29,6 +29,7 @@ type Config struct {
 	Shell   []string         `yaml:"shell"`
 	Display DisplayConfig    `yaml:"display"`
 	Titles  TitlesConfig     `yaml:"titles"`
+	Env     map[string]any   `yaml:"env"`
 	Items   []map[string]any `yaml:"items"`
 	Actions []Action         `yaml:"actions"`
 }

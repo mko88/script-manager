@@ -1,6 +1,14 @@
 shell:
   - bash
   - -c
+
+titles:
+  items: "Environment"
+
+env:
+  sshUser: deploy
+  region: eu-west-1
+
 display:
   list: "{{.description}}"
   details: |
@@ -29,18 +37,21 @@ items:
     clusterName: prod-cluster-eu
     loadBalancerIp: 31.20.30.40
     loadBalancerName: prod-lb-eu
+    sshUser: root           # overrides global sshUser
   - name: Production US
     description: Production US region
     clusterIp: 40.20.30.40
     clusterName: prod-cluster-us
     loadBalancerIp: 41.20.30.40
     loadBalancerName: prod-lb-us
+    region: us-east-1       # overrides global region
   - name: Production APAC
     description: Production APAC region
     clusterIp: 50.20.30.40
     clusterName: prod-cluster-apac
     loadBalancerIp: 51.20.30.40
     loadBalancerName: prod-lb-apac
+    region: ap-southeast-1  # overrides global region
   - name: QA Environment
     description: QA testing environment
     clusterIp: 60.20.30.40
@@ -72,6 +83,18 @@ items:
     loadBalancerIp: 101.20.30.40
     loadBalancerName: dr-lb1
 actions:
+  - title: Print variables (template)
+    cmd: |
+      echo "Item:     {{.name}}"
+      echo "Cluster:  {{.clusterName}} ({{.clusterIp}})"
+      echo "Region:   {{.region}}"
+      echo "SSH user: {{.sshUser}}"
+  - title: Print variables (env vars)
+    cmd: |
+      echo "Item:     $NAME"
+      echo "Cluster:  $CLUSTERNAME ($CLUSTERIP)"
+      echo "Region:   $REGION"
+      echo "SSH user: $SSHUSER"
   - title: Test output
     cmd: cat /etc/hosts
   - title: Test input

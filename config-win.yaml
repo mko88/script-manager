@@ -2,6 +2,14 @@ shell:
   - pwsh
   - -NoProfile
   - -Command
+
+titles:
+  items: "Environment"
+
+env:
+  sshUser: deploy
+  region: eu-west-1
+
 display:
   list: "{{.description}}"
   details: |
@@ -30,18 +38,21 @@ items:
     clusterName: prod-cluster-eu
     loadBalancerIp: 31.20.30.40
     loadBalancerName: prod-lb-eu
+    sshUser: root           # overrides global sshUser
   - name: Production US
     description: Production US region
     clusterIp: 40.20.30.40
     clusterName: prod-cluster-us
     loadBalancerIp: 41.20.30.40
     loadBalancerName: prod-lb-us
+    region: us-east-1       # overrides global region
   - name: Production APAC
     description: Production APAC region
     clusterIp: 50.20.30.40
     clusterName: prod-cluster-apac
     loadBalancerIp: 51.20.30.40
     loadBalancerName: prod-lb-apac
+    region: ap-southeast-1  # overrides global region
   - name: QA Environment
     description: QA testing environment
     clusterIp: 60.20.30.40
@@ -73,6 +84,18 @@ items:
     loadBalancerIp: 101.20.30.40
     loadBalancerName: dr-lb1
 actions:
+  - title: Print variables (template)
+    cmd: |
+      Write-Host "Item:     {{.name}}"
+      Write-Host "Cluster:  {{.clusterName}} ({{.clusterIp}})"
+      Write-Host "Region:   {{.region}}"
+      Write-Host "SSH user: {{.sshUser}}"
+  - title: Print variables (env vars)
+    cmd: |
+      Write-Host "Item:     $env:NAME"
+      Write-Host "Cluster:  $env:CLUSTERNAME ($env:CLUSTERIP)"
+      Write-Host "Region:   $env:REGION"
+      Write-Host "SSH user: $env:SSHUSER"
   - title: Test output
     cmd: Get-Content C:\Windows\System32\drivers\etc\hosts
   - title: Test input

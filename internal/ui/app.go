@@ -30,6 +30,7 @@ type App struct {
 	windowSize    tea.WindowSizeMsg
 	pendingAction *config.Action
 	pendingItem   map[string]any
+	globalEnv     map[string]any
 }
 
 // State captures all cursor/scroll/focus/mode positions so they can be
@@ -88,6 +89,7 @@ func NewApp(cfg *config.Config) *App {
 		actionsPanel: actionsPanel,
 		cmdBar:       cmdBar,
 		status:       status,
+		globalEnv:    cfg.Env,
 	}
 	a.actionsPanel.selected = -1
 	return a
@@ -166,6 +168,19 @@ func (a *App) enterItemMode() {
 	a.status.ClearMessage()
 }
 
+// mergedItem returns a copy of the item with global env vars as defaults.
+// Item-level keys always win over globals.
+func (a *App) mergedItem(item map[string]any) map[string]any {
+	merged := make(map[string]any, len(a.globalEnv)+len(item))
+	for k, v := range a.globalEnv {
+		merged[k] = v
+	}
+	for k, v := range item {
+		merged[k] = v
+	}
+	return merged
+}
+
 func (a *App) expandCmd() string {
 	action := a.actionsPanel.Selected()
 	item := a.list.Selected()
@@ -177,8 +192,15 @@ func (a *App) expandCmd() string {
 		return action.Cmd
 	}
 	var buf bytes.Buffer
-	tmpl.Execute(&buf, item)
+	tmpl.Execute(&buf, a.mergedItem(item))
 	return buf.String()
+}
+
+func (a *App) MergedItem() map[string]any {
+	if item := a.list.Selected(); item != nil {
+		return a.mergedItem(item)
+	}
+	return nil
 }
 
 func (a *App) Init() tea.Cmd {
