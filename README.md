@@ -8,7 +8,8 @@ A terminal UI for organising and running shell scripts across a list of configur
 - **Free-form items** — each item is a key/value map; any field can be used in templates or passed as an environment variable to actions
 - **Template expansion** — action commands are Go templates, so you can interpolate item fields directly into commands
 - **Cross-platform** — ships a Linux binary and a Windows binary; automatically loads `config-win.yaml` on Windows if present
-- **Scrollable panes** — items list, detail view, and actions panel are all independently scrollable
+- **Scrollable panes** — all four panes are independently scrollable when focused
+- **Command preview** — the expanded command for the selected action is shown in a dedicated pane with clipboard copy support
 - **State preserved** — returns to the same position after an action completes
 
 ## Layout
@@ -18,15 +19,15 @@ A terminal UI for organising and running shell scripts across a list of configur
 │ Items           │ Details                          │
 │  ▶ Nightly CDM │  Description: Nightly build CDM  │
 │    Staging      │  Cluster Name: test-cluster1     │
-│    Production…  │  ...                             │
+│    Production…  │  Cluster IP:  10.20.30.40        │
 │                 │                                  │
-├─────────────────│  Command:                        │
-│ Actions         │    $ cat /etc/hosts              │
-│  ▶ 1  Test out │                                  │
+├─────────────────├──────────────────────────────────┤
+│ Actions         │ Command                          │
+│  ▶ 1  Test out │  $ cat /etc/hosts                │
 │    2  Test inp  │                                  │
 │    3  Start k9s │                                  │
 └─────────────────┴──────────────────────────────────┘
-  ↑↓/kj Navigate   Tab Switch focus   Enter/1-9 Run   Q Quit
+  ↑↓/kj Navigate   Tab/←→ Focus   Enter/1-9 Run   y Copy   Q Quit
 ```
 
 ## Keybindings
@@ -35,14 +36,26 @@ A terminal UI for organising and running shell scripts across a list of configur
 |-----|--------|
 | `↑` / `k` | Move up / scroll up |
 | `↓` / `j` | Move down / scroll down |
-| `Tab` | Cycle focus: Items → Actions → Details |
+| `Tab` / `→` | Next pane: Items → Actions → Details → Command |
+| `Shift+Tab` / `←` | Previous pane |
 | `Enter` | Run the selected action |
 | `1`–`9` | Run action by number (works from any pane) |
+| `y` | Copy the expanded command to clipboard |
 | `Q` / `Esc` / `Ctrl+C` | Quit |
+
+## Usage
+
+```bash
+# Auto-detect config.yaml next to the binary or in the working directory
+./script-manager
+
+# Explicit config file
+./script-manager -config /path/to/config.yaml
+```
 
 ## Configuration
 
-Place `config.yaml` in the same directory as the binary (or in the working directory as a fallback). On Windows, `config-win.yaml` is loaded automatically if it exists.
+Place `config.yaml` in the same directory as the binary (or pass it with `-config`). On Windows, `config-win.yaml` is loaded automatically when present.
 
 ```yaml
 shell:
@@ -75,7 +88,7 @@ actions:
 
 ### Templates
 
-Both `display.list`, `display.details`, and `actions[*].cmd` are [Go templates](https://pkg.go.dev/text/template). Item fields are available as `{{.fieldName}}`.
+`display.list`, `display.details`, and `actions[*].cmd` are [Go templates](https://pkg.go.dev/text/template). Item fields are available as `{{.fieldName}}`.
 
 ### Environment variables
 
@@ -116,8 +129,8 @@ Produces:
 To build for a specific target manually:
 
 ```bash
-GOOS=linux  GOARCH=amd64 go build -o script-manager .
-GOOS=windows GOARCH=amd64 go build -o script-manager.exe .
+GOOS=linux   GOARCH=amd64 go build -o script-manager     ./cmd/script-manager/
+GOOS=windows GOARCH=amd64 go build -o script-manager.exe ./cmd/script-manager/
 ```
 
 ## Dependencies
@@ -125,4 +138,5 @@ GOOS=windows GOARCH=amd64 go build -o script-manager.exe .
 - [charmbracelet/bubbletea](https://github.com/charmbracelet/bubbletea) — TUI framework
 - [charmbracelet/lipgloss](https://github.com/charmbracelet/lipgloss) — terminal styling
 - [mko88/bubbletea-tilelayout](https://github.com/mko88/bubbletea-tilelayout) — tile layout manager
+- [atotto/clipboard](https://github.com/atotto/clipboard) — clipboard support
 - [gopkg.in/yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3) — config parsing

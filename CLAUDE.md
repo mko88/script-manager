@@ -16,6 +16,10 @@ internal/
 
 When adding new concerns, create a new package under `internal/` rather than adding files to `cmd/` or the root.
 
+## Keeping README.md up to date
+
+After any change that affects user-facing behaviour — keybindings, layout, panes, CLI flags, config format, or build instructions — update README.md before closing the task. Do not wait to be asked.
+
 ## Building binaries
 
 Always use `./build.sh` to compile — never run `go build` manually.
