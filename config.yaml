@@ -103,6 +103,7 @@ actions:
     cmd: k9s --kubeconfig kubeconfig.yaml
   - title: Open UI in browser
     cmd: xdg-open http://localhost:8080
+    noWait: true
   - title: System info
     cmd: |
       echo "=== Hostname ==="

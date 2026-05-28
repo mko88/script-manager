@@ -122,6 +122,9 @@ actions:
     cmd: cat /etc/hosts
   - title: SSH into cluster
     cmd: ssh admin@{{.clusterIp}}
+  - title: Open dashboard
+    cmd: xdg-open http://{{.clusterIp}}:8080
+    noWait: true              # return to UI immediately, don't wait for a keypress
   - title: Multi-line script
     cmd: |
       echo "Connecting to {{.clusterName}}"

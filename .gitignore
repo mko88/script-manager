@@ -1,6 +1,6 @@
 # Binaries
-script-manager
-script-manager.exe
+/script-manager
+/script-manager.exe
 
 # Go build/test artifacts
 *.test

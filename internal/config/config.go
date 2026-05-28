@@ -9,8 +9,9 @@ import (
 )
 
 type Action struct {
-	Title string `yaml:"title"`
-	Cmd   string `yaml:"cmd"`
+	Title  string `yaml:"title"`
+	Cmd    string `yaml:"cmd"`
+	NoWait bool   `yaml:"noWait"`
 }
 
 type DisplayConfig struct {
