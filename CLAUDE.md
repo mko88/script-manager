@@ -29,8 +29,8 @@ bash build.sh
 ```
 
 Produces:
-- `script-manager` — Linux amd64
-- `script-manager.exe` — Windows amd64
+- `bin/script-manager` — Linux amd64
+- `bin/script-manager.exe` — Windows amd64
 
 ## .vscode/launch.json
 

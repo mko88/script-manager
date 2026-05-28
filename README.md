@@ -79,10 +79,10 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 
 ```bash
 # Auto-detect config.yaml next to the binary or in the working directory
-./script-manager
+./bin/script-manager
 
 # Explicit config file
-./script-manager -config /path/to/config.yaml
+./bin/script-manager -config /path/to/config.yaml
 ```
 
 ## Configuration
@@ -169,14 +169,14 @@ bash build.sh
 ```
 
 Produces:
-- `script-manager` — Linux amd64
-- `script-manager.exe` — Windows amd64
+- `bin/script-manager` — Linux amd64
+- `bin/script-manager.exe` — Windows amd64
 
 To build for a specific target manually:
 
 ```bash
-GOOS=linux   GOARCH=amd64 go build -o script-manager     ./cmd/script-manager/
-GOOS=windows GOARCH=amd64 go build -o script-manager.exe ./cmd/script-manager/
+GOOS=linux   GOARCH=amd64 go build -o bin/script-manager     ./cmd/script-manager/
+GOOS=windows GOARCH=amd64 go build -o bin/script-manager.exe ./cmd/script-manager/
 ```
 
 ## Dependencies
