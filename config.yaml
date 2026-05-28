@@ -17,6 +17,7 @@ display:
     Cluster IP:         {{.clusterIp}}
     Load Balancer Name: {{.loadBalancerName}}
     Load Balancer IP:   {{.loadBalancerIp}}
+    SSH User:           {{.sshUser}}
 
 items:
   - name: Nightly CDM

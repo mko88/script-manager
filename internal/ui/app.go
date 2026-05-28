@@ -92,6 +92,7 @@ func NewApp(cfg *config.Config) *App {
 		globalEnv:    cfg.Env,
 	}
 	a.actionsPanel.selected = -1
+	a.description.SetItem(a.mergedItem(list.Selected()))
 	return a
 }
 
@@ -125,7 +126,7 @@ func (a *App) RestoreState(s State) {
 	a.actionsPanel.offset = s.ActOff
 	a.description.scrollOffset = s.DescScroll
 	a.cmdBar.scrollOffset = s.CmdScroll
-	a.description.SetItem(a.list.Selected())
+	a.description.SetItem(a.mergedItem(a.list.Selected()))
 
 	if s.Mode == modeSelectAction {
 		a.actionsPanel.selected = s.ActSel
@@ -241,14 +242,14 @@ func (a *App) updateItemMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k":
 		a.list.MoveUp()
-		a.description.SetItem(a.list.Selected())
+		a.description.SetItem(a.mergedItem(a.list.Selected()))
 		a.description.ResetScroll()
 		a.cmdBar.SetCmd(a.expandCmd())
 		a.cmdBar.ResetScroll()
 		a.status.ClearMessage()
 	case "down", "j":
 		a.list.MoveDown()
-		a.description.SetItem(a.list.Selected())
+		a.description.SetItem(a.mergedItem(a.list.Selected()))
 		a.description.ResetScroll()
 		a.cmdBar.SetCmd(a.expandCmd())
 		a.cmdBar.ResetScroll()

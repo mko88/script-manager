@@ -49,3 +49,50 @@ func padToLines(content string, h int) string {
 	}
 	return strings.Join(lines[:h], "\n")
 }
+
+// scrollableContent tracks a scroll position and is embedded by tiles that
+// need scrollable text content.
+type scrollableContent struct {
+	scrollOffset int
+}
+
+func (s *scrollableContent) ScrollUp() {
+	if s.scrollOffset > 0 {
+		s.scrollOffset--
+	}
+}
+func (s *scrollableContent) ScrollDown() { s.scrollOffset++ }
+func (s *scrollableContent) ResetScroll() { s.scrollOffset = 0 }
+
+// visibleLines clamps the scroll offset, then returns the visible window of
+// lines joined and padded to innerH rows — ready to pass to renderBox.
+func (s *scrollableContent) visibleLines(lines []string, innerH int) string {
+	max := len(lines) - innerH
+	if max < 0 {
+		max = 0
+	}
+	if s.scrollOffset > max {
+		s.scrollOffset = max
+	}
+	return padToLines(strings.Join(lines[s.scrollOffset:], "\n"), innerH)
+}
+
+// wrapLine splits a raw (unstyled) line into segments of at most width runes.
+func wrapLine(line string, width int) []string {
+	if width <= 0 {
+		return []string{line}
+	}
+	runes := []rune(line)
+	if len(runes) <= width {
+		return []string{line}
+	}
+	var out []string
+	for len(runes) > width {
+		out = append(out, string(runes[:width]))
+		runes = runes[width:]
+	}
+	if len(runes) > 0 {
+		out = append(out, string(runes))
+	}
+	return out
+}

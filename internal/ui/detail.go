@@ -18,10 +18,10 @@ var detailContentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 // DescriptionTile renders the details template for the selected item.
 type DescriptionTile struct {
 	*tl.BaseTile
-	item         map[string]any
-	tmpl         *template.Template
-	scrollOffset int
-	title        string
+	scrollableContent
+	item  map[string]any
+	tmpl  *template.Template
+	title string
 }
 
 func newDescriptionTile(item map[string]any, detailTmpl string) *DescriptionTile {
@@ -38,13 +38,6 @@ func newDescriptionTile(item map[string]any, detailTmpl string) *DescriptionTile
 }
 
 func (t *DescriptionTile) SetItem(item map[string]any) { t.item = item }
-func (t *DescriptionTile) ScrollUp() {
-	if t.scrollOffset > 0 {
-		t.scrollOffset--
-	}
-}
-func (t *DescriptionTile) ScrollDown() { t.scrollOffset++ }
-func (t *DescriptionTile) ResetScroll() { t.scrollOffset = 0 }
 
 func (t *DescriptionTile) Init() tea.Cmd                            { return nil }
 func (t *DescriptionTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
@@ -73,20 +66,13 @@ func (t *DescriptionTile) View() string {
 		t.tmpl.Execute(&buf, t.item)
 		rendered := strings.TrimRight(buf.String(), "\n")
 		for _, line := range strings.Split(rendered, "\n") {
-			lines = append(lines, detailContentStyle.Render("  "+line))
+			for _, seg := range wrapLine(line, innerW-2) {
+				lines = append(lines, detailContentStyle.Render("  "+seg))
+			}
 		}
 	}
 
-	maxOffset := len(lines) - innerH
-	if maxOffset < 0 {
-		maxOffset = 0
-	}
-	if t.scrollOffset > maxOffset {
-		t.scrollOffset = maxOffset
-	}
-
-	content := padToLines(strings.Join(lines[t.scrollOffset:], "\n"), innerH)
-	return renderBox(t.title, content, w, t.IsFocused())
+	return renderBox(t.title, t.visibleLines(lines, innerH), w, t.IsFocused())
 }
 
 // ActionsTile shows the configured actions and tracks the highlighted selection.

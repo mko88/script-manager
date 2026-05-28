@@ -15,9 +15,9 @@ var (
 
 type CmdBarTile struct {
 	*tl.BaseTile
-	cmd          string
-	scrollOffset int
-	title        string
+	scrollableContent
+	cmd   string
+	title string
 }
 
 func newCmdBarTile() *CmdBarTile {
@@ -32,13 +32,6 @@ func newCmdBarTile() *CmdBarTile {
 
 func (t *CmdBarTile) Cmd() string       { return t.cmd }
 func (t *CmdBarTile) SetCmd(cmd string) { t.cmd = cmd }
-func (t *CmdBarTile) ScrollUp() {
-	if t.scrollOffset > 0 {
-		t.scrollOffset--
-	}
-}
-func (t *CmdBarTile) ScrollDown() { t.scrollOffset++ }
-func (t *CmdBarTile) ResetScroll() { t.scrollOffset = 0 }
 
 func (t *CmdBarTile) Init() tea.Cmd                            { return nil }
 func (t *CmdBarTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
@@ -50,27 +43,21 @@ func (t *CmdBarTile) View() string {
 		return ""
 	}
 
+	innerW := w - 2
 	innerH := h - 2
 
 	var lines []string
 	if t.cmd != "" {
 		for i, line := range strings.Split(strings.TrimRight(t.cmd, "\n"), "\n") {
-			prefix := "$ "
-			if i > 0 {
-				prefix = "  "
+			for j, seg := range wrapLine(line, innerW-4) {
+				prefix := "  "
+				if i == 0 && j == 0 {
+					prefix = "$ "
+				}
+				lines = append(lines, "  "+cmdBarPfxStyle.Render(prefix)+cmdBarStyle.Render(seg))
 			}
-			lines = append(lines, "  "+cmdBarPfxStyle.Render(prefix)+cmdBarStyle.Render(line))
 		}
 	}
 
-	maxOffset := len(lines) - innerH
-	if maxOffset < 0 {
-		maxOffset = 0
-	}
-	if t.scrollOffset > maxOffset {
-		t.scrollOffset = maxOffset
-	}
-
-	content := padToLines(strings.Join(lines[t.scrollOffset:], "\n"), innerH)
-	return renderBox(t.title, content, w, t.IsFocused())
+	return renderBox(t.title, t.visibleLines(lines, innerH), w, t.IsFocused())
 }
