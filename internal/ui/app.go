@@ -20,17 +20,18 @@ const (
 
 // App is the root Bubble Tea model.
 type App struct {
-	layout        *tl.TileLayout
-	list          *ListTile
-	description   *DescriptionTile
-	actionsPanel  *ActionsTile
-	cmdBar        *CmdBarTile
-	status        *StatusBarTile
-	mode          appMode
-	windowSize    tea.WindowSizeMsg
-	pendingAction *config.Action
-	pendingItem   map[string]any
-	globalEnv     map[string]any
+	layout          *tl.TileLayout
+	list            *ListTile
+	description     *DescriptionTile
+	actionsPanel    *ActionsTile
+	cmdBar          *CmdBarTile
+	status          *StatusBarTile
+	mode            appMode
+	windowSize      tea.WindowSizeMsg
+	pendingAction   *config.Action
+	pendingItem     map[string]any
+	globalEnv       map[string]any
+	savedListOffset int
 }
 
 // State captures all cursor/scroll/focus/mode positions so they can be
@@ -142,6 +143,7 @@ func (a *App) RestoreState(s State) {
 }
 
 func (a *App) enterActionMode() {
+	a.savedListOffset = a.list.offset
 	a.mode = modeSelectAction
 	a.list.Size = tl.Size{FixedHeight: 3}
 	a.layout.Update(a.windowSize)
@@ -157,6 +159,7 @@ func (a *App) enterActionMode() {
 func (a *App) enterItemMode() {
 	a.mode = modeSelectItem
 	a.list.Size = tl.Size{Weight: 1}
+	a.list.offset = a.savedListOffset
 	a.layout.Update(a.windowSize)
 	a.actionsPanel.selected = -1
 	a.actionsPanel.offset = 0
