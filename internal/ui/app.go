@@ -31,6 +31,7 @@ type App struct {
 	pendingAction   *config.Action
 	pendingItem     map[string]any
 	globalEnv       map[string]any
+	allActions      []config.Action
 	savedListOffset int
 }
 
@@ -91,9 +92,11 @@ func NewApp(cfg *config.Config) *App {
 		cmdBar:       cmdBar,
 		status:       status,
 		globalEnv:    cfg.Env,
+		allActions:   cfg.Actions,
 	}
 	a.actionsPanel.selected = -1
 	a.description.SetItem(a.mergedItem(list.Selected()))
+	a.updateActionsForItem()
 	return a
 }
 
@@ -130,6 +133,7 @@ func (a *App) RestoreState(s State) {
 	a.description.SetItem(a.mergedItem(a.list.Selected()))
 
 	if s.Mode == modeSelectAction {
+		a.updateActionsForItem()
 		a.actionsPanel.selected = s.ActSel
 		a.cmdBar.SetCmd(a.expandCmd())
 		a.mode = modeSelectAction
@@ -148,6 +152,7 @@ func (a *App) enterActionMode() {
 	a.list.Size = tl.Size{FixedHeight: 3}
 	a.layout.Update(a.windowSize)
 	a.list.SetFocused(false)
+	a.updateActionsForItem()
 	a.actionsPanel.selected = 0
 	a.actionsPanel.offset = 0
 	a.actionsPanel.SetFocused(true)
@@ -170,6 +175,13 @@ func (a *App) enterItemMode() {
 	a.list.SetFocused(true)
 	a.status.SetMode(modeSelectItem)
 	a.status.ClearMessage()
+}
+
+// updateActionsForItem recomputes the actions panel based on the selected item's
+// filtering rules (actions, actionGroups, customActions).
+func (a *App) updateActionsForItem() {
+	actions := config.ActionsForItem(a.allActions, a.list.Selected())
+	a.actionsPanel.SetActions(actions)
 }
 
 // mergedItem returns a copy of the item with global env vars as defaults.
@@ -247,6 +259,7 @@ func (a *App) updateItemMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.list.MoveUp()
 		a.description.SetItem(a.mergedItem(a.list.Selected()))
 		a.description.ResetScroll()
+		a.updateActionsForItem()
 		a.cmdBar.SetCmd(a.expandCmd())
 		a.cmdBar.ResetScroll()
 		a.status.ClearMessage()
@@ -254,6 +267,7 @@ func (a *App) updateItemMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.list.MoveDown()
 		a.description.SetItem(a.mergedItem(a.list.Selected()))
 		a.description.ResetScroll()
+		a.updateActionsForItem()
 		a.cmdBar.SetCmd(a.expandCmd())
 		a.cmdBar.ResetScroll()
 		a.status.ClearMessage()

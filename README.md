@@ -118,18 +118,43 @@ items:
     # any additional fields you like
 
 actions:
-  - title: Show hosts
-    cmd: cat /etc/hosts
-  - title: SSH into cluster
+  - id: ssh              # optional — used for per-item action filtering
+    title: SSH into cluster
+    groups: [connect]    # optional — one or more groups for per-item filtering
     cmd: ssh admin@{{.clusterIp}}
-  - title: Open dashboard
+  - id: hosts
+    title: Show hosts
+    groups: [safe, diagnostics]   # action belongs to multiple groups
+    cmd: cat /etc/hosts
+  - id: dashboard
+    title: Open dashboard
     cmd: xdg-open http://{{.clusterIp}}:8080
-    noWait: true              # return to UI immediately, don't wait for a keypress
-  - title: Multi-line script
-    cmd: |
-      echo "Connecting to {{.clusterName}}"
-      kubectl get pods --context {{.clusterName}}
+    noWait: true         # return to UI immediately, don't wait for a keypress
+
+items:
+  - name: Production
+    description: Production cluster
+    clusterIp: 10.0.0.1
+    # show only the "safe" group + the ssh action by ID
+    actionGroups: [safe]
+    actions: [ssh]
+    # inline actions available only for this item
+    customActions:
+      - title: Emergency rollback
+        cmd: echo "Rolling back {{.clusterName}}"
 ```
+
+### Action filtering
+
+By default every item sees all global actions. To restrict which actions appear for a specific item, add any combination of these keys:
+
+| Item key | Type | Effect |
+|---|---|---|
+| `actions` | list of IDs | include global actions whose `id` matches |
+| `actionGroups` | list of group names | include global actions whose `group` matches |
+| `customActions` | list of action objects | append item-specific actions (same fields as global actions) |
+
+If none of these keys are set the full action list is shown (backward-compatible). When `actions` and `actionGroups` are both set, matches from each are included in that order without duplicates. `customActions` are always appended last.
 
 ### Templates
 

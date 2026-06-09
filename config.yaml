@@ -26,12 +26,17 @@ items:
     clusterName: test-cluster1
     loadBalancerIp: 11.20.30.40
     loadBalancerName: test-lb1
+    # no action filter — sees all actions
+
   - name: Staging
     description: Staging build
     clusterIp: 20.20.30.40
     clusterName: test-cluster2
     loadBalancerIp: 21.20.30.40
     loadBalancerName: test-lb2
+    # allow only specific action IDs
+    actions: [print-template, print-env]
+
   - name: Production EU
     description: Production EU region
     clusterIp: 30.20.30.40
@@ -39,6 +44,9 @@ items:
     loadBalancerIp: 31.20.30.40
     loadBalancerName: prod-lb-eu
     sshUser: root           # overrides global sshUser
+    # allow only the "safe" group
+    actionGroups: [safe]
+
   - name: Production US
     description: Production US region
     clusterIp: 40.20.30.40
@@ -46,6 +54,13 @@ items:
     loadBalancerIp: 41.20.30.40
     loadBalancerName: prod-lb-us
     region: us-east-1       # overrides global region
+    # mix: a group + an extra action by ID + a custom inline action
+    actionGroups: [safe]
+    actions: [test-input]
+    customActions:
+      - title: US-only rollback
+        cmd: echo "Rolling back {{.clusterName}} in {{.region}}"
+
   - name: Production APAC
     description: Production APAC region
     clusterIp: 50.20.30.40
@@ -53,59 +68,89 @@ items:
     loadBalancerIp: 51.20.30.40
     loadBalancerName: prod-lb-apac
     region: ap-southeast-1  # overrides global region
+    actionGroups: [safe]
+
   - name: QA Environment
     description: QA testing environment
     clusterIp: 60.20.30.40
     clusterName: qa-cluster1
     loadBalancerIp: 61.20.30.40
     loadBalancerName: qa-lb1
+
   - name: Dev Alpha
     description: Developer sandbox alpha
     clusterIp: 70.20.30.40
     clusterName: dev-cluster-alpha
     loadBalancerIp: 71.20.30.40
     loadBalancerName: dev-lb-alpha
+    # custom actions only — no global actions
+    customActions:
+      - title: Deploy alpha build
+        cmd: echo "Deploying to {{.clusterName}}"
+      - title: Tail logs
+        cmd: echo "Tailing logs on {{.clusterIp}}"
+
   - name: Dev Beta
     description: Developer sandbox beta
     clusterIp: 80.20.30.40
     clusterName: dev-cluster-beta
     loadBalancerIp: 81.20.30.40
     loadBalancerName: dev-lb-beta
+
   - name: Load Test
     description: Load testing cluster
     clusterIp: 90.20.30.40
     clusterName: loadtest-cluster1
     loadBalancerIp: 91.20.30.40
     loadBalancerName: loadtest-lb1
+
   - name: DR Failover
     description: Disaster recovery failover
     clusterIp: 100.20.30.40
     clusterName: dr-cluster1
     loadBalancerIp: 101.20.30.40
     loadBalancerName: dr-lb1
+    actionGroups: [diagnostics]
+
 actions:
-  - title: Print variables (template)
+  - id: print-template
+    title: Print variables (template)
+    groups: [safe, diagnostics]
     cmd: |
       echo "Item:     {{.name}}"
       echo "Cluster:  {{.clusterName}} ({{.clusterIp}})"
       echo "Region:   {{.region}}"
       echo "SSH user: {{.sshUser}}"
-  - title: Print variables (env vars)
+
+  - id: print-env
+    title: Print variables (env vars)
+    groups: [safe, diagnostics]
     cmd: |
       echo "Item:     $NAME"
       echo "Cluster:  $CLUSTERNAME ($CLUSTERIP)"
       echo "Region:   $REGION"
       echo "SSH user: $SSHUSER"
-  - title: Test output
+
+  - id: test-output
+    groups: [diagnostics]
+    title: Test output
     cmd: cat /etc/hosts
-  - title: Test input
+
+  - id: test-input
+    title: Test input
     cmd: 'read -p "Enter something: " v && echo "You entered: $v"'
-  - title: Start k9s
+
+  - id: k9s
+    title: Start k9s
     cmd: k9s --kubeconfig kubeconfig.yaml
-  - title: Open UI in browser
+
+  - id: open-browser
+    title: Open UI in browser
     cmd: xdg-open http://localhost:8080
     noWait: true
-  - title: System info
+
+  - id: system-info
+    title: System info
     cmd: |
       echo "=== Hostname ==="
       hostname

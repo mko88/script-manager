@@ -94,8 +94,9 @@ func newActionsTile(actions []config.Action) *ActionsTile {
 	}
 }
 
-func (t *ActionsTile) MoveUp()   { t.moveUp() }
-func (t *ActionsTile) MoveDown() { t.moveDown(len(t.actions)) }
+func (t *ActionsTile) SetActions(actions []config.Action) { t.actions = actions }
+func (t *ActionsTile) MoveUp()                           { t.moveUp() }
+func (t *ActionsTile) MoveDown()                         { t.moveDown(len(t.actions)) }
 
 func (t *ActionsTile) Selected() *config.Action {
 	if t.selected >= 0 && t.selected < len(t.actions) {
