@@ -147,7 +147,14 @@ func (a *App) RestoreState(s State) {
 		a.actionsPanel.SetFocused(s.FocusedPane == 1 || s.FocusedPane == 0)
 		a.description.SetFocused(s.FocusedPane == 2)
 		a.cmdBar.SetFocused(s.FocusedPane == 3)
-		a.status.SetMode(modeSelectAction)
+		switch s.FocusedPane {
+		case 2:
+			a.status.SetContext(ctxDetailsFocused)
+		case 3:
+			a.status.SetContext(ctxCommandFocused)
+		default:
+			a.status.SetContext(ctxActionsFocused)
+		}
 	}
 }
 
@@ -163,7 +170,7 @@ func (a *App) enterActionMode() {
 	a.actionsPanel.SetFocused(true)
 	a.cmdBar.SetCmd(a.expandCmd())
 	a.cmdBar.ResetScroll()
-	a.status.SetMode(modeSelectAction)
+	a.status.SetContext(ctxActionsFocused)
 }
 
 func (a *App) enterItemMode() {
@@ -178,7 +185,7 @@ func (a *App) enterItemMode() {
 	a.cmdBar.SetFocused(false)
 	a.cmdBar.SetCmd("")
 	a.list.SetFocused(true)
-	a.status.SetMode(modeSelectItem)
+	a.status.SetContext(ctxItemSelect)
 	a.status.ClearMessage()
 }
 
@@ -338,12 +345,15 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case a.actionsPanel.IsFocused():
 			a.actionsPanel.SetFocused(false)
 			a.description.SetFocused(true)
+			a.status.SetContext(ctxDetailsFocused)
 		case a.description.IsFocused():
 			a.description.SetFocused(false)
 			a.cmdBar.SetFocused(true)
+			a.status.SetContext(ctxCommandFocused)
 		default: // cmdBar
 			a.cmdBar.SetFocused(false)
 			a.actionsPanel.SetFocused(true)
+			a.status.SetContext(ctxActionsFocused)
 		}
 
 	case "shift+tab", "left":
@@ -351,12 +361,15 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case a.actionsPanel.IsFocused():
 			a.actionsPanel.SetFocused(false)
 			a.cmdBar.SetFocused(true)
+			a.status.SetContext(ctxCommandFocused)
 		case a.description.IsFocused():
 			a.description.SetFocused(false)
 			a.actionsPanel.SetFocused(true)
+			a.status.SetContext(ctxActionsFocused)
 		default: // cmdBar
 			a.cmdBar.SetFocused(false)
 			a.description.SetFocused(true)
+			a.status.SetContext(ctxDetailsFocused)
 		}
 
 	case "up", "k":
