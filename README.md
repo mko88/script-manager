@@ -42,12 +42,12 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 │  > Nightly CDM  │ Details                          │
 ├─────────────────┤  Description: Nightly build CDM  │
 │ Actions         │  Cluster Name: test-cluster1     │
-│  > 1  Test out  │                                  │
-│    2  Test inp  ├──────────────────────────────────┤
-│    3  Start k9s │ Command                          │
+│  > Test output  │                                  │
+│    Test input   ├──────────────────────────────────┤
+│    Start k9s    │ Command                          │
 │    ...          │  $ cat /etc/hosts                │
 └─────────────────┴──────────────────────────────────┘
-  ↑↓/kj Navigate   Tab/←→ Focus   Enter/1-9 Run   y Copy   Esc Back
+  ↑↓/kj Navigate   Tab/←→ Focus   [ ] Group   Enter Run   y Copy   Esc Back
 ```
 
 ## Keybindings
@@ -69,8 +69,8 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 | `↓` / `j` | Move down / scroll down |
 | `Tab` / `→` | Next pane: Actions → Details → Command |
 | `Shift+Tab` / `←` | Previous pane |
+| `[` / `]` | Cycle through groups (Actions pane focused) |
 | `Enter` | Run the selected action |
-| `1`–`9` | Run action by number |
 | `y` | Copy the expanded command to clipboard |
 | `Esc` | Back to item selection |
 | `Q` / `Ctrl+C` | Quit |

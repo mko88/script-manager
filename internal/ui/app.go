@@ -2,6 +2,7 @@ package ui
 
 import (
 	"bytes"
+	"maps"
 	"text/template"
 
 	"script-manager/internal/config"
@@ -30,9 +31,12 @@ type App struct {
 	windowSize      tea.WindowSizeMsg
 	pendingAction   *config.Action
 	pendingItem     map[string]any
-	globalEnv       map[string]any
-	allActions      []config.Action
-	savedListOffset int
+	globalEnv         map[string]any
+	allActions        []config.Action
+	itemActions       []config.Action // full filtered list for current item
+	activeGroup       string          // "" = all groups
+	actionsTileTitle  string          // base title before group suffix
+	savedListOffset   int
 }
 
 // State captures all cursor/scroll/focus/mode positions so they can be
@@ -85,14 +89,15 @@ func NewApp(cfg *config.Config) *App {
 	root.Add(status)
 
 	a := &App{
-		layout:       root,
-		list:         list,
-		description:  description,
-		actionsPanel: actionsPanel,
-		cmdBar:       cmdBar,
-		status:       status,
-		globalEnv:    cfg.Env,
-		allActions:   cfg.Actions,
+		layout:           root,
+		list:             list,
+		description:      description,
+		actionsPanel:     actionsPanel,
+		cmdBar:           cmdBar,
+		status:           status,
+		globalEnv:        cfg.Env,
+		allActions:       cfg.Actions,
+		actionsTileTitle: actionsPanel.title,
 	}
 	a.actionsPanel.selected = -1
 	a.description.SetItem(a.mergedItem(list.Selected()))
@@ -177,23 +182,72 @@ func (a *App) enterItemMode() {
 	a.status.ClearMessage()
 }
 
-// updateActionsForItem recomputes the actions panel based on the selected item's
-// filtering rules (actions, actionGroups, customActions).
+// updateActionsForItem recomputes the full action list for the selected item
+// and resets any active group filter.
 func (a *App) updateActionsForItem() {
-	actions := config.ActionsForItem(a.allActions, a.list.Selected())
-	a.actionsPanel.SetActions(actions)
+	a.itemActions = config.ActionsForItem(a.allActions, a.list.Selected())
+	a.activeGroup = ""
+	a.applyGroupFilter()
+}
+
+// applyGroupFilter pushes the (optionally group-filtered) action list to the
+// panel and updates the panel title to reflect the active filter.
+func (a *App) applyGroupFilter() {
+	if a.activeGroup == "" {
+		a.actionsPanel.SetActions(a.itemActions)
+		a.actionsPanel.title = a.actionsTileTitle + " [all]"
+		return
+	}
+	var filtered []config.Action
+	for _, act := range a.itemActions {
+		for _, g := range act.Groups {
+			if g == a.activeGroup {
+				filtered = append(filtered, act)
+				break
+			}
+		}
+	}
+	a.actionsPanel.SetActions(filtered)
+	a.actionsPanel.title = a.actionsTileTitle + " [" + a.activeGroup + "]"
+}
+
+// cycleGroup advances (delta=+1) or rewinds (delta=-1) through the list of
+// unique groups present in itemActions, with "" (all) as the first entry.
+func (a *App) cycleGroup(delta int) {
+	seen := make(map[string]bool)
+	groups := []string{""}
+	for _, act := range a.itemActions {
+		for _, g := range act.Groups {
+			if !seen[g] {
+				seen[g] = true
+				groups = append(groups, g)
+			}
+		}
+	}
+	if len(groups) <= 1 {
+		return
+	}
+	idx := 0
+	for i, g := range groups {
+		if g == a.activeGroup {
+			idx = i
+			break
+		}
+	}
+	a.activeGroup = groups[(idx+delta+len(groups))%len(groups)]
+	a.applyGroupFilter()
+	a.actionsPanel.selected = 0
+	a.actionsPanel.offset = 0
+	a.cmdBar.SetCmd(a.expandCmd())
+	a.cmdBar.ResetScroll()
 }
 
 // mergedItem returns a copy of the item with global env vars as defaults.
 // Item-level keys always win over globals.
 func (a *App) mergedItem(item map[string]any) map[string]any {
 	merged := make(map[string]any, len(a.globalEnv)+len(item))
-	for k, v := range a.globalEnv {
-		merged[k] = v
-	}
-	for k, v := range item {
-		merged[k] = v
-	}
+	maps.Copy(merged, a.globalEnv)
+	maps.Copy(merged, item)
 	return merged
 }
 
@@ -331,6 +385,16 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		a.status.ClearMessage()
 
+	case "[":
+		if a.actionsPanel.IsFocused() {
+			a.cycleGroup(-1)
+		}
+
+	case "]":
+		if a.actionsPanel.IsFocused() {
+			a.cycleGroup(1)
+		}
+
 	case "y":
 		cmd := a.cmdBar.Cmd()
 		if cmd != "" {
@@ -342,18 +406,12 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "enter":
-		if action := a.actionsPanel.Selected(); action != nil {
-			a.pendingAction = action
-			a.pendingItem = a.list.Selected()
-			return a, tea.Quit
-		}
-
-	case "1", "2", "3", "4", "5", "6", "7", "8", "9":
-		n := int(msg.String()[0]-'0') - 1
-		if n < len(a.actionsPanel.actions) {
-			a.pendingAction = &a.actionsPanel.actions[n]
-			a.pendingItem = a.list.Selected()
-			return a, tea.Quit
+		if a.actionsPanel.IsFocused() {
+			if action := a.actionsPanel.Selected(); action != nil {
+				a.pendingAction = action
+				a.pendingItem = a.list.Selected()
+				return a, tea.Quit
+			}
 		}
 	}
 

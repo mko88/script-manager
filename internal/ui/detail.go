@@ -2,7 +2,6 @@ package ui
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"text/template"
 
@@ -126,7 +125,7 @@ func (t *ActionsTile) View() string {
 
 	labels := make([]string, len(t.actions))
 	for i, a := range t.actions {
-		labels[i] = fmt.Sprintf("%d  %s", i+1, a.Title)
+		labels[i] = a.Title
 	}
 
 	rows := t.renderRows(labels, innerW, innerH, t.IsFocused())

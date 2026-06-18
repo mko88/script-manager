@@ -25,7 +25,8 @@ var itemModeHelp = []struct{ key, desc string }{
 var actionModeHelp = []struct{ key, desc string }{
 	{"↑↓ / k j", "Navigate / Scroll"},
 	{"Tab / ←→", "Switch focus"},
-	{"Enter / 1-9", "Run action"},
+	{"[ ]", "Cycle group"},
+	{"Enter", "Run action"},
 	{"y", "Copy command"},
 	{"Esc", "Back to items"},
 }

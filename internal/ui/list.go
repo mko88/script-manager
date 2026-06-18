@@ -13,6 +13,7 @@ import (
 
 var (
 	selFocusedStyle = lipgloss.NewStyle().Background(lipgloss.Color("3")).Foreground(lipgloss.Color("0")).Bold(true)
+	selBlurredStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("3"))
 	selNormalStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 )
 
@@ -58,9 +59,12 @@ func (s *selectableList) renderRows(labels []string, innerW, innerH int, focused
 		}
 
 		var row string
-		if i == s.selected && focused {
+		switch {
+		case i == s.selected && focused:
 			row = selFocusedStyle.Width(innerW).Render(" ▶ " + label)
-		} else {
+		case i == s.selected:
+			row = selBlurredStyle.Width(innerW).Render(" ▶ " + label)
+		default:
 			row = selNormalStyle.Width(innerW).Render("   " + label)
 		}
 		rows = append(rows, row)
