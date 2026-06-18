@@ -28,7 +28,7 @@ const (
 var contextHelp = map[statusContext][]struct{ key, desc string }{
 	ctxItemSelect: {
 		{"↑↓ / k j", "Navigate"},
-		{"Enter", "Select item"},
+		{"Enter / Tab", "Select item"},
 		{"Q / Esc", "Quit"},
 	},
 	ctxActionsFocused: {

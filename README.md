@@ -58,7 +58,7 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 |-----|--------|
 | `↑` / `k` | Move up |
 | `↓` / `j` | Move down |
-| `Enter` | Select item, enter action mode |
+| `Enter` / `Tab` | Select item, enter action mode |
 | `Q` / `Esc` / `Ctrl+C` | Quit |
 
 ### Action selection mode

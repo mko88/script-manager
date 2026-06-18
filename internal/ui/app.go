@@ -332,7 +332,7 @@ func (a *App) updateItemMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.cmdBar.SetCmd(a.expandCmd())
 		a.cmdBar.ResetScroll()
 		a.status.ClearMessage()
-	case "enter":
+	case "enter", "tab":
 		a.enterActionMode()
 	}
 	return a, nil
