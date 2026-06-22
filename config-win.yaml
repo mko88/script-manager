@@ -146,6 +146,11 @@ actions:
 
   - id: system-info
     title: System info
+    description: |
+      Prints a snapshot of the node's current state:
+        - Hostname and uptime
+        - Disk, memory, and CPU summary
+        - Network interfaces and current user
     cmd: |
       Write-Host "=== Hostname ===" -ForegroundColor Cyan
       hostname

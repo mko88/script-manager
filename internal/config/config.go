@@ -9,11 +9,12 @@ import (
 )
 
 type Action struct {
-	ID     string   `yaml:"id"`
-	Title  string   `yaml:"title"`
-	Cmd    string   `yaml:"cmd"`
-	Groups []string `yaml:"groups"`
-	NoWait bool     `yaml:"noWait"`
+	ID          string   `yaml:"id"`
+	Title       string   `yaml:"title"`
+	Description string   `yaml:"description"`
+	Cmd         string   `yaml:"cmd"`
+	Groups      []string `yaml:"groups"`
+	NoWait      bool     `yaml:"noWait"`
 }
 
 type DisplayConfig struct {
@@ -128,9 +129,10 @@ func parseCustomActions(v any) []Action {
 			continue
 		}
 		a := Action{
-			ID:    strVal(m["id"]),
-			Title: strVal(m["title"]),
-			Cmd:   strVal(m["cmd"]),
+			ID:          strVal(m["id"]),
+			Title:       strVal(m["title"]),
+			Description: strVal(m["description"]),
+			Cmd:         strVal(m["cmd"]),
 		}
 		if gs, ok := asStringSlice(m["groups"]); ok {
 			a.Groups = gs

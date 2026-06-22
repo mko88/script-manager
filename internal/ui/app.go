@@ -141,6 +141,7 @@ func (a *App) RestoreState(s State) {
 		a.updateActionsForItem()
 		a.actionsPanel.selected = s.ActSel
 		a.cmdBar.SetCmd(a.expandCmd())
+		a.cmdBar.SetDescription(a.actionDescription())
 		a.mode = modeSelectAction
 		a.list.Size = tl.Size{FixedHeight: 3}
 		a.list.SetFocused(false)
@@ -169,6 +170,7 @@ func (a *App) enterActionMode() {
 	a.actionsPanel.offset = 0
 	a.actionsPanel.SetFocused(true)
 	a.cmdBar.SetCmd(a.expandCmd())
+	a.cmdBar.SetDescription(a.actionDescription())
 	a.cmdBar.ResetScroll()
 	a.status.SetContext(ctxActionsFocused)
 }
@@ -184,6 +186,7 @@ func (a *App) enterItemMode() {
 	a.description.SetFocused(false)
 	a.cmdBar.SetFocused(false)
 	a.cmdBar.SetCmd("")
+	a.cmdBar.SetDescription("")
 	a.list.SetFocused(true)
 	a.status.SetContext(ctxItemSelect)
 	a.status.ClearMessage()
@@ -246,6 +249,7 @@ func (a *App) cycleGroup(delta int) {
 	a.actionsPanel.selected = 0
 	a.actionsPanel.offset = 0
 	a.cmdBar.SetCmd(a.expandCmd())
+	a.cmdBar.SetDescription(a.actionDescription())
 	a.cmdBar.ResetScroll()
 }
 
@@ -256,6 +260,13 @@ func (a *App) mergedItem(item map[string]any) map[string]any {
 	maps.Copy(merged, a.globalEnv)
 	maps.Copy(merged, item)
 	return merged
+}
+
+func (a *App) actionDescription() string {
+	if action := a.actionsPanel.Selected(); action != nil {
+		return action.Description
+	}
+	return ""
 }
 
 func (a *App) expandCmd() string {
@@ -322,6 +333,7 @@ func (a *App) updateItemMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.description.ResetScroll()
 		a.updateActionsForItem()
 		a.cmdBar.SetCmd(a.expandCmd())
+		a.cmdBar.SetDescription(a.actionDescription())
 		a.cmdBar.ResetScroll()
 		a.status.ClearMessage()
 	case "down", "j":
@@ -330,6 +342,7 @@ func (a *App) updateItemMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		a.description.ResetScroll()
 		a.updateActionsForItem()
 		a.cmdBar.SetCmd(a.expandCmd())
+		a.cmdBar.SetDescription(a.actionDescription())
 		a.cmdBar.ResetScroll()
 		a.status.ClearMessage()
 	case "enter", "tab":
@@ -377,6 +390,7 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case a.actionsPanel.IsFocused():
 			a.actionsPanel.MoveUp()
 			a.cmdBar.SetCmd(a.expandCmd())
+			a.cmdBar.SetDescription(a.actionDescription())
 			a.cmdBar.ResetScroll()
 		case a.description.IsFocused():
 			a.description.ScrollUp()
@@ -390,6 +404,7 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case a.actionsPanel.IsFocused():
 			a.actionsPanel.MoveDown()
 			a.cmdBar.SetCmd(a.expandCmd())
+			a.cmdBar.SetDescription(a.actionDescription())
 			a.cmdBar.ResetScroll()
 		case a.description.IsFocused():
 			a.description.ScrollDown()

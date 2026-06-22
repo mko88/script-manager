@@ -120,10 +120,14 @@ items:
 actions:
   - id: ssh              # optional — used for per-item action filtering
     title: SSH into cluster
+    description: Open an interactive SSH session to the cluster node.   # single-line
     groups: [connect]    # optional — one or more groups for per-item filtering
     cmd: ssh admin@{{.clusterIp}}
   - id: hosts
     title: Show hosts
+    description: |                # multiline — rendered above the command in the Command pane
+      Prints the system hosts file.
+      Useful for verifying DNS overrides on the node.
     groups: [safe, diagnostics]   # action belongs to multiple groups
     cmd: cat /etc/hosts
   - id: dashboard
