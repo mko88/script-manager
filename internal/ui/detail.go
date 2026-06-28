@@ -18,21 +18,26 @@ var detailContentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 type DescriptionTile struct {
 	*tl.BaseTile
 	scrollableContent
-	item  map[string]any
-	tmpl  *template.Template
-	title string
+	item     map[string]any
+	displays []config.DisplayConfig
+	tmpls    map[string]*template.Template // keyed by DisplayConfig.Name
+	title    string
 }
 
-func newDescriptionTile(item map[string]any, detailTmpl string) *DescriptionTile {
-	tmpl, _ := template.New("detail").Parse(detailTmpl)
+func newDescriptionTile(displays []config.DisplayConfig) *DescriptionTile {
+	tmpls := make(map[string]*template.Template, len(displays))
+	for _, d := range displays {
+		tmpl, _ := template.New("detail").Parse(d.Details)
+		tmpls[d.Name] = tmpl
+	}
 	return &DescriptionTile{
 		BaseTile: &tl.BaseTile{
 			Name: "description",
 			Size: tl.Size{Weight: 1},
 		},
-		item:  item,
-		tmpl:  tmpl,
-		title: "Details",
+		displays: displays,
+		tmpls:    tmpls,
+		title:    "Details",
 	}
 }
 
@@ -60,13 +65,17 @@ func (t *DescriptionTile) View() string {
 	var lines []string
 	if t.item == nil {
 		lines = append(lines, "  No item selected")
-	} else if t.tmpl != nil {
-		var buf bytes.Buffer
-		t.tmpl.Execute(&buf, t.item)
-		rendered := strings.TrimRight(buf.String(), "\n")
-		for _, line := range strings.Split(rendered, "\n") {
-			for _, seg := range wrapLine(line, innerW-2) {
-				lines = append(lines, detailContentStyle.Render("  "+seg))
+	} else {
+		d := config.FindDisplay(t.displays, t.item)
+		tmpl := t.tmpls[d.Name]
+		if tmpl != nil {
+			var buf bytes.Buffer
+			tmpl.Execute(&buf, t.item)
+			rendered := strings.TrimRight(buf.String(), "\n")
+			for _, line := range strings.Split(rendered, "\n") {
+				for _, seg := range wrapLine(line, innerW-2) {
+					lines = append(lines, detailContentStyle.Render("  "+seg))
+				}
 			}
 		}
 	}

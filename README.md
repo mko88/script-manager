@@ -95,10 +95,14 @@ shell:
   - -c
 
 display:
-  list: "{{.description}}"        # template for each row in the Items pane
-  details: |                      # template for the Details pane
-    Description: {{.description}}
-    Cluster:     {{.clusterName}}
+  - name: default                 # name used by items via display: default
+    list: "{{.description}}"      # template for each row in the Items pane
+    details: |                    # template for the Details pane
+      Description: {{.description}}
+      Cluster:     {{.clusterName}}
+  - name: compact                 # alternative display — items opt in with display: compact
+    list: "{{.name}} ({{.clusterIp}})"
+    details: "{{.name}} — {{.clusterIp}}"
 
 titles:                           # optional — override pane header labels
   items: Servers
@@ -116,6 +120,8 @@ items:
     clusterName: prod-cluster-eu
     clusterIp: 10.0.0.1
     # any additional fields you like
+  - name: Dev
+    display: compact              # optional — picks a named display config; omit to use first
 
 actions:
   - id: ssh              # optional — used for per-item action filtering

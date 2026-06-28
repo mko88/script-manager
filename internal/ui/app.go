@@ -58,10 +58,10 @@ func orTitle(configured, def string) string {
 }
 
 func NewApp(cfg *config.Config) *App {
-	list := newListTile(cfg.Items, cfg.Display.List)
+	list := newListTile(cfg.Items, cfg.Display)
 	list.title = orTitle(cfg.Titles.Items, list.title)
 
-	description := newDescriptionTile(list.Selected(), cfg.Display.Details)
+	description := newDescriptionTile(cfg.Display)
 	description.title = orTitle(cfg.Titles.Details, description.title)
 
 	actionsPanel := newActionsTile(cfg.Actions)

@@ -11,14 +11,22 @@ env:
   region: eu-west-1
 
 display:
-  list: "{{.description}}"
-  details: |
-    Description: {{.description}}
-    Cluster Name:       {{.clusterName}}
-    Cluster IP:         {{.clusterIp}}
-    Load Balancer Name: {{.loadBalancerName}}
-    Load Balancer IP:   {{.loadBalancerIp}}
-    SSH User:           {{.sshUser}}
+  - name: default
+    list: "{{.description}}"
+    details: |
+      Description: {{.description}}
+      Cluster Name:       {{.clusterName}}
+      Cluster IP:         {{.clusterIp}}
+      Load Balancer Name: {{.loadBalancerName}}
+      Load Balancer IP:   {{.loadBalancerIp}}
+      SSH User:           {{.sshUser}}
+
+  - name: compact
+    list: "{{.name}} ({{.clusterIp}})"
+    details: |
+      {{.name}}
+      IP:  {{.clusterIp}}
+      SSH: {{.sshUser}}@{{.clusterIp}}
 
 items:
   - name: Nightly CDM
@@ -77,6 +85,7 @@ items:
 
   - name: Dev Alpha
     description: Developer sandbox alpha
+    display: compact
     clusterIp: 70.20.30.40
     clusterName: dev-cluster-alpha
     loadBalancerIp: 71.20.30.40

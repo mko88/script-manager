@@ -18,8 +18,49 @@ type Action struct {
 }
 
 type DisplayConfig struct {
+	Name    string `yaml:"name"`
 	List    string `yaml:"list"`
 	Details string `yaml:"details"`
+}
+
+// DisplayList is a slice of DisplayConfig that can be unmarshalled from either
+// a YAML sequence (new format) or a single mapping (legacy format).
+type DisplayList []DisplayConfig
+
+func (dl *DisplayList) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.SequenceNode:
+		var list []DisplayConfig
+		if err := value.Decode(&list); err != nil {
+			return err
+		}
+		*dl = list
+	case yaml.MappingNode:
+		var single DisplayConfig
+		if err := value.Decode(&single); err != nil {
+			return err
+		}
+		*dl = DisplayList{single}
+	}
+	return nil
+}
+
+// FindDisplay returns the DisplayConfig matching item["display"], or the first
+// entry if no match is found or the item has no display key.
+func FindDisplay(displays DisplayList, item map[string]any) DisplayConfig {
+	if len(displays) == 0 {
+		return DisplayConfig{}
+	}
+	if item != nil {
+		if name, ok := item["display"].(string); ok && name != "" {
+			for _, d := range displays {
+				if d.Name == name {
+					return d
+				}
+			}
+		}
+	}
+	return displays[0]
 }
 
 type TitlesConfig struct {
@@ -31,7 +72,7 @@ type TitlesConfig struct {
 
 type Config struct {
 	Shell   []string         `yaml:"shell"`
-	Display DisplayConfig    `yaml:"display"`
+	Display DisplayList      `yaml:"display"`
 	Titles  TitlesConfig     `yaml:"titles"`
 	Env     map[string]any   `yaml:"env"`
 	Items   []map[string]any `yaml:"items"`

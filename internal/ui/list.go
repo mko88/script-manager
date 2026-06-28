@@ -6,6 +6,8 @@ import (
 	"strings"
 	"text/template"
 
+	"script-manager/internal/config"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	tl "github.com/mko88/bubbletea-tilelayout"
@@ -80,30 +82,38 @@ func (s *selectableList) renderRows(labels []string, innerW, innerH int, focused
 type ListTile struct {
 	*tl.BaseTile
 	selectableList
-	items []map[string]any
-	tmpl  *template.Template
-	title string
+	items    []map[string]any
+	displays []config.DisplayConfig
+	tmpls    map[string]*template.Template // keyed by DisplayConfig.Name
+	title    string
 }
 
-func newListTile(items []map[string]any, listTmpl string) *ListTile {
-	tmpl, _ := template.New("list").Parse(listTmpl)
+func newListTile(items []map[string]any, displays []config.DisplayConfig) *ListTile {
+	tmpls := make(map[string]*template.Template, len(displays))
+	for _, d := range displays {
+		tmpl, _ := template.New("list").Parse(d.List)
+		tmpls[d.Name] = tmpl
+	}
 	return &ListTile{
 		BaseTile: &tl.BaseTile{
 			Name: "list",
 			Size: tl.Size{Weight: 1},
 		},
-		items: items,
-		tmpl:  tmpl,
-		title: "Items",
+		items:    items,
+		displays: displays,
+		tmpls:    tmpls,
+		title:    "Items",
 	}
 }
 
 func (t *ListTile) renderLabel(item map[string]any) string {
-	if t.tmpl == nil {
+	d := config.FindDisplay(t.displays, item)
+	tmpl := t.tmpls[d.Name]
+	if tmpl == nil {
 		return fmt.Sprint(item["name"])
 	}
 	var buf bytes.Buffer
-	t.tmpl.Execute(&buf, item)
+	tmpl.Execute(&buf, item)
 	return buf.String()
 }
 
