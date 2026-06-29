@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run script-manager",
+            "type": "go",
+            "request": "launch",
+            "mode": "auto",
+            "program": "${workspaceFolder}/cmd/script-manager",
+            "buildFlags": "-buildvcs=false",
+            "output": "${workspaceFolder}/bin/__debug_bin",
+            "args": ["-config", "${workspaceFolder}/config.yaml"],
+            "console": "integratedTerminal"
+        }
+    ]
+}
