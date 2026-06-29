@@ -19,9 +19,10 @@ var (
 type statusContext int
 
 const (
-	ctxItemSelect    statusContext = iota
+	ctxItemSelect statusContext = iota
 	ctxActionsFocused
 	ctxDetailsFocused
+	ctxDetailsCopyMode
 	ctxCommandFocused
 )
 
@@ -40,8 +41,14 @@ var contextHelp = map[statusContext][]struct{ key, desc string }{
 	},
 	ctxDetailsFocused: {
 		{"↑↓ / k j", "Scroll"},
+		{"Enter", "Select value to copy"},
 		{"Tab / ←→", "Next pane"},
 		{"Esc", "Back to items"},
+	},
+	ctxDetailsCopyMode: {
+		{"↑↓ / k j", "Cycle value"},
+		{"Enter", "Copy & exit"},
+		{"Esc", "Cancel"},
 	},
 	ctxCommandFocused: {
 		{"↑↓ / k j", "Scroll"},

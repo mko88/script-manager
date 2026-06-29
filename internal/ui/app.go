@@ -176,6 +176,7 @@ func (a *App) enterActionMode() {
 }
 
 func (a *App) enterItemMode() {
+	a.description.ExitCopyMode()
 	a.mode = modeSelectItem
 	a.list.Size = tl.Size{Weight: 1}
 	a.list.offset = a.savedListOffset
@@ -316,6 +317,11 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "Q", "ctrl+c":
 			return a, tea.Quit
 		case "esc":
+			if a.description.IsCopyMode() {
+				a.description.ExitCopyMode()
+				a.status.SetContext(ctxDetailsFocused)
+				return a, nil
+			}
 			if a.mode == modeSelectAction {
 				a.enterItemMode()
 				return a, nil
@@ -362,6 +368,9 @@ func (a *App) updateItemMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "tab", "right":
+		if a.description.IsCopyMode() {
+			a.description.ExitCopyMode()
+		}
 		switch {
 		case a.actionsPanel.IsFocused():
 			a.actionsPanel.SetFocused(false)
@@ -378,6 +387,9 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "shift+tab", "left":
+		if a.description.IsCopyMode() {
+			a.description.ExitCopyMode()
+		}
 		switch {
 		case a.actionsPanel.IsFocused():
 			a.actionsPanel.SetFocused(false)
@@ -394,30 +406,38 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "up", "k":
-		switch {
-		case a.actionsPanel.IsFocused():
-			a.actionsPanel.MoveUp()
-			a.cmdBar.SetCmd(a.expandCmd())
-			a.cmdBar.SetDescription(a.actionDescription())
-			a.cmdBar.ResetScroll()
-		case a.description.IsFocused():
-			a.description.ScrollUp()
-		case a.cmdBar.IsFocused():
-			a.cmdBar.ScrollUp()
+		if a.description.IsCopyMode() {
+			a.description.CycleCopy(-1)
+		} else {
+			switch {
+			case a.actionsPanel.IsFocused():
+				a.actionsPanel.MoveUp()
+				a.cmdBar.SetCmd(a.expandCmd())
+				a.cmdBar.SetDescription(a.actionDescription())
+				a.cmdBar.ResetScroll()
+			case a.description.IsFocused():
+				a.description.ScrollUp()
+			case a.cmdBar.IsFocused():
+				a.cmdBar.ScrollUp()
+			}
 		}
 		a.status.ClearMessage()
 
 	case "down", "j":
-		switch {
-		case a.actionsPanel.IsFocused():
-			a.actionsPanel.MoveDown()
-			a.cmdBar.SetCmd(a.expandCmd())
-			a.cmdBar.SetDescription(a.actionDescription())
-			a.cmdBar.ResetScroll()
-		case a.description.IsFocused():
-			a.description.ScrollDown()
-		case a.cmdBar.IsFocused():
-			a.cmdBar.ScrollDown()
+		if a.description.IsCopyMode() {
+			a.description.CycleCopy(1)
+		} else {
+			switch {
+			case a.actionsPanel.IsFocused():
+				a.actionsPanel.MoveDown()
+				a.cmdBar.SetCmd(a.expandCmd())
+				a.cmdBar.SetDescription(a.actionDescription())
+				a.cmdBar.ResetScroll()
+			case a.description.IsFocused():
+				a.description.ScrollDown()
+			case a.cmdBar.IsFocused():
+				a.cmdBar.ScrollDown()
+			}
 		}
 		a.status.ClearMessage()
 
@@ -442,7 +462,24 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case "enter":
-		if a.actionsPanel.IsFocused() {
+		if a.description.IsCopyMode() {
+			if val, ok := a.description.CurrentCopyValue(); ok {
+				if err := clipboard.WriteAll(val); err != nil {
+					a.status.SetMessage("clipboard unavailable: " + err.Error())
+				} else {
+					a.status.SetMessage("Copied: " + val)
+				}
+			}
+			a.description.ExitCopyMode()
+			a.status.SetContext(ctxDetailsFocused)
+		} else if a.description.IsFocused() {
+			if a.description.HasCopyValues() {
+				a.description.EnterCopyMode()
+				a.status.SetContext(ctxDetailsCopyMode)
+			} else {
+				a.status.SetMessage("No copyable values — wrap text in backticks in the template")
+			}
+		} else if a.actionsPanel.IsFocused() {
 			if action := a.actionsPanel.Selected(); action != nil {
 				a.pendingAction = action
 				a.pendingItem = a.list.Selected()

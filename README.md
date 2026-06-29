@@ -72,6 +72,7 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 | `[` / `]` | Cycle through groups (Actions pane focused) |
 | `Enter` | Run the selected action |
 | `y` | Copy the expanded command to clipboard |
+| `Enter` | Run action (Actions pane) / enter copy-value mode (Details pane) |
 | `Esc` | Back to item selection |
 | `Q` / `Ctrl+C` | Quit |
 
@@ -97,12 +98,18 @@ shell:
 display:
   - name: default                 # name used by items via display: default
     list: "{{.description}}"      # template for each row in the Items pane
-    details: |                    # template for the Details pane
-      Description: {{.description}}
-      Cluster:     {{.clusterName}}
+    details: |                    # rendered as Markdown in the Details pane
+      **{{.description}}**
+
+      | Field   | Value |
+      |---------|-------|
+      | Cluster | `{{.clusterName}}` |
+      | IP      | `{{.clusterIp}}` |
   - name: compact                 # alternative display — items opt in with display: compact
     list: "{{.name}} ({{.clusterIp}})"
-    details: "{{.name}} — {{.clusterIp}}"
+    details: |
+      ## {{.name}}
+      **IP:** `{{.clusterIp}}`
 
 titles:                           # optional — override pane header labels
   items: Servers
@@ -165,6 +172,8 @@ If none of these keys are set the full action list is shown (backward-compatible
 ### Templates
 
 `display.list`, `display.details`, and `actions[*].cmd` are [Go templates](https://pkg.go.dev/text/template). Item fields are available as `{{.fieldName}}`.
+
+`display.details` is rendered as **Markdown** in the Details pane — you can use `**bold**`, `*italic*`, `` `code spans` ``, `## headings`, tables, and bullet lists. Backtick-wrapped values (`` `value` ``) are highlighted in cyan and can be copied with `c`.
 
 ### Environment variables
 

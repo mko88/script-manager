@@ -13,19 +13,23 @@ display:
   - name: default
     list: "{{.description}}"
     details: |
-      Description: {{.description}}
-      Cluster Name:       {{.clusterName}}
-      Cluster IP:         {{.clusterIp}}
-      Load Balancer Name: {{.loadBalancerName}}
-      Load Balancer IP:   {{.loadBalancerIp}}
-      SSH User:           {{.sshUser}}
+      ### {{.description}}
+
+      | Field | Value |
+      |---|---|
+      | Cluster Name | `{{.clusterName}}` |
+      | Cluster IP | `{{.clusterIp}}` |
+      | Load Balancer | `{{.loadBalancerName}}` (`{{.loadBalancerIp}}`) |
+      | SSH User | `{{.sshUser}}` |
+      | Region | `{{.region}}` |
 
   - name: compact
     list: "{{.name}} ({{.clusterIp}})"
-    details: |
-      {{.name}}
-      IP:  {{.clusterIp}}
-      SSH: {{.sshUser}}@{{.clusterIp}}
+    details: |-
+      ## {{.name}}
+
+      **IP:** `{{.clusterIp}}`<br>
+      **SSH:** `{{.sshUser}}@{{.clusterIp}}`
 
 items:
   - name: Nightly CDM
