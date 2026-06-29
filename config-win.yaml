@@ -120,6 +120,7 @@ items:
 actions:
   - id: print-template
     title: Print variables (template)
+    description: "Echoes fields for {{.name}} ({{.clusterIp}}) via Go template syntax."
     groups: [safe, diagnostics]
     cmd: |
       Write-Host "Item:     {{.name}}"
@@ -129,6 +130,7 @@ actions:
 
   - id: print-env
     title: Print variables (env vars)
+    description: "Echoes fields for {{.name}} ({{.clusterIp}}) from environment variables."
     groups: [safe, diagnostics]
     cmd: |
       Write-Host "Item:     $env:NAME"
@@ -138,6 +140,7 @@ actions:
 
   - id: test-output
     title: Test output
+    description: "Prints the hosts file on {{.name}} ({{.clusterIp}})."
     cmd: Get-Content C:\Windows\System32\drivers\etc\hosts
 
   - id: test-input
@@ -156,7 +159,7 @@ actions:
   - id: system-info
     title: System info
     description: |
-      Prints a snapshot of the node's current state:
+      Prints a snapshot of {{.name}} ({{.clusterIp}}):
         - Hostname and uptime
         - Disk, memory, and CPU summary
         - Network interfaces and current user

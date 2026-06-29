@@ -125,7 +125,7 @@ items:
 actions:
   - id: print-template
     title: Print variables (template)
-    description: Echoes item fields resolved via Go template syntax.
+    description: "Echoes fields for {{.name}} ({{.clusterIp}}) via Go template syntax."
     groups: [safe, diagnostics]
     cmd: |
       echo "Item:     {{.name}}"
@@ -135,7 +135,7 @@ actions:
 
   - id: print-env
     title: Print variables (env vars)
-    description: Echoes item fields from exported environment variables.
+    description: "Echoes fields for {{.name}} ({{.clusterIp}}) from environment variables."
     groups: [safe, diagnostics]
     cmd: |
       echo "Item:     $NAME"
@@ -146,7 +146,7 @@ actions:
   - id: test-output
     groups: [diagnostics]
     title: Test output
-    description: Prints the system hosts file.
+    description: "Prints the hosts file on {{.name}} ({{.clusterIp}})."
     cmd: cat /etc/hosts
 
   - id: test-input
@@ -165,7 +165,7 @@ actions:
   - id: system-info
     title: System info
     description: |
-      Prints a snapshot of the node's current state:
+      Prints a snapshot of {{.name}} ({{.clusterIp}}):
         - Hostname and uptime
         - Disk, memory, and CPU summary
         - Network interfaces and current user

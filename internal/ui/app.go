@@ -263,10 +263,18 @@ func (a *App) mergedItem(item map[string]any) map[string]any {
 }
 
 func (a *App) actionDescription() string {
-	if action := a.actionsPanel.Selected(); action != nil {
+	action := a.actionsPanel.Selected()
+	item := a.list.Selected()
+	if action == nil || action.Description == "" || item == nil {
+		return ""
+	}
+	tmpl, err := template.New("desc").Parse(action.Description)
+	if err != nil {
 		return action.Description
 	}
-	return ""
+	var buf bytes.Buffer
+	tmpl.Execute(&buf, a.mergedItem(item))
+	return buf.String()
 }
 
 func (a *App) expandCmd() string {

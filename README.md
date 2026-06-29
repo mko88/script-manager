@@ -119,8 +119,16 @@ items:
     description: Production cluster
     clusterName: prod-cluster-eu
     clusterIp: 10.0.0.1
-    # any additional fields you like
+    # show only the "safe" group + the ssh action by ID
+    actionGroups: [safe]
+    actions: [ssh]
+    # inline actions available only for this item
+    customActions:
+      - title: Emergency rollback
+        cmd: echo "Rolling back {{.clusterName}}"
   - name: Dev
+    description: Dev cluster
+    clusterIp: 10.0.0.2
     display: compact              # optional — picks a named display config; omit to use first
 
 actions:
@@ -140,18 +148,6 @@ actions:
     title: Open dashboard
     cmd: xdg-open http://{{.clusterIp}}:8080
     noWait: true         # return to UI immediately, don't wait for a keypress
-
-items:
-  - name: Production
-    description: Production cluster
-    clusterIp: 10.0.0.1
-    # show only the "safe" group + the ssh action by ID
-    actionGroups: [safe]
-    actions: [ssh]
-    # inline actions available only for this item
-    customActions:
-      - title: Emergency rollback
-        cmd: echo "Rolling back {{.clusterName}}"
 ```
 
 ### Action filtering
