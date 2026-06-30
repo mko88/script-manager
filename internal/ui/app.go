@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"maps"
 	"text/template"
+	"time"
 
 	"script-manager/internal/config"
 
@@ -11,6 +12,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	tl "github.com/mko88/bubbletea-tilelayout"
 )
+
+type clearMsgToken struct{ token int }
 
 type appMode int
 
@@ -37,6 +40,7 @@ type App struct {
 	activeGroup       string          // "" = all groups
 	actionsTileTitle  string          // base title before group suffix
 	savedListOffset   int
+	msgToken          int
 }
 
 // State captures all cursor/scroll/focus/mode positions so they can be
@@ -300,12 +304,29 @@ func (a *App) MergedItem() map[string]any {
 	return nil
 }
 
+// flashMessage sets a status message that automatically clears after d.
+func (a *App) flashMessage(text string, d time.Duration) tea.Cmd {
+	a.msgToken++
+	tok := a.msgToken
+	a.status.SetMessage(text)
+	return func() tea.Msg {
+		time.Sleep(d)
+		return clearMsgToken{tok}
+	}
+}
+
 func (a *App) Init() tea.Cmd {
 	return a.layout.Init()
 }
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+	case clearMsgToken:
+		if msg.token == a.msgToken {
+			a.status.ClearMessage()
+		}
+		return a, nil
+
 	case tea.WindowSizeMsg:
 		a.windowSize = msg
 		_, cmd := a.layout.Update(msg)
@@ -326,7 +347,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.enterItemMode()
 				return a, nil
 			}
-			return a, tea.Quit
 		}
 
 		if a.mode == modeSelectItem {
@@ -467,11 +487,9 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if err := clipboard.WriteAll(val); err != nil {
 					a.status.SetMessage("clipboard unavailable: " + err.Error())
 				} else {
-					a.status.SetMessage("Copied: " + val)
+					return a, a.flashMessage("Copied: "+val, 2*time.Second)
 				}
 			}
-			a.description.ExitCopyMode()
-			a.status.SetContext(ctxDetailsFocused)
 		} else if a.description.IsFocused() {
 			if a.description.HasCopyValues() {
 				a.description.EnterCopyMode()

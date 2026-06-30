@@ -12,7 +12,7 @@ var (
 	statusBarBgStyle = lipgloss.NewStyle().Background(lipgloss.Color("236"))
 	statusKeyStyle   = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("11")).Bold(true)
 	statusDescStyle  = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("245"))
-	statusMsgStyle   = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("9")).Bold(true)
+	statusMsgStyle   = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("252"))
 	statusSepStyle   = lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("240"))
 )
 
@@ -30,7 +30,7 @@ var contextHelp = map[statusContext][]struct{ key, desc string }{
 	ctxItemSelect: {
 		{"↑↓ / k j", "Navigate"},
 		{"Enter / Tab", "Select item"},
-		{"Q / Esc", "Quit"},
+		{"Q", "Quit"},
 	},
 	ctxActionsFocused: {
 		{"↑↓ / k j", "Navigate"},
@@ -47,8 +47,8 @@ var contextHelp = map[statusContext][]struct{ key, desc string }{
 	},
 	ctxDetailsCopyMode: {
 		{"↑↓ / k j", "Cycle value"},
-		{"Enter", "Copy & exit"},
-		{"Esc", "Cancel"},
+		{"Enter", "Copy"},
+		{"Esc", "Done"},
 	},
 	ctxCommandFocused: {
 		{"↑↓ / k j", "Scroll"},
