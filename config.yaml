@@ -20,6 +20,7 @@ display:
       | Cluster Name | `{{.clusterName}}` |
       | Cluster IP | `{{.clusterIp}}` |
       | Load Balancer | `{{.loadBalancerName}}` (`{{.loadBalancerIp}}`) |
+      | FQDN | `{{.loadBalancerName}}.{{.region}}.example.com` |
       | SSH User | `{{.sshUser}}` |
       | Region | `{{.region}}` |
 

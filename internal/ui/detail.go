@@ -26,17 +26,33 @@ var codeSpanRe = regexp.MustCompile("`([^`\n]+)`")
 // splitting the content, rendering each segment separately, then rejoining.
 var brSplitRe = regexp.MustCompile(`(?i)\s*<br\s*/?>\s*\n?`)
 
+// hlSentinel is substituted for the selected backtick span in the markdown
+// source before rendering, then replaced with the styled highlight in the
+// rendered output. It must not contain markdown-special characters.
+const hlSentinel = "XXGLHIGHLIGHTXX"
+
 func extractCopyValues(s string) []string {
 	matches := codeSpanRe.FindAllStringSubmatch(s, -1)
-	seen := make(map[string]bool)
 	var out []string
 	for _, m := range matches {
-		if v := strings.TrimSpace(m[1]); v != "" && !seen[v] {
-			seen[v] = true
+		if v := strings.TrimSpace(m[1]); v != "" {
 			out = append(out, v)
 		}
 	}
 	return out
+}
+
+// markNthCodeSpan replaces the n-th (0-based) backtick span in source with
+// sentinel, leaving all other spans untouched.
+func markNthCodeSpan(source string, n int, sentinel string) string {
+	i := -1
+	return codeSpanRe.ReplaceAllStringFunc(source, func(match string) string {
+		i++
+		if i == n {
+			return sentinel
+		}
+		return match
+	})
 }
 
 func boolPtr(b bool) *bool    { return &b }
@@ -261,34 +277,48 @@ func (t *DescriptionTile) View() string {
 				t.copyValuesSet = true
 			}
 
+			// In copy mode, mark the selected backtick span in the source with a
+			// sentinel before rendering so the highlight is always on the right span,
+			// even when the same value appears in multiple code spans.
+			forRender := expanded
+			if t.copyMode && len(t.copyValues) > 0 {
+				forRender = markNthCodeSpan(expanded, t.copyIdx, hlSentinel)
+			}
+
 			r := t.glamourRenderer(innerW - 2)
 			if r != nil {
-				if rendered, err := glamourRender(r, expanded); err == nil {
+				if rendered, err := glamourRender(r, forRender); err == nil {
 					rendered = strings.TrimRight(rendered, "\n")
+
+					// Find which line the sentinel landed on, then swap it for
+					// the highlighted value before splitting into display lines.
+					sentinelLine := -1
 					if t.copyMode && len(t.copyValues) > 0 {
+						for i, line := range strings.Split(rendered, "\n") {
+							if strings.Contains(line, hlSentinel) {
+								sentinelLine = i
+								break
+							}
+						}
 						target := t.copyValues[t.copyIdx]
 						hl := lipgloss.NewStyle().
 							Background(lipgloss.Color("6")).
 							Foreground(lipgloss.Color("0")).
 							Bold(true).
 							Render(target)
-						rendered = strings.ReplaceAll(rendered, target, hl)
+						rendered = strings.Replace(rendered, hlSentinel, hl, 1)
 					}
+
 					for _, line := range strings.Split(rendered, "\n") {
 						lines = append(lines, line)
 					}
-					// In copy mode, scroll to keep the highlighted value visible.
-					if t.copyMode && len(t.copyValues) > 0 {
-						target := t.copyValues[t.copyIdx]
-						for i, line := range lines {
-							if strings.Contains(line, target) {
-								if i < t.scrollOffset {
-									t.scrollOffset = i
-								} else if i >= t.scrollOffset+innerH {
-									t.scrollOffset = i - innerH + 1
-								}
-								break
-							}
+
+					// Scroll to keep the highlighted span visible.
+					if sentinelLine >= 0 {
+						if sentinelLine < t.scrollOffset {
+							t.scrollOffset = sentinelLine
+						} else if sentinelLine >= t.scrollOffset+innerH {
+							t.scrollOffset = sentinelLine - innerH + 1
 						}
 					}
 				}
