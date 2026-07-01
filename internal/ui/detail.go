@@ -2,6 +2,8 @@ package ui
 
 import (
 	"bytes"
+	"encoding/base64"
+	"fmt"
 	"regexp"
 	"strings"
 	"text/template"
@@ -31,15 +33,44 @@ var brSplitRe = regexp.MustCompile(`(?i)\s*<br\s*/?>\s*\n?`)
 // rendered output. It must not contain markdown-special characters.
 const hlSentinel = "XXGLHIGHLIGHTXX"
 
-func extractCopyValues(s string) []string {
-	matches := codeSpanRe.FindAllStringSubmatch(s, -1)
-	var out []string
-	for _, m := range matches {
-		if v := strings.TrimSpace(m[1]); v != "" {
-			out = append(out, v)
+// maskPrefix is the prefix injected by the mask template function.
+// It must not appear in normal values and must be valid inside a markdown code span.
+const maskPrefix = "GLMASK__"
+
+// maskFunc is exposed as the "mask" template function. It encodes the actual
+// value so the rendering pipeline can detect and hide it; the clipboard still
+// receives the real value.
+func maskFunc(value string) string {
+	return maskPrefix + base64.RawURLEncoding.EncodeToString([]byte(value))
+}
+
+// processMaskSpans scans the expanded template output for code spans whose
+// content was produced by maskFunc. Returns:
+//   - displayMd: markdown with mask markers replaced by ••••••
+//   - copyValues: actual values for the clipboard (decoded for masked spans)
+//   - copyMasked: true for each index whose value was masked
+func processMaskSpans(expanded string) (displayMd string, copyValues []string, copyMasked []bool) {
+	var result []byte
+	lastIdx := 0
+	for _, match := range codeSpanRe.FindAllStringSubmatchIndex(expanded, -1) {
+		result = append(result, expanded[lastIdx:match[0]]...)
+		value := strings.TrimSpace(expanded[match[2]:match[3]])
+		if strings.HasPrefix(value, maskPrefix) {
+			if actual, err := base64.RawURLEncoding.DecodeString(value[len(maskPrefix):]); err == nil {
+				result = append(result, []byte("`••••••`")...)
+				copyValues = append(copyValues, string(actual))
+				copyMasked = append(copyMasked, true)
+				lastIdx = match[1]
+				continue
+			}
 		}
+		result = append(result, expanded[match[0]:match[1]]...)
+		copyValues = append(copyValues, value)
+		copyMasked = append(copyMasked, false)
+		lastIdx = match[1]
 	}
-	return out
+	result = append(result, expanded[lastIdx:]...)
+	return string(result), copyValues, copyMasked
 }
 
 // markNthCodeSpan replaces the n-th (0-based) backtick span in source with
@@ -177,7 +208,9 @@ type DescriptionTile struct {
 	displays      []config.DisplayConfig
 	tmpls         map[string]*template.Template // keyed by DisplayConfig.Name
 	title         string
-	copyValues    []string // backtick-span values from current render
+	copyValues    []string // actual values for clipboard (decoded for masked spans)
+	copyMasked    []bool   // true when the corresponding value was masked
+	displayMd     string   // markdown with mask markers replaced by ••••••
 	copyValuesSet bool
 	copyIdx       int
 	copyMode      bool // true while the user is selecting a value to copy
@@ -186,9 +219,10 @@ type DescriptionTile struct {
 }
 
 func newDescriptionTile(displays []config.DisplayConfig) *DescriptionTile {
+	funcMap := template.FuncMap{"mask": maskFunc}
 	tmpls := make(map[string]*template.Template, len(displays))
 	for _, d := range displays {
-		tmpl, _ := template.New("detail").Parse(d.Details)
+		tmpl, _ := template.New("detail").Funcs(funcMap).Parse(d.Details)
 		tmpls[d.Name] = tmpl
 	}
 	return &DescriptionTile{
@@ -207,6 +241,8 @@ func (t *DescriptionTile) SetItem(item map[string]any) {
 	t.copyValuesSet = false
 	t.copyIdx = 0
 	t.copyMode = false
+	t.displayMd = ""
+	t.copyMasked = nil
 }
 
 func (t *DescriptionTile) IsCopyMode() bool    { return t.copyMode }
@@ -232,6 +268,30 @@ func (t *DescriptionTile) CurrentCopyValue() (string, bool) {
 		return "", false
 	}
 	return t.copyValues[t.copyIdx], true
+}
+
+func (t *DescriptionTile) IsCurrentMasked() bool {
+	return t.copyIdx < len(t.copyMasked) && t.copyMasked[t.copyIdx]
+}
+
+// CopyValueLabel returns the item field name whose value equals the current
+// copy value, provided exactly one field matches. Returns "" for composite
+// values derived from multiple fields or when no single field owns the value.
+func (t *DescriptionTile) CopyValueLabel() string {
+	if len(t.copyValues) == 0 || t.item == nil {
+		return ""
+	}
+	target := t.copyValues[t.copyIdx]
+	var matches []string
+	for k, v := range t.item {
+		if fmt.Sprintf("%v", v) == target {
+			matches = append(matches, k)
+		}
+	}
+	if len(matches) == 1 {
+		return matches[0]
+	}
+	return ""
 }
 
 func (t *DescriptionTile) glamourRenderer(width int) *glamour.TermRenderer {
@@ -272,17 +332,18 @@ func (t *DescriptionTile) View() string {
 			tmpl.Execute(&buf, t.item)
 			expanded := buf.String()
 
+			// Process masks and extract copy values once per item.
 			if !t.copyValuesSet {
-				t.copyValues = extractCopyValues(expanded)
+				t.displayMd, t.copyValues, t.copyMasked = processMaskSpans(expanded)
 				t.copyValuesSet = true
 			}
 
 			// In copy mode, mark the selected backtick span in the source with a
 			// sentinel before rendering so the highlight is always on the right span,
 			// even when the same value appears in multiple code spans.
-			forRender := expanded
+			forRender := t.displayMd
 			if t.copyMode && len(t.copyValues) > 0 {
-				forRender = markNthCodeSpan(expanded, t.copyIdx, hlSentinel)
+				forRender = markNthCodeSpan(t.displayMd, t.copyIdx, hlSentinel)
 			}
 
 			r := t.glamourRenderer(innerW - 2)
@@ -292,6 +353,8 @@ func (t *DescriptionTile) View() string {
 
 					// Find which line the sentinel landed on, then swap it for
 					// the highlighted value before splitting into display lines.
+					// Masked values display as •••••• even when highlighted so the
+					// actual secret is never shown on screen.
 					sentinelLine := -1
 					if t.copyMode && len(t.copyValues) > 0 {
 						for i, line := range strings.Split(rendered, "\n") {
@@ -300,12 +363,15 @@ func (t *DescriptionTile) View() string {
 								break
 							}
 						}
-						target := t.copyValues[t.copyIdx]
+						displayTarget := t.copyValues[t.copyIdx]
+						if t.copyIdx < len(t.copyMasked) && t.copyMasked[t.copyIdx] {
+							displayTarget = "••••••"
+						}
 						hl := lipgloss.NewStyle().
 							Background(lipgloss.Color("6")).
 							Foreground(lipgloss.Color("0")).
 							Bold(true).
-							Render(target)
+							Render(displayTarget)
 						rendered = strings.Replace(rendered, hlSentinel, hl, 1)
 					}
 

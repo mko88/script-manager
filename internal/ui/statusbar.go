@@ -46,7 +46,6 @@ var contextHelp = map[statusContext][]struct{ key, desc string }{
 		{"Esc", "Back to items"},
 	},
 	ctxDetailsCopyMode: {
-		{"↑↓ / k j", "Cycle value"},
 		{"Enter", "Copy"},
 		{"Esc", "Done"},
 	},

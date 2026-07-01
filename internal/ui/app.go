@@ -10,6 +10,7 @@ import (
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	tl "github.com/mko88/bubbletea-tilelayout"
 )
 
@@ -389,7 +390,8 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "tab", "right":
 		if a.description.IsCopyMode() {
-			a.description.ExitCopyMode()
+			a.description.CycleCopy(1)
+			break
 		}
 		switch {
 		case a.actionsPanel.IsFocused():
@@ -408,7 +410,8 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "shift+tab", "left":
 		if a.description.IsCopyMode() {
-			a.description.ExitCopyMode()
+			a.description.CycleCopy(-1)
+			break
 		}
 		switch {
 		case a.actionsPanel.IsFocused():
@@ -487,7 +490,22 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				if err := clipboard.WriteAll(val); err != nil {
 					a.status.SetMessage("clipboard unavailable: " + err.Error())
 				} else {
-					return a, a.flashMessage("Copied: "+val, 2*time.Second)
+					field := a.description.CopyValueLabel()
+					bold := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("236"))
+					norm := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("236"))
+					var msg string
+					if a.description.IsCurrentMasked() {
+						if field != "" {
+							msg = "Copied value of " + bold.Render(field) + norm.Render(" to clipboard")
+						} else {
+							msg = "Copied to clipboard"
+						}
+					} else if field != "" {
+						msg = "Copied value of " + bold.Render(field) + norm.Render(": "+val)
+					} else {
+						msg = "Copied: " + val
+					}
+					return a, a.flashMessage(msg, 2*time.Second)
 				}
 			}
 		} else if a.description.IsFocused() {

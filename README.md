@@ -173,7 +173,21 @@ If none of these keys are set the full action list is shown (backward-compatible
 
 `display.list`, `display.details`, and `actions[*].cmd` are [Go templates](https://pkg.go.dev/text/template). Item fields are available as `{{.fieldName}}`.
 
-`display.details` is rendered as **Markdown** in the Details pane — you can use `**bold**`, `*italic*`, `` `code spans` ``, `## headings`, tables, and bullet lists. Backtick-wrapped values (`` `value` ``) are highlighted in cyan and can be copied with `c`.
+`display.details` is rendered as **Markdown** in the Details pane — you can use `**bold**`, `*italic*`, `` `code spans` ``, `## headings`, tables, and bullet lists. Backtick-wrapped values (`` `value` ``) are highlighted in cyan and can be copied to the clipboard.
+
+#### Masking sensitive values
+
+Use the built-in `mask` template function to hide passwords or tokens in the Details pane while still making them copyable:
+
+```yaml
+details: |
+  | Field    | Value                  |
+  |----------|------------------------|
+  | Password | `{{mask .password}}`   |
+  | Token    | `{{mask .apiToken}}`   |
+```
+
+The Details pane shows `••••••` instead of the real value. When you enter copy mode and select that row, pressing `Enter` copies the actual secret to the clipboard — it is never displayed.
 
 ### Environment variables
 

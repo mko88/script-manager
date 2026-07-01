@@ -22,7 +22,8 @@ display:
       | Cluster IP | `{{.clusterIp}}` |
       | Load Balancer | `{{.loadBalancerName}}` (`{{.loadBalancerIp}}`) |
       | SSH User | `{{.sshUser}}` |
-      | Region | `{{.region}}` |
+      | Region | `{{.region}}` |{{if .password}}
+      | Password | `{{mask .password}}` |{{end}}
 
   - name: compact
     list: "{{.name}} ({{.clusterIp}})"
@@ -39,6 +40,7 @@ items:
     clusterName: test-cluster1
     loadBalancerIp: 11.20.30.40
     loadBalancerName: test-lb1
+    password: s3cr3t-nightly-p4ss
     # no action filter — sees all actions
 
   - name: Staging
