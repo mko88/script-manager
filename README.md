@@ -1,6 +1,9 @@
 # script-manager
 
-A terminal UI for organising and running shell scripts across a list of configurable items. Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). A companion desktop GUI (browse-only for now) is also available — see [GUI](#gui).
+A tool for organising and running shell scripts across a list of configurable items, driven by a single YAML config. It ships two separate interfaces that both read the same `config.yaml`:
+
+- **TUI** (`cmd/script-manager`) — a terminal UI built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). Browse items and actions, and run actions directly in the same terminal session.
+- **GUI** (`cmd/script-manager-gui`) — a desktop app built with [Wails](https://wails.io). Browse items and actions in a resizable, mouse-driven window; on Windows, actions run via a dedicated, reused Windows Terminal window instead of inline (see [GUI](#gui) for details and current platform support).
 
 # Disclaimer
 
