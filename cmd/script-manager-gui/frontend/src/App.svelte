@@ -43,7 +43,9 @@
   })()
 
   $: filteredActions =
-    selectedGroups.size === 0 ? actions : actions.filter((a) => (a.groups ?? []).some((g) => selectedGroups.has(g)))
+    selectedGroups.size === 0
+      ? actions
+      : actions.filter((a) => [...selectedGroups].every((g) => (a.groups ?? []).includes(g)))
 
   $: groupSummary = selectedGroups.size === 0 ? 'All' : actionGroups.filter((g) => selectedGroups.has(g)).join(', ')
 
