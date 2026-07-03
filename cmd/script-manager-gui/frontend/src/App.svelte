@@ -20,8 +20,35 @@
 
   let selectedItem = -1
   let selectedActionIndex = -1
+  // Empty set means "All" — no filter, show everything. Otherwise an action
+  // matches if it belongs to any selected group (OR semantics).
+  let selectedGroups = new Set<string>()
   let toast = ''
   let toastTimer: ReturnType<typeof setTimeout>
+
+  // Unique groups across the current item's actions, in order of first
+  // appearance — same set the TUI's [ / ] cycling walks.
+  $: actionGroups = (() => {
+    const seen = new Set<string>()
+    const list: string[] = []
+    for (const a of actions) {
+      for (const g of a.groups ?? []) {
+        if (!seen.has(g)) {
+          seen.add(g)
+          list.push(g)
+        }
+      }
+    }
+    return list
+  })()
+
+  $: filteredActions =
+    selectedGroups.size === 0 ? actions : actions.filter((a) => (a.groups ?? []).some((g) => selectedGroups.has(g)))
+
+  $: groupSummary = selectedGroups.size === 0 ? 'All' : actionGroups.filter((g) => selectedGroups.has(g)).join(', ')
+
+  $: selectedItemLabel = items.find((i) => i.index === selectedItem)?.label ?? ''
+  $: selectedActionLabel = actions.find((a) => a.index === selectedActionIndex)?.title ?? ''
 
   onMount(async () => {
     titles = await GetTitles()
@@ -32,9 +59,25 @@
   async function selectItem(index: number) {
     selectedItem = index
     selectedActionIndex = -1
+    selectedGroups = new Set()
     actionDetail = null
     actions = await GetActions(index)
     details = await GetItemDetails(index)
+  }
+
+  function selectAllGroups() {
+    selectedGroups = new Set()
+    selectedActionIndex = -1
+    actionDetail = null
+  }
+
+  function toggleGroup(group: string) {
+    const next = new Set(selectedGroups)
+    if (next.has(group)) next.delete(group)
+    else next.add(group)
+    selectedGroups = next
+    selectedActionIndex = -1
+    actionDetail = null
   }
 
   async function selectAction(index: number) {
@@ -133,6 +176,7 @@
   let actionsCollapsed = false
   let detailsCollapsed = false
   let commandCollapsed = false
+  let groupChipsCollapsed = true
 
   onMount(() => {
     try {
@@ -144,6 +188,7 @@
       actionsCollapsed = !!saved.actionsCollapsed
       detailsCollapsed = !!saved.detailsCollapsed
       commandCollapsed = !!saved.commandCollapsed
+      groupChipsCollapsed = !!saved.groupChipsCollapsed
     } catch {
       // ignore corrupt/missing layout, defaults already set
     }
@@ -152,8 +197,22 @@
   function saveLayout() {
     localStorage.setItem(
       LAYOUT_KEY,
-      JSON.stringify({ leftWidth, itemsHeight, detailsHeight, itemsCollapsed, actionsCollapsed, detailsCollapsed, commandCollapsed }),
+      JSON.stringify({
+        leftWidth,
+        itemsHeight,
+        detailsHeight,
+        itemsCollapsed,
+        actionsCollapsed,
+        detailsCollapsed,
+        commandCollapsed,
+        groupChipsCollapsed,
+      }),
     )
+  }
+
+  function toggleGroupChips() {
+    groupChipsCollapsed = !groupChipsCollapsed
+    saveLayout()
   }
 
   function dragColumn(e: MouseEvent) {
@@ -228,7 +287,9 @@
   <div class="col col-left" style="flex: 0 0 {leftWidth}px" bind:this={colLeftEl}>
     <section class="panel panel-items" style={topStyle(itemsCollapsed, actionsCollapsed, itemsHeight)}>
       <header class="panel-title">
-        <span>{titles.items}</span>
+        <span class="panel-title-text">
+          {titles.items}{#if itemsCollapsed && selectedItemLabel}<span class="panel-title-selected"> · {selectedItemLabel}</span>{/if}
+        </span>
         <button class="collapse-btn" on:click={() => toggleCollapse('items')} title={itemsCollapsed ? 'Expand' : 'Collapse'}>
           {itemsCollapsed ? '▸' : '▾'}
         </button>
@@ -254,22 +315,47 @@
 
     <section class="panel panel-actions" style={bottomStyle(actionsCollapsed)}>
       <header class="panel-title">
-        <span>{titles.actions}</span>
+        <span class="panel-title-text">
+          {titles.actions}{#if actionsCollapsed && selectedActionLabel}<span class="panel-title-selected"> · {selectedActionLabel}</span>{/if}
+        </span>
         <button class="collapse-btn" on:click={() => toggleCollapse('actions')} title={actionsCollapsed ? 'Expand' : 'Collapse'}>
           {actionsCollapsed ? '▸' : '▾'}
         </button>
       </header>
       {#if !actionsCollapsed}
+        {#if actionGroups.length > 0}
+          <div class="group-filter">
+            <button
+              class="collapse-btn group-filter-toggle"
+              on:click={toggleGroupChips}
+              title={groupChipsCollapsed ? 'Expand group filter' : 'Collapse group filter'}
+            >
+              {groupChipsCollapsed ? '▸' : '▾'}
+            </button>
+            {#if groupChipsCollapsed}
+              <span class="group-summary">Groups: {groupSummary}</span>
+            {:else}
+              <div class="group-chips">
+                <button class="chip" class:active={selectedGroups.size === 0} on:click={selectAllGroups}>All</button>
+                {#each actionGroups as group (group)}
+                  <button class="chip" class:active={selectedGroups.has(group)} on:click={() => toggleGroup(group)}>{group}</button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/if}
         <div class="panel-body list">
-          {#each actions as action (action.index)}
+          {#each filteredActions as action (action.index)}
             <button
               class="row"
               class:selected={action.index === selectedActionIndex}
               on:click={() => selectAction(action.index)}
             >{action.title}</button>
           {/each}
-          {#if selectedItem >= 0 && actions.length === 0}
-            <div class="empty">No actions for this item</div>
+          {#if selectedItem >= 0 && filteredActions.length === 0}
+            <div class="empty">
+              {selectedGroups.size > 0 ? `No actions in the selected group${selectedGroups.size > 1 ? 's' : ''}` : 'No actions for this item'}
+            </div>
           {/if}
         </div>
       {/if}
@@ -313,14 +399,23 @@
       {#if !commandCollapsed}
         <div class="panel-body command-content">
           {#if actionDetail}
+            {#if actionDetail.cmd}
+              <div class="cmd-actions">
+                <button class="run-cmd-btn" on:click={runAction}>Run</button>
+                <button class="copy-cmd-btn" on:click={copyCmd}>Copy command</button>
+              </div>
+            {/if}
             {#if actionDetail.description}
               <p class="cmd-desc">{actionDetail.description}</p>
             {/if}
             {#if actionDetail.cmd}
-              <pre class="cmd-line">$ {actionDetail.cmd}</pre>
-              <div class="cmd-actions">
-                <button class="run-cmd-btn" on:click={runAction}>Run</button>
-                <button class="copy-cmd-btn" on:click={copyCmd}>Copy command</button>
+              <div class="cmd-line">
+                {#each actionDetail.cmd.replace(/\n+$/, '').split('\n') as line, i (i)}
+                  <div class="cmd-line-row">
+                    <span class="cmd-line-no">{i + 1}</span>
+                    <span class="cmd-line-text">{line}</span>
+                  </div>
+                {/each}
               </div>
             {/if}
           {:else}
@@ -411,7 +506,22 @@
     border-bottom: 1px solid #3a4a63;
   }
 
+  .panel-title-text {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .panel-title-selected {
+    text-transform: none;
+    font-weight: 400;
+    color: #d7dee8;
+  }
+
   .collapse-btn {
+    flex: none;
     background: none;
     border: none;
     color: #7fd4ff;
@@ -455,6 +565,58 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+  }
+
+  .group-filter {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px 0;
+  }
+
+  .group-filter-toggle {
+    flex: none;
+    padding: 2px 4px;
+  }
+
+  .group-summary {
+    color: #a9b6c8;
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .group-chips {
+    flex: 1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    min-width: 0;
+  }
+
+  .chip {
+    background: #14202f;
+    color: #a9b6c8;
+    border: 1px solid #3a4a63;
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .chip:hover {
+    background: #1f3346;
+    color: #d7dee8;
+  }
+
+  .chip.active {
+    background: #e8a33d;
+    border-color: #e8a33d;
+    color: #1b2636;
+    font-weight: 700;
   }
 
   .row {
@@ -543,18 +705,46 @@
   }
 
   .cmd-line {
-    white-space: pre-wrap;
-    word-break: break-word;
     background: #14202f;
     border-radius: 4px;
-    padding: 8px;
+    padding: 8px 0;
     margin: 0 0 8px;
     color: #d7dee8;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.85rem;
+  }
+
+  .cmd-line-row {
+    display: flex;
+    gap: 10px;
+    padding: 0 8px;
+  }
+
+  .cmd-line-no {
+    flex: none;
+    width: 1.6em;
+    text-align: right;
+    color: #4a5b74;
+    user-select: none;
+  }
+
+  .cmd-line-text {
+    flex: 1;
+    min-width: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   .cmd-actions {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: flex;
     gap: 8px;
+    margin: -6px -6px 8px;
+    padding: 6px 6px 8px;
+    background: #1f2c3d;
+    box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.5);
   }
 
   .copy-cmd-btn {

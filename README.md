@@ -232,9 +232,10 @@ actions:
 `cmd/script-manager-gui/` is a desktop GUI built with [Wails](https://wails.io) (Go backend + Svelte frontend) that reads the **same `config.yaml`** as the TUI:
 
 - Items pane → Actions pane → Details pane, exactly as configured in `display.list` / `display.details`
+- Actions can be filtered by group with a row of chips above the Actions list ("All" + one per group found on the item's actions), same grouping the TUI cycles through with `[` / `]`. Unlike the TUI, multiple groups can be selected at once (shows the union of matching actions); clicking "All" clears the selection back to everything. The chip row itself is collapsible (▾/▸) — collapsed, it shows the selected groups as text (e.g. "Groups: safe, diagnostics"); this collapsed state persists across restarts like the other panes
 - Markdown details rendering (tables, `<br>`, bold/italic, etc.) with masked (`{{mask ...}}`) values click-to-copy without ever displaying the secret
 - Command preview (expanded template) for the selected action, with a copy button
-- All four panes are collapsible (▾/▸ in each header) and resizable (drag the thin dividers between panes); sizes and collapsed state persist across restarts
+- All four panes are collapsible (▾/▸ in each header) and resizable (drag the thin dividers between panes); sizes and collapsed state persist across restarts. Collapsed, the Items and Actions headers show the current selection (e.g. "Actions · Test output") so you don't lose context
 - `F5` reloads the config from disk in place — same semantics as the TUI: previous state is kept on a read/parse failure, with the error shown as a toast instead
 
 ### Running actions (Windows only, for now)
