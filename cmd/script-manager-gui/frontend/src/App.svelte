@@ -8,6 +8,7 @@
     GetItemDetails,
     CopyToClipboard,
     ReloadConfig,
+    RunAction,
   } from '../wailsjs/go/main/App.js'
   import type { main } from '../wailsjs/go/models'
 
@@ -73,6 +74,16 @@
   function copyCmd() {
     if (!actionDetail?.cmd) return
     copyToClipboard(actionDetail.cmd, 'Command copied to clipboard')
+  }
+
+  async function runAction() {
+    if (selectedItem < 0 || selectedActionIndex < 0) return
+    try {
+      await RunAction(selectedItem, selectedActionIndex)
+      flash('Running in Windows Terminal…')
+    } catch (err) {
+      flash(`Run failed: ${err}`)
+    }
   }
 
   async function reloadConfig() {
@@ -307,7 +318,10 @@
             {/if}
             {#if actionDetail.cmd}
               <pre class="cmd-line">$ {actionDetail.cmd}</pre>
-              <button class="copy-cmd-btn" on:click={copyCmd}>Copy command</button>
+              <div class="cmd-actions">
+                <button class="run-cmd-btn" on:click={runAction}>Run</button>
+                <button class="copy-cmd-btn" on:click={copyCmd}>Copy command</button>
+              </div>
             {/if}
           {:else}
             <div class="empty">Select an action to preview its command</div>
@@ -538,6 +552,11 @@
     color: #d7dee8;
   }
 
+  .cmd-actions {
+    display: flex;
+    gap: 8px;
+  }
+
   .copy-cmd-btn {
     background: #2b3b52;
     color: #d7dee8;
@@ -550,6 +569,21 @@
 
   .copy-cmd-btn:hover {
     background: #34455e;
+  }
+
+  .run-cmd-btn {
+    background: #e8a33d;
+    color: #1b2636;
+    border: 1px solid #e8a33d;
+    border-radius: 4px;
+    padding: 5px 12px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+
+  .run-cmd-btn:hover {
+    background: #f0b25a;
   }
 
   .toast {

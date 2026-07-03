@@ -15,3 +15,5 @@ export function GetItems():Promise<Array<main.ItemDTO>>;
 export function GetTitles():Promise<main.TitlesDTO>;
 
 export function ReloadConfig():Promise<void>;
+
+export function RunAction(arg1:number,arg2:number):Promise<void>;

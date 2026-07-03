@@ -2,6 +2,12 @@
 
 A terminal UI for organising and running shell scripts across a list of configurable items. Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). A companion desktop GUI (browse-only for now) is also available — see [GUI](#gui).
 
+# Disclaimer
+
+This app is 100% vibe-coded by Claude. No human has read most of this code, and Claude doesn't have hands to knock on wood, so there's no guarantee or claim that any of it works perfectly. It exists purely because a developer wanted a nicer way to run his scripts but was too lazy to write one himself, so he made an AI do it instead — truly the pinnacle of engineering effort. Use at your own risk, read the code before trusting it with anything important, and if it deletes your production database, that's between you and the vibes.
+
+*PS: Claude also wrote this disclaimer, so take it with the appropriate grain of salt.*
+
 ## Features
 
 - **Config-driven** — define items, display templates, and actions in a YAML file; no code changes needed
@@ -220,14 +226,25 @@ actions:
 
 ## GUI
 
-`cmd/script-manager-gui/` is a desktop GUI built with [Wails](https://wails.io) (Go backend + Svelte frontend) that reads the **same `config.yaml`** as the TUI. It currently covers browsing only:
+`cmd/script-manager-gui/` is a desktop GUI built with [Wails](https://wails.io) (Go backend + Svelte frontend) that reads the **same `config.yaml`** as the TUI:
 
 - Items pane → Actions pane → Details pane, exactly as configured in `display.list` / `display.details`
 - Markdown details rendering (tables, `<br>`, bold/italic, etc.) with masked (`{{mask ...}}`) values click-to-copy without ever displaying the secret
 - Command preview (expanded template) for the selected action, with a copy button
+- All four panes are collapsible (▾/▸ in each header) and resizable (drag the thin dividers between panes); sizes and collapsed state persist across restarts
 - `F5` reloads the config from disk in place — same semantics as the TUI: previous state is kept on a read/parse failure, with the error shown as a toast instead
 
-It does **not** run actions yet — there is no live output streaming or PTY support. Running actions from the GUI is a possible future addition; for now, use the TUI to execute scripts.
+### Running actions (Windows only, for now)
+
+The **Run** button in the Command pane opens the expanded command as a new tab in a dedicated Windows Terminal window (named `script-manager`), reusing that same window across every run instead of spawning a new one each time. Requirements:
+
+- Windows, with `wt.exe` (Windows Terminal) on `PATH` — if it's missing, Run shows an error toast rather than falling back to another terminal
+- The action's `noWait` flag controls whether the tab stays open after the command finishes: `false` (default) keeps it open so you can read the output; `true` closes it automatically, same intent as the TUI's `noWait`
+- The tab's starting directory is the GUI executable's folder (not the user's home directory), so relative paths in `cmd:` templates resolve the same way as `config.yaml` auto-detection does
+
+The expanded command is written to a temporary script file (`.ps1` for PowerShell/pwsh, `.bat` for cmd.exe) and run with `-File`/as the script argument, rather than inlined on the command line — `wt.exe`'s own reconstruction of the argv after `--` doesn't reliably survive multi-line scripts with embedded quotes, so only a plain file path is passed through instead. These temp files aren't cleaned up automatically; they're small and land in the usual OS temp directory.
+
+There's no output streamed back into the GUI — the terminal tab is independent once launched, same trade-off as the TUI's own action execution. Linux/macOS support (and non-`wt` terminals) may follow later; other platforms currently get a clear "not supported" error instead of a silent no-op.
 
 Launch it the same way as the TUI:
 

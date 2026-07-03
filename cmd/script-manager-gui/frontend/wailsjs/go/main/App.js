@@ -29,3 +29,7 @@ export function GetTitles() {
 export function ReloadConfig() {
   return window['go']['main']['App']['ReloadConfig']();
 }
+
+export function RunAction(arg1, arg2) {
+  return window['go']['main']['App']['RunAction'](arg1, arg2);
+}

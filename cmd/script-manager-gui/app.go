@@ -3,8 +3,13 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"maps"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"text/template"
@@ -18,17 +23,25 @@ import (
 	"github.com/yuin/goldmark/renderer/html"
 )
 
+// wtWindowName is the Windows Terminal window name actions are run in. Every
+// invocation of `wt -w <name>` reuses the window still open under that name
+// (creating it on first use), giving the app a single dedicated WT instance
+// instead of spawning a new window per action.
+const wtWindowName = "script-manager"
+
 // App is the Wails-bound backend. Every exported method becomes a callable
 // binding on the frontend.
 type App struct {
-	ctx context.Context
-	cfg *config.Config
-	md  goldmark.Markdown
+	ctx    context.Context
+	cfg    *config.Config
+	md     goldmark.Markdown
+	exeDir string
 }
 
 func NewApp() *App {
 	return &App{
-		cfg: config.Load(),
+		cfg:    config.Load(),
+		exeDir: exeDir(),
 		md: goldmark.New(
 			goldmark.WithExtensions(extension.GFM),
 			goldmark.WithRendererOptions(html.WithUnsafe()),
@@ -38,6 +51,16 @@ func NewApp() *App {
 
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
+}
+
+// exeDir returns the directory containing the running executable, or "" if
+// it can't be determined.
+func exeDir() string {
+	exe, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	return filepath.Dir(exe)
 }
 
 // ReloadConfig re-reads config.yaml (or config-win.yaml) from disk. On
@@ -162,6 +185,122 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 		Cmd:         expandTemplate(action.Cmd, merged),
 		NoWait:      action.NoWait,
 	}
+}
+
+// RunAction launches the item/action pair as a new tab in the dedicated
+// Windows Terminal window, reusing it across calls. Windows-only for now —
+// other platforms get a clear error instead of a silent no-op.
+func (a *App) RunAction(itemIndex, actionIndex int) error {
+	if runtime.GOOS != "windows" {
+		return fmt.Errorf("running actions is currently only supported on Windows")
+	}
+	item := a.itemAt(itemIndex)
+	if item == nil {
+		return fmt.Errorf("invalid item")
+	}
+	actions := config.ActionsForItem(a.cfg.Actions, item)
+	if actionIndex < 0 || actionIndex >= len(actions) {
+		return fmt.Errorf("invalid action")
+	}
+	if len(a.cfg.Shell) == 0 {
+		return fmt.Errorf("no shell configured")
+	}
+	wtPath, err := exec.LookPath("wt.exe")
+	if err != nil {
+		return fmt.Errorf("Windows Terminal (wt.exe) not found in PATH")
+	}
+
+	action := actions[actionIndex]
+	merged := a.mergedItem(item)
+	expandedCmd := expandTemplate(action.Cmd, merged)
+	scriptPath, err := writeTempScript(a.cfg.Shell[0], expandedCmd)
+	if err != nil {
+		return fmt.Errorf("failed to write temp script: %w", err)
+	}
+	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, !action.NoWait)
+
+	title := action.Title
+	if name, ok := item["name"].(string); ok && name != "" {
+		title = action.Title + " · " + name
+	}
+
+	wtArgs := []string{"-w", wtWindowName, "new-tab", "--title", title}
+	if a.exeDir != "" {
+		wtArgs = append(wtArgs, "-d", a.exeDir)
+	}
+	wtArgs = append(wtArgs, "--")
+	wtArgs = append(wtArgs, shellArgv...)
+	cmd := exec.Command(wtPath, wtArgs...)
+	cmd.Env = actionEnv(merged)
+	return cmd.Start()
+}
+
+// writeTempScript writes script to a new temp file with an extension the
+// target shell recognizes, and returns its path. Running the script from a
+// file — rather than inlining it as a single -Command/-c argument — avoids
+// depending on wt.exe's reconstruction of the argv after `--` surviving
+// embedded newlines and quotes, which is unreliable for anything beyond a
+// trivial one-liner.
+func writeTempScript(shellBin, script string) (string, error) {
+	ext := ".txt"
+	switch shellBasename(shellBin) {
+	case "pwsh", "powershell":
+		ext = ".ps1"
+	case "cmd":
+		ext = ".bat"
+	}
+	f, err := os.CreateTemp("", "script-manager-action-*"+ext)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	if _, err := f.WriteString(script); err != nil {
+		return "", err
+	}
+	return f.Name(), nil
+}
+
+func shellBasename(shellBin string) string {
+	return strings.ToLower(strings.TrimSuffix(filepath.Base(shellBin), ".exe"))
+}
+
+// buildShellArgv returns the full argv (shell binary + args) that runs
+// scriptPath, for the given shell. When stayOpen is true it uses a
+// shell-specific flag so the tab remains open (and the output visible) after
+// the script finishes, rather than closing immediately.
+func buildShellArgv(shell []string, scriptPath string, stayOpen bool) []string {
+	switch shellBasename(shell[0]) {
+	case "pwsh", "powershell":
+		argv := []string{shell[0]}
+		for _, a := range shell[1:] {
+			if strings.EqualFold(a, "-command") {
+				continue
+			}
+			argv = append(argv, a)
+		}
+		if stayOpen {
+			argv = append(argv, "-NoExit")
+		}
+		return append(argv, "-File", scriptPath)
+	case "cmd":
+		flag := "/c"
+		if stayOpen {
+			flag = "/k"
+		}
+		return []string{shell[0], flag, scriptPath}
+	default:
+		return append(append([]string{}, shell...), scriptPath)
+	}
+}
+
+// actionEnv mirrors the TUI's runAction: the process environment plus every
+// item field exported as an uppercase variable.
+func actionEnv(item map[string]any) []string {
+	env := os.Environ()
+	for k, v := range item {
+		env = append(env, strings.ToUpper(k)+"="+fmt.Sprint(v))
+	}
+	return env
 }
 
 func expandTemplate(src string, data map[string]any) string {
