@@ -164,21 +164,27 @@ type DescriptionTile struct {
 }
 
 func newDescriptionTile(displays []config.DisplayConfig) *DescriptionTile {
+	t := &DescriptionTile{
+		BaseTile: &tl.BaseTile{
+			Name: "description",
+			Size: tl.Size{Weight: 1},
+		},
+		title: "Details",
+	}
+	t.SetDisplays(displays)
+	return t
+}
+
+// SetDisplays replaces the display templates, e.g. after a config reload.
+func (t *DescriptionTile) SetDisplays(displays config.DisplayList) {
 	funcMap := template.FuncMap{"mask": render.MaskFunc}
 	tmpls := make(map[string]*template.Template, len(displays))
 	for _, d := range displays {
 		tmpl, _ := template.New("detail").Funcs(funcMap).Parse(d.Details)
 		tmpls[d.Name] = tmpl
 	}
-	return &DescriptionTile{
-		BaseTile: &tl.BaseTile{
-			Name: "description",
-			Size: tl.Size{Weight: 1},
-		},
-		displays: displays,
-		tmpls:    tmpls,
-		title:    "Details",
-	}
+	t.displays = displays
+	t.tmpls = tmpls
 }
 
 func (t *DescriptionTile) SetItem(item map[string]any) {

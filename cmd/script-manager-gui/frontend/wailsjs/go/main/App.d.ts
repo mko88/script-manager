@@ -4,7 +4,7 @@ import {main} from '../models';
 
 export function CopyToClipboard(arg1:string):Promise<void>;
 
-export function GetActionDetail(arg1:number,arg2:string):Promise<main.ActionDetailDTO>;
+export function GetActionDetail(arg1:number,arg2:number):Promise<main.ActionDetailDTO>;
 
 export function GetActions(arg1:number):Promise<Array<main.ActionDTO>>;
 
@@ -13,3 +13,5 @@ export function GetItemDetails(arg1:number):Promise<main.DetailsDTO>;
 export function GetItems():Promise<Array<main.ItemDTO>>;
 
 export function GetTitles():Promise<main.TitlesDTO>;
+
+export function ReloadConfig():Promise<void>;

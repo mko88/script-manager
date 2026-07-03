@@ -30,6 +30,7 @@ var contextHelp = map[statusContext][]struct{ key, desc string }{
 	ctxItemSelect: {
 		{"↑↓ / k j", "Navigate"},
 		{"Enter / Tab", "Select item"},
+		{"F5", "Reload config"},
 		{"Q", "Quit"},
 	},
 	ctxActionsFocused: {
@@ -37,12 +38,14 @@ var contextHelp = map[statusContext][]struct{ key, desc string }{
 		{"[ ]", "Cycle group"},
 		{"Enter", "Run action"},
 		{"Tab / ←→", "Next pane"},
+		{"F5", "Reload config"},
 		{"Esc", "Back to items"},
 	},
 	ctxDetailsFocused: {
 		{"↑↓ / k j", "Scroll"},
 		{"Enter", "Select value to copy"},
 		{"Tab / ←→", "Next pane"},
+		{"F5", "Reload config"},
 		{"Esc", "Back to items"},
 	},
 	ctxDetailsCopyMode: {
@@ -53,6 +56,7 @@ var contextHelp = map[statusContext][]struct{ key, desc string }{
 		{"↑↓ / k j", "Scroll"},
 		{"y", "Copy command"},
 		{"Tab / ←→", "Next pane"},
+		{"F5", "Reload config"},
 		{"Esc", "Back to items"},
 	},
 }

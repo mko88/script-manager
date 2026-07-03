@@ -1,6 +1,7 @@
 export namespace main {
 	
 	export class ActionDTO {
+	    index: number;
 	    id: string;
 	    title: string;
 	    groups: string[];
@@ -11,6 +12,7 @@ export namespace main {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.index = source["index"];
 	        this.id = source["id"];
 	        this.title = source["title"];
 	        this.groups = source["groups"];

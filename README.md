@@ -59,6 +59,7 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 | `↑` / `k` | Move up |
 | `↓` / `j` | Move down |
 | `Enter` / `Tab` | Select item, enter action mode |
+| `F5` | Reload `config.yaml` from disk |
 | `Q` / `Esc` / `Ctrl+C` | Quit |
 
 ### Action selection mode
@@ -73,8 +74,11 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 | `Enter` | Run the selected action |
 | `y` | Copy the expanded command to clipboard |
 | `Enter` | Run action (Actions pane) / enter copy-value mode (Details pane) |
+| `F5` | Reload `config.yaml` from disk |
 | `Esc` | Back to item selection |
 | `Q` / `Ctrl+C` | Quit |
+
+`F5` works in either mode. It re-reads the config file, refreshes items/actions/details/titles in place, and preserves your current selection where still valid. If the file fails to read or has a YAML syntax error, the previous config is kept and the status bar shows the error instead of wiping your session.
 
 ## Usage
 
@@ -221,6 +225,7 @@ actions:
 - Items pane → Actions pane → Details pane, exactly as configured in `display.list` / `display.details`
 - Markdown details rendering (tables, `<br>`, bold/italic, etc.) with masked (`{{mask ...}}`) values click-to-copy without ever displaying the secret
 - Command preview (expanded template) for the selected action, with a copy button
+- `F5` reloads the config from disk in place — same semantics as the TUI: previous state is kept on a read/parse failure, with the error shown as a toast instead
 
 It does **not** run actions yet — there is no live output streaming or PTY support. Running actions from the GUI is a possible future addition; for now, use the TUI to execute scripts.
 

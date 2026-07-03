@@ -25,3 +25,7 @@ export function GetItems() {
 export function GetTitles() {
   return window['go']['main']['App']['GetTitles']();
 }
+
+export function ReloadConfig() {
+  return window['go']['main']['App']['ReloadConfig']();
+}

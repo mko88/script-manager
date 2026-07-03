@@ -89,20 +89,35 @@ type ListTile struct {
 }
 
 func newListTile(items []map[string]any, displays []config.DisplayConfig) *ListTile {
+	t := &ListTile{
+		BaseTile: &tl.BaseTile{
+			Name: "list",
+			Size: tl.Size{Weight: 1},
+		},
+		title: "Items",
+	}
+	t.SetItems(items, displays)
+	return t
+}
+
+// SetItems replaces the item list and display templates, e.g. after a config
+// reload. The current selection is preserved when still in range.
+func (t *ListTile) SetItems(items []map[string]any, displays []config.DisplayConfig) {
 	tmpls := make(map[string]*template.Template, len(displays))
 	for _, d := range displays {
 		tmpl, _ := template.New("list").Parse(d.List)
 		tmpls[d.Name] = tmpl
 	}
-	return &ListTile{
-		BaseTile: &tl.BaseTile{
-			Name: "list",
-			Size: tl.Size{Weight: 1},
-		},
-		items:    items,
-		displays: displays,
-		tmpls:    tmpls,
-		title:    "Items",
+	t.items = items
+	t.displays = displays
+	t.tmpls = tmpls
+	switch {
+	case len(items) == 0:
+		t.selected = 0
+	case t.selected >= len(items):
+		t.selected = len(items) - 1
+	case t.selected < 0:
+		t.selected = 0
 	}
 }
 

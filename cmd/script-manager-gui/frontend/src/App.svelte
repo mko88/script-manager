@@ -7,6 +7,7 @@
     GetActionDetail,
     GetItemDetails,
     CopyToClipboard,
+    ReloadConfig,
   } from '../wailsjs/go/main/App.js'
   import type { main } from '../wailsjs/go/models'
 
@@ -17,7 +18,7 @@
   let actionDetail: main.ActionDetailDTO | null = null
 
   let selectedItem = -1
-  let selectedActionId: string | null = null
+  let selectedActionIndex = -1
   let toast = ''
   let toastTimer: ReturnType<typeof setTimeout>
 
@@ -29,16 +30,16 @@
 
   async function selectItem(index: number) {
     selectedItem = index
-    selectedActionId = null
+    selectedActionIndex = -1
     actionDetail = null
     actions = await GetActions(index)
     details = await GetItemDetails(index)
   }
 
-  async function selectAction(id: string) {
+  async function selectAction(index: number) {
     if (selectedItem < 0) return
-    selectedActionId = id
-    actionDetail = await GetActionDetail(selectedItem, id)
+    selectedActionIndex = index
+    actionDetail = await GetActionDetail(selectedItem, index)
   }
 
   function flash(msg: string) {
@@ -73,7 +74,37 @@
     if (!actionDetail?.cmd) return
     copyToClipboard(actionDetail.cmd, 'Command copied to clipboard')
   }
+
+  async function reloadConfig() {
+    try {
+      await ReloadConfig()
+    } catch (err) {
+      flash(`Reload failed: ${err}`)
+      return
+    }
+    titles = await GetTitles()
+    const newItems = await GetItems()
+    items = newItems
+    if (newItems.length === 0) {
+      selectedItem = -1
+      actions = []
+      details = null
+      actionDetail = null
+    } else {
+      await selectItem(Math.min(selectedItem < 0 ? 0 : selectedItem, newItems.length - 1))
+    }
+    flash('Config reloaded')
+  }
+
+  function onKeyDown(e: KeyboardEvent) {
+    if (e.key === 'F5') {
+      e.preventDefault()
+      reloadConfig()
+    }
+  }
 </script>
+
+<svelte:window on:keydown={onKeyDown} />
 
 <main class="app-shell">
   <div class="col col-left">
@@ -96,11 +127,11 @@
     <section class="panel panel-actions">
       <header class="panel-title">{titles.actions}</header>
       <div class="panel-body list">
-        {#each actions as action (action.id || action.title)}
+        {#each actions as action (action.index)}
           <button
             class="row"
-            class:selected={action.id === selectedActionId}
-            on:click={() => selectAction(action.id)}
+            class:selected={action.index === selectedActionIndex}
+            on:click={() => selectAction(action.index)}
           >{action.title}</button>
         {/each}
         {#if selectedItem >= 0 && actions.length === 0}

@@ -21,12 +21,13 @@ func main() {
 	cfgPath := flag.String("config", "", "path to config file (default: auto-detect)")
 	flag.Parse()
 
-	var cfg *config.Config
-	if *cfgPath != "" {
-		cfg = config.LoadFrom(*cfgPath)
-	} else {
-		cfg = config.Load()
+	loadConfig := func() (*config.Config, error) {
+		if *cfgPath != "" {
+			return config.LoadFromWithError(*cfgPath)
+		}
+		return config.LoadWithError()
 	}
+	cfg, _ := loadConfig()
 
 	fd := int(os.Stdin.Fd())
 	savedState, _ := term.GetState(fd)
@@ -34,7 +35,7 @@ func main() {
 	var state ui.State
 
 	for {
-		a := ui.NewApp(cfg)
+		a := ui.NewApp(cfg, loadConfig)
 		a.RestoreState(state)
 
 		p := tea.NewProgram(a, tea.WithAltScreen())
@@ -46,6 +47,7 @@ func main() {
 
 		result := m.(*ui.App)
 		state = result.SaveState()
+		cfg = result.Config()
 
 		if result.PendingAction() == nil {
 			break

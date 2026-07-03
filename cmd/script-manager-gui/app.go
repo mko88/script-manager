@@ -40,6 +40,19 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
+// ReloadConfig re-reads config.yaml (or config-win.yaml) from disk. On
+// failure — a missing file or a YAML syntax error — the previously loaded
+// config is kept and an error is returned so the frontend can surface it
+// without losing the current view.
+func (a *App) ReloadConfig() error {
+	cfg, err := config.LoadWithError()
+	if err != nil {
+		return err
+	}
+	a.cfg = cfg
+	return nil
+}
+
 // TitlesDTO mirrors config.TitlesConfig for the frontend pane headers.
 type TitlesDTO struct {
 	Items   string `json:"items"`
@@ -105,17 +118,22 @@ func (a *App) itemAt(index int) map[string]any {
 
 // ActionDTO is a row in the actions list for the selected item.
 type ActionDTO struct {
+	Index  int      `json:"index"`
 	ID     string   `json:"id"`
 	Title  string   `json:"title"`
 	Groups []string `json:"groups"`
 }
 
+// GetActions returns the actions available for the item, in the same order
+// GetActionDetail expects to receive back via ActionDTO.Index. Action IDs are
+// optional (customActions rarely set one) so the index, not the ID, is the
+// only reliable way to address a specific action.
 func (a *App) GetActions(itemIndex int) []ActionDTO {
 	item := a.itemAt(itemIndex)
 	actions := config.ActionsForItem(a.cfg.Actions, item)
 	out := make([]ActionDTO, len(actions))
 	for i, act := range actions {
-		out[i] = ActionDTO{ID: act.ID, Title: act.Title, Groups: act.Groups}
+		out[i] = ActionDTO{Index: i, ID: act.ID, Title: act.Title, Groups: act.Groups}
 	}
 	return out
 }
@@ -128,22 +146,16 @@ type ActionDetailDTO struct {
 	NoWait      bool   `json:"noWait"`
 }
 
-func (a *App) GetActionDetail(itemIndex int, actionID string) ActionDetailDTO {
+func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 	item := a.itemAt(itemIndex)
 	if item == nil {
 		return ActionDetailDTO{}
 	}
 	actions := config.ActionsForItem(a.cfg.Actions, item)
-	var action *config.Action
-	for i := range actions {
-		if actions[i].ID == actionID {
-			action = &actions[i]
-			break
-		}
-	}
-	if action == nil {
+	if actionIndex < 0 || actionIndex >= len(actions) {
 		return ActionDetailDTO{}
 	}
+	action := actions[actionIndex]
 	merged := a.mergedItem(item)
 	return ActionDetailDTO{
 		Description: expandTemplate(action.Description, merged),

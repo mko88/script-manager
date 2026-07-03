@@ -1,9 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -200,6 +202,15 @@ func strVal(v any) string {
 // then the working directory. On Windows, config-win.yaml takes precedence.
 // Pass an explicit path via LoadFrom to override this behaviour.
 func Load() *Config {
+	cfg, _ := LoadWithError()
+	return cfg
+}
+
+// LoadWithError behaves like Load but also reports the last error
+// encountered (e.g. a missing file or a YAML syntax error). Callers that want
+// to reload a config without losing the previous one on failure (see a
+// config-reload action) should use this instead of Load.
+func LoadWithError() (*Config, error) {
 	name := "config.yaml"
 	if runtime.GOOS == "windows" {
 		name = "config-win.yaml"
@@ -216,20 +227,32 @@ func Load() *Config {
 
 // LoadFrom loads a config from an explicit file path.
 func LoadFrom(path string) *Config {
+	cfg, _ := LoadFromWithError(path)
+	return cfg
+}
+
+// LoadFromWithError behaves like LoadFrom but also reports the error.
+func LoadFromWithError(path string) (*Config, error) {
 	return loadPaths([]string{path})
 }
 
-func loadPaths(paths []string) *Config {
+func loadPaths(paths []string) (*Config, error) {
+	var lastErr error
 	for _, p := range paths {
 		data, err := os.ReadFile(p)
 		if err != nil {
+			lastErr = err
 			continue
 		}
 		var cfg Config
 		if err := yaml.Unmarshal(data, &cfg); err != nil {
+			lastErr = err
 			continue
 		}
-		return &cfg
+		return &cfg, nil
 	}
-	return &Config{}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("no config file found (tried %s)", strings.Join(paths, ", "))
+	}
+	return &Config{}, lastErr
 }

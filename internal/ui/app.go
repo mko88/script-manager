@@ -42,6 +42,8 @@ type App struct {
 	actionsTileTitle  string          // base title before group suffix
 	savedListOffset   int
 	msgToken          int
+	reload            func() (*config.Config, error)
+	cfg               *config.Config
 }
 
 // State captures all cursor/scroll/focus/mode positions so they can be
@@ -62,7 +64,7 @@ func orTitle(configured, def string) string {
 	return def
 }
 
-func NewApp(cfg *config.Config) *App {
+func NewApp(cfg *config.Config, reload func() (*config.Config, error)) *App {
 	list := newListTile(cfg.Items, cfg.Display)
 	list.title = orTitle(cfg.Titles.Items, list.title)
 
@@ -103,6 +105,8 @@ func NewApp(cfg *config.Config) *App {
 		globalEnv:        cfg.Env,
 		allActions:       cfg.Actions,
 		actionsTileTitle: actionsPanel.title,
+		reload:           reload,
+		cfg:              cfg,
 	}
 	a.actionsPanel.selected = -1
 	a.description.SetItem(a.mergedItem(list.Selected()))
@@ -112,6 +116,59 @@ func NewApp(cfg *config.Config) *App {
 
 func (a *App) PendingAction() *config.Action { return a.pendingAction }
 func (a *App) PendingItem() map[string]any   { return a.pendingItem }
+
+// Config returns the config currently backing the app — the one passed to
+// NewApp, or the most recent successful reload.
+func (a *App) Config() *config.Config { return a.cfg }
+
+// applyConfig refreshes every tile from a freshly reloaded config, preserving
+// the current selection/scroll positions where still valid.
+func (a *App) applyConfig(cfg *config.Config) {
+	a.cfg = cfg
+	a.list.SetItems(cfg.Items, cfg.Display)
+	a.list.title = orTitle(cfg.Titles.Items, "Items")
+
+	a.description.SetDisplays(cfg.Display)
+	a.description.title = orTitle(cfg.Titles.Details, "Details")
+
+	a.actionsTileTitle = orTitle(cfg.Titles.Actions, "Actions")
+	a.cmdBar.title = orTitle(cfg.Titles.Command, "Command")
+
+	a.globalEnv = cfg.Env
+	a.allActions = cfg.Actions
+
+	a.description.SetItem(a.mergedItem(a.list.Selected()))
+	a.description.ResetScroll()
+	a.updateActionsForItem()
+
+	if a.mode == modeSelectAction {
+		switch {
+		case len(a.actionsPanel.actions) == 0:
+			a.actionsPanel.selected = 0
+		case a.actionsPanel.selected >= len(a.actionsPanel.actions):
+			a.actionsPanel.selected = len(a.actionsPanel.actions) - 1
+		case a.actionsPanel.selected < 0:
+			a.actionsPanel.selected = 0
+		}
+		a.cmdBar.SetCmd(a.expandCmd())
+		a.cmdBar.SetDescription(a.actionDescription())
+		a.cmdBar.ResetScroll()
+	}
+}
+
+// reloadConfig re-reads the config from disk and, on success, refreshes the
+// app in place. On failure the previous config is kept.
+func (a *App) reloadConfig() tea.Cmd {
+	if a.reload == nil {
+		return nil
+	}
+	cfg, err := a.reload()
+	if err != nil {
+		return a.flashMessage("Reload failed: "+err.Error(), 3*time.Second)
+	}
+	a.applyConfig(cfg)
+	return a.flashMessage("Config reloaded", 2*time.Second)
+}
 
 func (a *App) SaveState() State {
 	s := State{
@@ -338,6 +395,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "q", "Q", "ctrl+c":
 			return a, tea.Quit
+		case "f5":
+			return a, a.reloadConfig()
 		case "esc":
 			if a.description.IsCopyMode() {
 				a.description.ExitCopyMode()
