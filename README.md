@@ -1,6 +1,6 @@
 # script-manager
 
-A terminal UI for organising and running shell scripts across a list of configurable items. Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea).
+A terminal UI for organising and running shell scripts across a list of configurable items. Built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). A companion desktop GUI (browse-only for now) is also available — see [GUI](#gui).
 
 ## Features
 
@@ -214,6 +214,50 @@ actions:
     cmd: Get-Content C:\Windows\System32\drivers\etc\hosts
 ```
 
+## GUI
+
+`cmd/script-manager-gui/` is a desktop GUI built with [Wails](https://wails.io) (Go backend + Svelte frontend) that reads the **same `config.yaml`** as the TUI. It currently covers browsing only:
+
+- Items pane → Actions pane → Details pane, exactly as configured in `display.list` / `display.details`
+- Markdown details rendering (tables, `<br>`, bold/italic, etc.) with masked (`{{mask ...}}`) values click-to-copy without ever displaying the secret
+- Command preview (expanded template) for the selected action, with a copy button
+
+It does **not** run actions yet — there is no live output streaming or PTY support. Running actions from the GUI is a possible future addition; for now, use the TUI to execute scripts.
+
+Launch it the same way as the TUI:
+
+```bash
+./bin/script-manager-gui
+```
+
+It auto-detects `config.yaml` next to the binary or in the working directory (same rule as the TUI; no `-config` flag yet).
+
+### GUI build requirements
+
+Building the GUI requires the [Wails CLI](https://wails.io/docs/gettingstarted/installation), Node.js, and (for the Linux target) GTK/WebKit headers, in addition to Go:
+
+```bash
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+# Linux target — GTK/WebKit headers and Node.js
+sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config nodejs npm
+```
+
+This devcontainer already has all of this preinstalled — see `.devcontainer/setup.sh`. Nothing needs to be installed on your host machine to build any target, including Windows, from here.
+
+The Windows GUI binary **can be cross-compiled from Linux** — Wails' Windows target only needs a C cross-compiler (`mingw-w64`) at build time, not a running Windows OS. WebView2 itself (needed only at *runtime*) is preinstalled on Windows 10/11.
+
+```bash
+# one-time: sudo apt install gcc-mingw-w64-x86-64
+
+cd cmd/script-manager-gui
+GOOS=windows GOARCH=amd64 CGO_ENABLED=1 \
+  CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ \
+  wails build -platform windows/amd64
+```
+
+macOS is the one target that genuinely needs to be built on macOS (Apple's toolchain/frameworks aren't cross-compilable from Linux).
+
 ## Building
 
 Requires Go 1.21+.
@@ -225,12 +269,21 @@ bash build.sh
 Produces:
 - `bin/script-manager` — Linux amd64
 - `bin/script-manager.exe` — Windows amd64
+- `bin/script-manager-gui` — Linux amd64 GUI (only if the `wails` CLI is installed; skipped otherwise)
+- `bin/script-manager-gui.exe` — Windows amd64 GUI, cross-compiled (only if `mingw-w64` is installed; skipped otherwise)
 
 To build for a specific target manually:
 
 ```bash
 GOOS=linux   GOARCH=amd64 go build -o bin/script-manager     ./cmd/script-manager/
 GOOS=windows GOARCH=amd64 go build -o bin/script-manager.exe ./cmd/script-manager/
+
+# GUI, Linux
+(cd cmd/script-manager-gui && wails build)
+
+# GUI, Windows (cross-compiled, see above)
+(cd cmd/script-manager-gui && GOOS=windows GOARCH=amd64 CGO_ENABLED=1 \
+  CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ wails build -platform windows/amd64)
 ```
 
 ## Dependencies
@@ -240,3 +293,5 @@ GOOS=windows GOARCH=amd64 go build -o bin/script-manager.exe ./cmd/script-manage
 - [mko88/bubbletea-tilelayout](https://github.com/mko88/bubbletea-tilelayout) — tile layout manager
 - [atotto/clipboard](https://github.com/atotto/clipboard) — clipboard support
 - [gopkg.in/yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3) — config parsing
+- [wailsapp/wails](https://wails.io) — GUI shell (Go backend + native webview)
+- [yuin/goldmark](https://github.com/yuin/goldmark) — Markdown → HTML rendering for the GUI Details pane

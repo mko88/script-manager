@@ -2,13 +2,13 @@ package ui
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
 	"regexp"
 	"strings"
 	"text/template"
 
 	"script-manager/internal/config"
+	"script-manager/internal/render"
 
 	"github.com/charmbracelet/glamour"
 	gansi "github.com/charmbracelet/glamour/ansi"
@@ -18,8 +18,6 @@ import (
 )
 
 var detailContentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
-
-var codeSpanRe = regexp.MustCompile("`([^`\n]+)`")
 
 // brSplitRe splits on <br>, <br/>, <br /> (case-insensitive), consuming any
 // surrounding whitespace and the optional trailing newline.
@@ -32,59 +30,6 @@ var brSplitRe = regexp.MustCompile(`(?i)\s*<br\s*/?>\s*\n?`)
 // source before rendering, then replaced with the styled highlight in the
 // rendered output. It must not contain markdown-special characters.
 const hlSentinel = "XXGLHIGHLIGHTXX"
-
-// maskPrefix is the prefix injected by the mask template function.
-// It must not appear in normal values and must be valid inside a markdown code span.
-const maskPrefix = "GLMASK__"
-
-// maskFunc is exposed as the "mask" template function. It encodes the actual
-// value so the rendering pipeline can detect and hide it; the clipboard still
-// receives the real value.
-func maskFunc(value string) string {
-	return maskPrefix + base64.RawURLEncoding.EncodeToString([]byte(value))
-}
-
-// processMaskSpans scans the expanded template output for code spans whose
-// content was produced by maskFunc. Returns:
-//   - displayMd: markdown with mask markers replaced by ••••••
-//   - copyValues: actual values for the clipboard (decoded for masked spans)
-//   - copyMasked: true for each index whose value was masked
-func processMaskSpans(expanded string) (displayMd string, copyValues []string, copyMasked []bool) {
-	var result []byte
-	lastIdx := 0
-	for _, match := range codeSpanRe.FindAllStringSubmatchIndex(expanded, -1) {
-		result = append(result, expanded[lastIdx:match[0]]...)
-		value := strings.TrimSpace(expanded[match[2]:match[3]])
-		if strings.HasPrefix(value, maskPrefix) {
-			if actual, err := base64.RawURLEncoding.DecodeString(value[len(maskPrefix):]); err == nil {
-				result = append(result, []byte("`••••••`")...)
-				copyValues = append(copyValues, string(actual))
-				copyMasked = append(copyMasked, true)
-				lastIdx = match[1]
-				continue
-			}
-		}
-		result = append(result, expanded[match[0]:match[1]]...)
-		copyValues = append(copyValues, value)
-		copyMasked = append(copyMasked, false)
-		lastIdx = match[1]
-	}
-	result = append(result, expanded[lastIdx:]...)
-	return string(result), copyValues, copyMasked
-}
-
-// markNthCodeSpan replaces the n-th (0-based) backtick span in source with
-// sentinel, leaving all other spans untouched.
-func markNthCodeSpan(source string, n int, sentinel string) string {
-	i := -1
-	return codeSpanRe.ReplaceAllStringFunc(source, func(match string) string {
-		i++
-		if i == n {
-			return sentinel
-		}
-		return match
-	})
-}
 
 func boolPtr(b bool) *bool    { return &b }
 func uintPtr(u uint) *uint    { return &u }
@@ -219,7 +164,7 @@ type DescriptionTile struct {
 }
 
 func newDescriptionTile(displays []config.DisplayConfig) *DescriptionTile {
-	funcMap := template.FuncMap{"mask": maskFunc}
+	funcMap := template.FuncMap{"mask": render.MaskFunc}
 	tmpls := make(map[string]*template.Template, len(displays))
 	for _, d := range displays {
 		tmpl, _ := template.New("detail").Funcs(funcMap).Parse(d.Details)
@@ -334,7 +279,7 @@ func (t *DescriptionTile) View() string {
 
 			// Process masks and extract copy values once per item.
 			if !t.copyValuesSet {
-				t.displayMd, t.copyValues, t.copyMasked = processMaskSpans(expanded)
+				t.displayMd, t.copyValues, t.copyMasked = render.ProcessMaskSpans(expanded)
 				t.copyValuesSet = true
 			}
 
@@ -343,7 +288,7 @@ func (t *DescriptionTile) View() string {
 			// even when the same value appears in multiple code spans.
 			forRender := t.displayMd
 			if t.copyMode && len(t.copyValues) > 0 {
-				forRender = markNthCodeSpan(t.displayMd, t.copyIdx, hlSentinel)
+				forRender = render.MarkNthCodeSpan(t.displayMd, t.copyIdx, hlSentinel)
 			}
 
 			r := t.glamourRenderer(innerW - 2)

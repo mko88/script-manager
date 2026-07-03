@@ -17,6 +17,6 @@
       }
     }
   },
-  "postCreateCommand": "go mod download",
+  "postCreateCommand": "bash .devcontainer/setup.sh",
   "remoteUser": "vscode"
 }
