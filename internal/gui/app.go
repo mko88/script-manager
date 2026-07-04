@@ -212,11 +212,12 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 	}
 }
 
-// RunAction launches the item/action pair in a terminal window: on Windows
-// as a new tab in the dedicated Windows Terminal window (reused across
-// calls), on Linux in the first terminal emulator found on PATH (see
-// linuxTerminals for the order). Other platforms get a clear error instead
-// of a silent no-op.
+// RunAction launches the item/action pair in a terminal window. Which
+// terminal is used is resolved by resolveTerminal: an explicit config.
+// Terminal override takes precedence, otherwise it auto-detects the most
+// common terminal for the current OS (see windowsAutoDetect/linuxAutoDetect
+// in terminal.go). macOS and other platforms get a clear error instead of a
+// silent no-op.
 func (a *App) RunAction(itemIndex, actionIndex int) error {
 	if runtime.GOOS != "windows" && runtime.GOOS != "linux" {
 		return fmt.Errorf("running actions is not supported on %s", runtime.GOOS)
@@ -233,23 +234,21 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 		return fmt.Errorf("no shell configured")
 	}
 
-	// Resolve the terminal before writing anything to disk, so a missing
-	// terminal fails fast without leaving a temp script behind.
-	var wtPath string
-	var linTerm linuxTerminal
-	var err error
-	if runtime.GOOS == "windows" {
-		if wtPath, err = exec.LookPath("wt.exe"); err != nil {
-			return fmt.Errorf("Windows Terminal (wt.exe) not found in PATH")
-		}
-	} else {
-		if linTerm, err = findLinuxTerminal(); err != nil {
-			return err
-		}
-	}
-
 	act := actions[actionIndex]
 	merged := a.mergedItem(item)
+
+	title := act.Title
+	if name, ok := item[config.KeyName].(string); ok && name != "" {
+		title = act.Title + " · " + name
+	}
+
+	// Resolve the terminal before writing anything to disk, so a missing or
+	// misconfigured terminal fails fast without leaving a temp script behind.
+	term, err := resolveTerminal(a.cfg.Terminal, runtime.GOOS, title, a.exeDir)
+	if err != nil {
+		return err
+	}
+
 	expandedCmd, err := action.Expand(act.Cmd, merged)
 	if err != nil {
 		return fmt.Errorf("cmd template error: %w", err)
@@ -261,25 +260,9 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 	}
 	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, !act.NoWait)
 
-	title := act.Title
-	if name, ok := item[config.KeyName].(string); ok && name != "" {
-		title = act.Title + " · " + name
-	}
-
-	var cmd *exec.Cmd
-	if runtime.GOOS == "windows" {
-		wtArgs := []string{"-w", wtWindowName, "new-tab", "--title", title}
-		if a.exeDir != "" {
-			wtArgs = append(wtArgs, "-d", a.exeDir)
-		}
-		wtArgs = append(wtArgs, "--")
-		wtArgs = append(wtArgs, shellArgv...)
-		cmd = exec.Command(wtPath, wtArgs...)
-	} else {
-		cmd = exec.Command(linTerm.path, linTerm.args(title, a.exeDir, shellArgv)...)
-		if a.exeDir != "" {
-			cmd.Dir = a.exeDir
-		}
+	cmd := exec.Command(term.path, term.args(title, a.exeDir, shellArgv)...)
+	if a.exeDir != "" {
+		cmd.Dir = a.exeDir
 	}
 	cmd.Env = action.Env(merged)
 	if err := cmd.Start(); err != nil {

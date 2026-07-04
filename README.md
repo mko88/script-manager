@@ -260,10 +260,30 @@ actions:
 
 ### Running actions (Windows and Linux)
 
-The **Run** button in the Command pane opens the expanded command in a terminal window:
+The **Run** button in the Command pane opens the expanded command in a terminal window. By default it auto-detects the most common terminal for the current OS, tried in this order until one is found on `PATH`:
 
-- **Windows** — as a new tab in a dedicated Windows Terminal window (named `script-manager`), reusing that same window across every run instead of spawning a new one each time. Requires `wt.exe` (Windows Terminal) on `PATH`; if it's missing, Run shows an error toast rather than falling back to another terminal.
-- **Linux** — in a new window of the first terminal emulator found on `PATH`, tried in this order: `x-terminal-emulator` (the Debian-alternatives default, so your configured terminal wins), `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty`, `xterm`. If none is found, Run shows an error toast listing what was tried.
+- **Windows** — `wt` (Windows Terminal; reuses the same dedicated `script-manager`-named window across every run instead of spawning a new one each time) → `wezterm` → `alacritty` → `cmd` (opens a plain console via `cmd`'s `start` — always present on any Windows install, so Run never has nothing to fall back to)
+- **Linux** — `x-terminal-emulator` (the Debian-alternatives default, so your configured terminal wins) → `gnome-terminal` → `konsole` → `xfce4-terminal` → `terminator` → `kitty` → `alacritty` → `wezterm` → `foot` → `xterm`
+
+#### Choosing a specific terminal
+
+Auto-detection can be overridden with an optional `terminal:` key in `config.yaml`/`config-win.yaml`:
+
+```yaml
+# Pick one specific terminal by name from the built-in list above,
+# skipping auto-detection entirely. Errors clearly if it isn't installed.
+terminal: alacritty
+```
+
+```yaml
+# Or give a fully custom launch command for a terminal that isn't built
+# in. The first element is the binary; the rest are its flags. "{{title}}"
+# and "{{dir}}" are substituted; the resolved shell command (script path
+# and any wrapper flags) is always appended as the final arguments.
+terminal: [wezterm-gui, start, --title, "{{title}}", --cwd, "{{dir}}", --]
+```
+
+Only Windows and Linux are supported; macOS gets a clear "not supported" error rather than a silent no-op.
 
 On both platforms:
 

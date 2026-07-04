@@ -87,13 +87,42 @@ type TitlesConfig struct {
 	Command string `yaml:"command"`
 }
 
+// TerminalConfig selects which terminal emulator the GUI's Run button opens
+// actions in (internal/gui owns the built-in table and auto-detection; the
+// TUI ignores this field entirely since it runs actions inline). The zero
+// value means "auto-detect the most common terminal for this OS". A YAML
+// scalar names one specific built-in terminal, skipping auto-detection; a
+// YAML sequence gives a fully custom argv template for a terminal that isn't
+// built in — the same string-or-list convention Shell already established.
+type TerminalConfig struct {
+	// Name is a key into the GUI's built-in terminal table (e.g. "wt",
+	// "gnome-terminal", "alacritty"), set when the config gave a plain string.
+	Name string
+	// Argv is a custom launch command, set when the config gave a list: the
+	// first element is the terminal binary, the rest are its flags. Elements
+	// may contain the "{{title}}" and "{{dir}}" placeholders; the resolved
+	// shell command is always appended as the final arguments.
+	Argv []string
+}
+
+func (t *TerminalConfig) UnmarshalYAML(value *yaml.Node) error {
+	switch value.Kind {
+	case yaml.ScalarNode:
+		return value.Decode(&t.Name)
+	case yaml.SequenceNode:
+		return value.Decode(&t.Argv)
+	}
+	return fmt.Errorf("terminal: expected a string or a list, got YAML node kind %v", value.Kind)
+}
+
 type Config struct {
-	Shell   []string         `yaml:"shell"`
-	Display DisplayList      `yaml:"display"`
-	Titles  TitlesConfig     `yaml:"titles"`
-	Env     map[string]any   `yaml:"env"`
-	Items   []map[string]any `yaml:"items"`
-	Actions []Action         `yaml:"actions"`
+	Shell    []string         `yaml:"shell"`
+	Display  DisplayList      `yaml:"display"`
+	Titles   TitlesConfig     `yaml:"titles"`
+	Terminal TerminalConfig   `yaml:"terminal"`
+	Env      map[string]any   `yaml:"env"`
+	Items    []map[string]any `yaml:"items"`
+	Actions  []Action         `yaml:"actions"`
 }
 
 // ActionsForItem returns the actions available for the given item.

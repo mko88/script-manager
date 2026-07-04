@@ -139,6 +139,47 @@ func TestDisplayListUnmarshal(t *testing.T) {
 	})
 }
 
+func TestTerminalConfigUnmarshal(t *testing.T) {
+	t.Run("scalar names a built-in terminal", func(t *testing.T) {
+		var tc TerminalConfig
+		if err := yaml.Unmarshal([]byte("gnome-terminal"), &tc); err != nil {
+			t.Fatal(err)
+		}
+		if tc.Name != "gnome-terminal" || tc.Argv != nil {
+			t.Errorf("got %+v", tc)
+		}
+	})
+
+	t.Run("sequence is a custom argv template", func(t *testing.T) {
+		var tc TerminalConfig
+		src := "- my-term\n- --title\n- '{{title}}'\n- --workdir\n- '{{dir}}'\n"
+		if err := yaml.Unmarshal([]byte(src), &tc); err != nil {
+			t.Fatal(err)
+		}
+		want := []string{"my-term", "--title", "{{title}}", "--workdir", "{{dir}}"}
+		if tc.Name != "" || !reflect.DeepEqual(tc.Argv, want) {
+			t.Errorf("got %+v", tc)
+		}
+	})
+
+	t.Run("unset field defaults to auto-detect", func(t *testing.T) {
+		var cfg Config
+		if err := yaml.Unmarshal([]byte("shell: [bash]\n"), &cfg); err != nil {
+			t.Fatal(err)
+		}
+		if cfg.Terminal.Name != "" || cfg.Terminal.Argv != nil {
+			t.Errorf("expected zero-value TerminalConfig, got %+v", cfg.Terminal)
+		}
+	})
+
+	t.Run("mapping is rejected", func(t *testing.T) {
+		var tc TerminalConfig
+		if err := yaml.Unmarshal([]byte("name: wt\n"), &tc); err == nil {
+			t.Error("expected an error for a mapping node")
+		}
+	})
+}
+
 func TestFindDisplay(t *testing.T) {
 	displays := DisplayList{{Name: "default"}, {Name: "alt"}}
 
