@@ -9,7 +9,9 @@ internal/
   config/             ← Config types, YAML loading (config.LoadWithError()),
                         reserved item-key constants (config.KeyName, …)
   action/             ← logic shared by TUI and GUI: Merge, Expand, Preview, Env
-  render/             ← mask pipeline (MaskFunc, ProcessMaskSpans) shared by both
+  render/             ← mask pipeline (MaskFunc, ProcessMaskSpans) and the
+                        #ALL_ENV_LIST#/#ALL_ENV_TABLE# placeholder expansion
+                        (ExpandAllEnv), shared by both frontends
   gui/                ← Wails-bound App backend (DTOs, RunAction, temp scripts);
                         bound under the "gui" namespace (window.go.gui.App)
   ui/                 ← all TUI tiles and the App model

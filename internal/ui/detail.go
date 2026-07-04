@@ -300,10 +300,11 @@ func (t *DescriptionTile) renderItem(innerW, innerH int) []string {
 	if err := tmpl.Execute(&buf, t.item); err != nil {
 		return t.plainLines("details template error: "+err.Error(), innerW)
 	}
+	expanded := render.ExpandAllEnv(buf.String(), t.item)
 
 	// Process masks and extract copy values once per item.
 	if !t.copyValuesSet {
-		t.displayMd, t.copyValues, t.copyMasked = render.ProcessMaskSpans(buf.String())
+		t.displayMd, t.copyValues, t.copyMasked = render.ProcessMaskSpans(expanded)
 		t.copyValuesSet = true
 	}
 

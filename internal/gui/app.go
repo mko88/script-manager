@@ -378,8 +378,9 @@ func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
 	if err := tmpl.Execute(&buf, merged); err != nil {
 		return DetailsDTO{Html: "<pre>details template error: " + err.Error() + "</pre>"}
 	}
+	expanded := render.ExpandAllEnv(buf.String(), merged)
 
-	displayMd, copyValues, copyMasked := render.ProcessMaskSpans(buf.String())
+	displayMd, copyValues, copyMasked := render.ProcessMaskSpans(expanded)
 
 	var htmlBuf bytes.Buffer
 	if err := a.md.Convert([]byte(displayMd), &htmlBuf); err != nil {

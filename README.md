@@ -202,6 +202,24 @@ details: |
 
 The Details pane shows `••••••` instead of the real value. When you enter copy mode and select that row, pressing `Enter` copies the actual secret to the clipboard — it is never displayed.
 
+#### Printing every variable for an item
+
+Rather than listing each field by hand, `display.details` can include either of these literal placeholders (not `{{ }}` template syntax — just the bare text) to have every variable the item exports to its actions' environment rendered automatically:
+
+```yaml
+details: |
+  ### {{.description}}
+
+  #ALL_ENV_LIST#
+
+  #ALL_ENV_TABLE#
+```
+
+- `#ALL_ENV_LIST#` renders a Markdown bullet list: `` - **CLUSTERIP:** `10.0.0.1` ``
+- `#ALL_ENV_TABLE#` renders a two-column Markdown table (`Variable` / `Value`)
+
+Both list every merged variable under its exported (uppercase) name, sorted alphabetically — the `display`, `actions`, `actionGroups`, and `customActions` keys are skipped since they configure action filtering rather than holding data worth displaying. Any variable whose name ends in `password`, `passwd`, `pwd`, `secret`, `key`, `token`, `credential`, `credentials`, or `auth` (case-insensitive) is masked automatically, exactly like an explicit `{{mask ...}}` call — no need to name each secret field yourself.
+
 ### Environment variables
 
 When an action runs, global `env` values and all item fields are exported as uppercase environment variables. Item fields override globals with the same name.

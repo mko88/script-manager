@@ -24,6 +24,10 @@ display:
       | SSH User | `{{.sshUser}}` |
       | Region | `{{.region}}` |{{if .password}}
       | Password | `{{mask .password}}` |{{end}}
+      
+      ### Environment Variables
+      #ALL_ENV_LIST#
+      #ALL_ENV_TABLE#
 
   - name: compact
     list: "{{.name}} ({{.clusterIp}})"
