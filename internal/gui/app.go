@@ -1,10 +1,12 @@
-package main
+// Package gui is the Wails-bound backend for the desktop frontend. Every
+// exported method on App becomes a callable binding in the frontend, under
+// the "gui" namespace (window.go.gui.App).
+package gui
 
 import (
 	"bytes"
 	"context"
 	"fmt"
-	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -13,7 +15,9 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
+	"script-manager/internal/action"
 	"script-manager/internal/config"
 	"script-manager/internal/render"
 
@@ -29,18 +33,27 @@ import (
 // instead of spawning a new window per action.
 const wtWindowName = "script-manager"
 
-// App is the Wails-bound backend. Every exported method becomes a callable
-// binding on the frontend.
+// tempScriptPattern matches the temp files RunAction writes; see
+// cleanupTempScripts for their lifecycle.
+const tempScriptPattern = "script-manager-action-*"
+
+// App is the Wails-bound backend.
 type App struct {
 	ctx    context.Context
 	cfg    *config.Config
+	load   func() (*config.Config, error)
 	md     goldmark.Markdown
 	exeDir string
 }
 
-func NewApp() *App {
+// NewApp builds the backend around a config loader, so an explicit -config
+// path and F5 reloads go through the same resolution.
+func NewApp(load func() (*config.Config, error)) *App {
+	cfg, _ := load()
+	go cleanupTempScripts()
 	return &App{
-		cfg:    config.Load(),
+		cfg:    cfg,
+		load:   load,
 		exeDir: exeDir(),
 		md: goldmark.New(
 			goldmark.WithExtensions(extension.GFM),
@@ -49,7 +62,8 @@ func NewApp() *App {
 	}
 }
 
-func (a *App) startup(ctx context.Context) {
+// Startup is wired as the Wails OnStartup callback.
+func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
@@ -63,12 +77,28 @@ func exeDir() string {
 	return filepath.Dir(exe)
 }
 
-// ReloadConfig re-reads config.yaml (or config-win.yaml) from disk. On
-// failure — a missing file or a YAML syntax error — the previously loaded
-// config is kept and an error is returned so the frontend can surface it
-// without losing the current view.
+// cleanupTempScripts removes action scripts left behind by previous runs.
+// The shell parses a script fully before executing it, so anything older
+// than an hour can no longer be in use — files younger than that are kept in
+// case a previous instance launched them moments ago.
+func cleanupTempScripts() {
+	matches, err := filepath.Glob(filepath.Join(os.TempDir(), tempScriptPattern))
+	if err != nil {
+		return
+	}
+	cutoff := time.Now().Add(-time.Hour)
+	for _, path := range matches {
+		if info, err := os.Stat(path); err == nil && info.ModTime().Before(cutoff) {
+			os.Remove(path)
+		}
+	}
+}
+
+// ReloadConfig re-reads the config from disk. On failure — a missing file or
+// a YAML syntax error — the previously loaded config is kept and an error is
+// returned so the frontend can surface it without losing the current view.
 func (a *App) ReloadConfig() error {
-	cfg, err := config.LoadWithError()
+	cfg, err := a.load()
 	if err != nil {
 		return err
 	}
@@ -81,6 +111,7 @@ type TitlesDTO struct {
 	Items   string `json:"items"`
 	Actions string `json:"actions"`
 	Details string `json:"details"`
+	Command string `json:"command"`
 }
 
 func (a *App) GetTitles() TitlesDTO {
@@ -88,6 +119,7 @@ func (a *App) GetTitles() TitlesDTO {
 		Items:   orDefault(a.cfg.Titles.Items, "Items"),
 		Actions: orDefault(a.cfg.Titles.Actions, "Actions"),
 		Details: orDefault(a.cfg.Titles.Details, "Details"),
+		Command: orDefault(a.cfg.Titles.Command, "Command"),
 	}
 }
 
@@ -112,24 +144,19 @@ func (a *App) GetItems() []ItemDTO {
 	return items
 }
 
+// renderListLabel expands the list template for the item, falling back to
+// the item's name when the template failed to parse or execute.
 func (a *App) renderListLabel(item map[string]any) string {
 	d := config.FindDisplay(a.cfg.Display, item)
-	tmpl, err := template.New("list").Parse(d.List)
+	out, err := action.Expand(d.List, item)
 	if err != nil {
-		return ""
+		return fmt.Sprint(item[config.KeyName])
 	}
-	var buf bytes.Buffer
-	tmpl.Execute(&buf, item)
-	return buf.String()
+	return out
 }
 
-// mergedItem returns a copy of the item with global env vars as defaults.
-// Item-level keys always win over globals.
 func (a *App) mergedItem(item map[string]any) map[string]any {
-	merged := make(map[string]any, len(a.cfg.Env)+len(item))
-	maps.Copy(merged, a.cfg.Env)
-	maps.Copy(merged, item)
-	return merged
+	return action.Merge(a.cfg.Env, item)
 }
 
 func (a *App) itemAt(index int) map[string]any {
@@ -178,12 +205,12 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 	if actionIndex < 0 || actionIndex >= len(actions) {
 		return ActionDetailDTO{}
 	}
-	action := actions[actionIndex]
+	act := actions[actionIndex]
 	merged := a.mergedItem(item)
 	return ActionDetailDTO{
-		Description: expandTemplate(action.Description, merged),
-		Cmd:         expandTemplate(action.Cmd, merged),
-		NoWait:      action.NoWait,
+		Description: action.Preview(act.Description, merged),
+		Cmd:         action.Preview(act.Cmd, merged),
+		NoWait:      act.NoWait,
 	}
 }
 
@@ -210,18 +237,21 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 		return fmt.Errorf("Windows Terminal (wt.exe) not found in PATH")
 	}
 
-	action := actions[actionIndex]
+	act := actions[actionIndex]
 	merged := a.mergedItem(item)
-	expandedCmd := expandTemplate(action.Cmd, merged)
+	expandedCmd, err := action.Expand(act.Cmd, merged)
+	if err != nil {
+		return fmt.Errorf("cmd template error: %w", err)
+	}
 	scriptPath, err := writeTempScript(a.cfg.Shell[0], expandedCmd)
 	if err != nil {
 		return fmt.Errorf("failed to write temp script: %w", err)
 	}
-	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, !action.NoWait)
+	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, !act.NoWait)
 
-	title := action.Title
-	if name, ok := item["name"].(string); ok && name != "" {
-		title = action.Title + " · " + name
+	title := act.Title
+	if name, ok := item[config.KeyName].(string); ok && name != "" {
+		title = act.Title + " · " + name
 	}
 
 	wtArgs := []string{"-w", wtWindowName, "new-tab", "--title", title}
@@ -231,7 +261,7 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 	wtArgs = append(wtArgs, "--")
 	wtArgs = append(wtArgs, shellArgv...)
 	cmd := exec.Command(wtPath, wtArgs...)
-	cmd.Env = actionEnv(merged)
+	cmd.Env = action.Env(merged)
 	return cmd.Start()
 }
 
@@ -240,7 +270,9 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 // file — rather than inlining it as a single -Command/-c argument — avoids
 // depending on wt.exe's reconstruction of the argv after `--` surviving
 // embedded newlines and quotes, which is unreliable for anything beyond a
-// trivial one-liner.
+// trivial one-liner. Leftover files are removed by cleanupTempScripts on the
+// next startup; note the expanded command (including any masked values) is
+// on disk in plain text until then.
 func writeTempScript(shellBin, script string) (string, error) {
 	ext := ".txt"
 	switch shellBasename(shellBin) {
@@ -249,7 +281,7 @@ func writeTempScript(shellBin, script string) (string, error) {
 	case "cmd":
 		ext = ".bat"
 	}
-	f, err := os.CreateTemp("", "script-manager-action-*"+ext)
+	f, err := os.CreateTemp("", tempScriptPattern+ext)
 	if err != nil {
 		return "", err
 	}
@@ -261,7 +293,7 @@ func writeTempScript(shellBin, script string) (string, error) {
 }
 
 func shellBasename(shellBin string) string {
-	return strings.ToLower(strings.TrimSuffix(filepath.Base(shellBin), ".exe"))
+	return strings.TrimSuffix(strings.ToLower(filepath.Base(shellBin)), ".exe")
 }
 
 // buildShellArgv returns the full argv (shell binary + args) that runs
@@ -293,31 +325,6 @@ func buildShellArgv(shell []string, scriptPath string, stayOpen bool) []string {
 	}
 }
 
-// actionEnv mirrors the TUI's runAction: the process environment plus every
-// item field exported as an uppercase variable.
-func actionEnv(item map[string]any) []string {
-	env := os.Environ()
-	for k, v := range item {
-		env = append(env, strings.ToUpper(k)+"="+fmt.Sprint(v))
-	}
-	return env
-}
-
-func expandTemplate(src string, data map[string]any) string {
-	if src == "" {
-		return ""
-	}
-	tmpl, err := template.New("t").Parse(src)
-	if err != nil {
-		return src
-	}
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return src
-	}
-	return buf.String()
-}
-
 // DetailsDTO is the rendered details pane: HTML plus the copyable values
 // found in the source template, in the order they appear.
 type DetailsDTO struct {
@@ -341,10 +348,12 @@ func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
 	funcMap := template.FuncMap{"mask": render.MaskFunc}
 	tmpl, err := template.New("detail").Funcs(funcMap).Parse(d.Details)
 	if err != nil {
-		return DetailsDTO{}
+		return DetailsDTO{Html: "<pre>details template error: " + err.Error() + "</pre>"}
 	}
 	var buf bytes.Buffer
-	tmpl.Execute(&buf, merged)
+	if err := tmpl.Execute(&buf, merged); err != nil {
+		return DetailsDTO{Html: "<pre>details template error: " + err.Error() + "</pre>"}
+	}
 
 	displayMd, copyValues, copyMasked := render.ProcessMaskSpans(buf.String())
 

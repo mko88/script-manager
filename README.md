@@ -16,7 +16,7 @@ This app is 100% vibe-coded by Claude. No human has read most of this code, and 
 - **Config-driven** — define items, display templates, and actions in a YAML file; no code changes needed
 - **Free-form items** — each item is a key/value map; any field can be used in templates or passed as an environment variable to actions
 - **Template expansion** — action commands are Go templates, so you can interpolate item fields directly into commands
-- **Cross-platform** — ships a Linux binary and a Windows binary; automatically loads `config-win.yaml` on Windows if present
+- **Cross-platform** — ships a Linux binary and a Windows binary; on Windows, `config-win.yaml` is preferred when present, falling back to `config.yaml`
 - **Scrollable panes** — all four panes are independently scrollable when focused
 - **Command preview** — the expanded command for the selected action is shown in a dedicated pane with clipboard copy support
 - **State preserved** — returns to the same position after an action completes
@@ -101,7 +101,7 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 
 ## Configuration
 
-Place `config.yaml` in the same directory as the binary (or pass it with `-config`). On Windows, `config-win.yaml` is loaded automatically when present.
+Place `config.yaml` in the same directory as the binary (or pass it with `-config`). On Windows, `config-win.yaml` takes precedence when present — next to the binary or in the working directory — and `config.yaml` is used as the fallback.
 
 ```yaml
 shell:
@@ -246,7 +246,9 @@ The **Run** button in the Command pane opens the expanded command as a new tab i
 - The action's `noWait` flag controls whether the tab stays open after the command finishes: `false` (default) keeps it open so you can read the output; `true` closes it automatically, same intent as the TUI's `noWait`
 - The tab's starting directory is the GUI executable's folder (not the user's home directory), so relative paths in `cmd:` templates resolve the same way as `config.yaml` auto-detection does
 
-The expanded command is written to a temporary script file (`.ps1` for PowerShell/pwsh, `.bat` for cmd.exe) and run with `-File`/as the script argument, rather than inlined on the command line — `wt.exe`'s own reconstruction of the argv after `--` doesn't reliably survive multi-line scripts with embedded quotes, so only a plain file path is passed through instead. These temp files aren't cleaned up automatically; they're small and land in the usual OS temp directory.
+The expanded command is written to a temporary script file (`.ps1` for PowerShell/pwsh, `.bat` for cmd.exe) and run with `-File`/as the script argument, rather than inlined on the command line — `wt.exe`'s own reconstruction of the argv after `--` doesn't reliably survive multi-line scripts with embedded quotes, so only a plain file path is passed through instead. Leftover script files older than an hour are removed automatically the next time the GUI starts.
+
+> **Note on secrets:** the temp script contains the *fully expanded* command. If a `cmd:` template interpolates a value you hide with `{{mask ...}}` in the Details pane, that value sits in plain text in the OS temp directory until the cleanup runs. Avoid putting secrets in `cmd:` templates on shared machines.
 
 There's no output streamed back into the GUI — the terminal tab is independent once launched, same trade-off as the TUI's own action execution. Linux/macOS support (and non-`wt` terminals) may follow later; other platforms currently get a clear "not supported" error instead of a silent no-op.
 
@@ -256,7 +258,11 @@ Launch it the same way as the TUI:
 ./bin/script-manager-gui
 ```
 
-It auto-detects `config.yaml` next to the binary or in the working directory (same rule as the TUI; no `-config` flag yet).
+It auto-detects `config.yaml` next to the binary or in the working directory, and accepts an explicit path with `-config` — same rules as the TUI:
+
+```bash
+./bin/script-manager-gui -config /path/to/config.yaml
+```
 
 ### GUI build requirements
 

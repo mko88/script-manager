@@ -1,11 +1,9 @@
 package ui
 
 import (
-	"bytes"
-	"maps"
-	"text/template"
 	"time"
 
+	"script-manager/internal/action"
 	"script-manager/internal/config"
 
 	"github.com/atotto/clipboard"
@@ -25,36 +23,23 @@ const (
 
 // App is the root Bubble Tea model.
 type App struct {
-	layout          *tl.TileLayout
-	list            *ListTile
-	description     *DescriptionTile
-	actionsPanel    *ActionsTile
-	cmdBar          *CmdBarTile
-	status          *StatusBarTile
-	mode            appMode
-	windowSize      tea.WindowSizeMsg
-	pendingAction   *config.Action
-	pendingItem     map[string]any
-	globalEnv         map[string]any
-	allActions        []config.Action
-	itemActions       []config.Action // full filtered list for current item
-	activeGroup       string          // "" = all groups
-	actionsTileTitle  string          // base title before group suffix
-	savedListOffset   int
-	msgToken          int
-	reload            func() (*config.Config, error)
-	cfg               *config.Config
-}
-
-// State captures all cursor/scroll/focus/mode positions so they can be
-// restored after an action subprocess returns.
-type State struct {
-	ListSel, ListOff int
-	ActSel, ActOff   int
-	DescScroll       int
-	CmdScroll        int
-	FocusedPane      int     // 1=actions, 2=description, 3=cmdBar (mode 1 only)
-	Mode             appMode // 0=selectItem, 1=selectAction
+	layout           *tl.TileLayout
+	list             *ListTile
+	description      *DescriptionTile
+	actionsPanel     *ActionsTile
+	cmdBar           *CmdBarTile
+	status           *StatusBarTile
+	mode             appMode
+	windowSize       tea.WindowSizeMsg
+	globalEnv        map[string]any
+	allActions       []config.Action
+	itemActions      []config.Action // full filtered list for current item
+	activeGroup      string          // "" = all groups
+	actionsTileTitle string          // base title before group suffix
+	savedListOffset  int
+	msgToken         int
+	reload           func() (*config.Config, error)
+	cfg              *config.Config
 }
 
 func orTitle(configured, def string) string {
@@ -114,13 +99,6 @@ func NewApp(cfg *config.Config, reload func() (*config.Config, error)) *App {
 	return a
 }
 
-func (a *App) PendingAction() *config.Action { return a.pendingAction }
-func (a *App) PendingItem() map[string]any   { return a.pendingItem }
-
-// Config returns the config currently backing the app — the one passed to
-// NewApp, or the most recent successful reload.
-func (a *App) Config() *config.Config { return a.cfg }
-
 // applyConfig refreshes every tile from a freshly reloaded config, preserving
 // the current selection/scroll positions where still valid.
 func (a *App) applyConfig(cfg *config.Config) {
@@ -144,15 +122,13 @@ func (a *App) applyConfig(cfg *config.Config) {
 	if a.mode == modeSelectAction {
 		switch {
 		case len(a.actionsPanel.actions) == 0:
-			a.actionsPanel.selected = 0
+			a.actionsPanel.selected = -1
 		case a.actionsPanel.selected >= len(a.actionsPanel.actions):
 			a.actionsPanel.selected = len(a.actionsPanel.actions) - 1
 		case a.actionsPanel.selected < 0:
 			a.actionsPanel.selected = 0
 		}
-		a.cmdBar.SetCmd(a.expandCmd())
-		a.cmdBar.SetDescription(a.actionDescription())
-		a.cmdBar.ResetScroll()
+		a.refreshCmdBar()
 	}
 }
 
@@ -170,57 +146,6 @@ func (a *App) reloadConfig() tea.Cmd {
 	return a.flashMessage("Config reloaded", 2*time.Second)
 }
 
-func (a *App) SaveState() State {
-	s := State{
-		ListSel:    a.list.selected,
-		ListOff:    a.list.offset,
-		ActSel:     a.actionsPanel.selected,
-		ActOff:     a.actionsPanel.offset,
-		DescScroll: a.description.scrollOffset,
-		CmdScroll:  a.cmdBar.scrollOffset,
-		Mode:       a.mode,
-	}
-	switch {
-	case a.actionsPanel.IsFocused():
-		s.FocusedPane = 1
-	case a.description.IsFocused():
-		s.FocusedPane = 2
-	case a.cmdBar.IsFocused():
-		s.FocusedPane = 3
-	}
-	return s
-}
-
-func (a *App) RestoreState(s State) {
-	a.list.selected = s.ListSel
-	a.list.offset = s.ListOff
-	a.actionsPanel.offset = s.ActOff
-	a.description.scrollOffset = s.DescScroll
-	a.cmdBar.scrollOffset = s.CmdScroll
-	a.description.SetItem(a.mergedItem(a.list.Selected()))
-
-	if s.Mode == modeSelectAction {
-		a.updateActionsForItem()
-		a.actionsPanel.selected = s.ActSel
-		a.cmdBar.SetCmd(a.expandCmd())
-		a.cmdBar.SetDescription(a.actionDescription())
-		a.mode = modeSelectAction
-		a.list.Size = tl.Size{FixedHeight: 3}
-		a.list.SetFocused(false)
-		a.actionsPanel.SetFocused(s.FocusedPane == 1 || s.FocusedPane == 0)
-		a.description.SetFocused(s.FocusedPane == 2)
-		a.cmdBar.SetFocused(s.FocusedPane == 3)
-		switch s.FocusedPane {
-		case 2:
-			a.status.SetContext(ctxDetailsFocused)
-		case 3:
-			a.status.SetContext(ctxCommandFocused)
-		default:
-			a.status.SetContext(ctxActionsFocused)
-		}
-	}
-}
-
 func (a *App) enterActionMode() {
 	a.savedListOffset = a.list.offset
 	a.mode = modeSelectAction
@@ -231,9 +156,7 @@ func (a *App) enterActionMode() {
 	a.actionsPanel.selected = 0
 	a.actionsPanel.offset = 0
 	a.actionsPanel.SetFocused(true)
-	a.cmdBar.SetCmd(a.expandCmd())
-	a.cmdBar.SetDescription(a.actionDescription())
-	a.cmdBar.ResetScroll()
+	a.refreshCmdBar()
 	a.status.SetContext(ctxActionsFocused)
 }
 
@@ -311,50 +234,34 @@ func (a *App) cycleGroup(delta int) {
 	a.applyGroupFilter()
 	a.actionsPanel.selected = 0
 	a.actionsPanel.offset = 0
-	a.cmdBar.SetCmd(a.expandCmd())
-	a.cmdBar.SetDescription(a.actionDescription())
+	a.refreshCmdBar()
+}
+
+// refreshCmdBar re-expands the command preview and description for the
+// currently selected item/action pair and resets the pane scroll.
+func (a *App) refreshCmdBar() {
+	a.cmdBar.SetCmd(a.previewCmd())
+	a.cmdBar.SetDescription(a.previewDescription())
 	a.cmdBar.ResetScroll()
+}
+
+// onItemChanged refreshes every dependent pane after the list selection moves.
+func (a *App) onItemChanged() {
+	a.description.SetItem(a.mergedItem(a.list.Selected()))
+	a.description.ResetScroll()
+	a.updateActionsForItem()
+	a.refreshCmdBar()
+	a.status.ClearMessage()
 }
 
 // mergedItem returns a copy of the item with global env vars as defaults.
 // Item-level keys always win over globals.
 func (a *App) mergedItem(item map[string]any) map[string]any {
-	merged := make(map[string]any, len(a.globalEnv)+len(item))
-	maps.Copy(merged, a.globalEnv)
-	maps.Copy(merged, item)
-	return merged
+	return action.Merge(a.globalEnv, item)
 }
 
-func (a *App) actionDescription() string {
-	action := a.actionsPanel.Selected()
-	item := a.list.Selected()
-	if action == nil || action.Description == "" || item == nil {
-		return ""
-	}
-	tmpl, err := template.New("desc").Parse(action.Description)
-	if err != nil {
-		return action.Description
-	}
-	var buf bytes.Buffer
-	tmpl.Execute(&buf, a.mergedItem(item))
-	return buf.String()
-}
-
-func (a *App) expandCmd() string {
-	action := a.actionsPanel.Selected()
-	item := a.list.Selected()
-	if action == nil || item == nil {
-		return ""
-	}
-	tmpl, err := template.New("cmd").Parse(action.Cmd)
-	if err != nil {
-		return action.Cmd
-	}
-	var buf bytes.Buffer
-	tmpl.Execute(&buf, a.mergedItem(item))
-	return buf.String()
-}
-
+// MergedItem returns the selected item merged with the global env, or nil
+// when no item is selected.
 func (a *App) MergedItem() map[string]any {
 	if item := a.list.Selected(); item != nil {
 		return a.mergedItem(item)
@@ -362,15 +269,32 @@ func (a *App) MergedItem() map[string]any {
 	return nil
 }
 
+func (a *App) previewDescription() string {
+	act := a.actionsPanel.Selected()
+	item := a.list.Selected()
+	if act == nil || act.Description == "" || item == nil {
+		return ""
+	}
+	return action.Preview(act.Description, a.mergedItem(item))
+}
+
+func (a *App) previewCmd() string {
+	act := a.actionsPanel.Selected()
+	item := a.list.Selected()
+	if act == nil || item == nil {
+		return ""
+	}
+	return action.Preview(act.Cmd, a.mergedItem(item))
+}
+
 // flashMessage sets a status message that automatically clears after d.
 func (a *App) flashMessage(text string, d time.Duration) tea.Cmd {
 	a.msgToken++
 	tok := a.msgToken
 	a.status.SetMessage(text)
-	return func() tea.Msg {
-		time.Sleep(d)
+	return tea.Tick(d, func(time.Time) tea.Msg {
 		return clearMsgToken{tok}
-	}
+	})
 }
 
 func (a *App) Init() tea.Cmd {
@@ -382,6 +306,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case clearMsgToken:
 		if msg.token == a.msgToken {
 			a.status.ClearMessage()
+		}
+		return a, nil
+
+	case actionFinishedMsg:
+		if msg.err != nil {
+			return a, a.flashMessage("Action exited: "+msg.err.Error(), 3*time.Second)
 		}
 		return a, nil
 
@@ -423,22 +353,10 @@ func (a *App) updateItemMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "up", "k":
 		a.list.MoveUp()
-		a.description.SetItem(a.mergedItem(a.list.Selected()))
-		a.description.ResetScroll()
-		a.updateActionsForItem()
-		a.cmdBar.SetCmd(a.expandCmd())
-		a.cmdBar.SetDescription(a.actionDescription())
-		a.cmdBar.ResetScroll()
-		a.status.ClearMessage()
+		a.onItemChanged()
 	case "down", "j":
 		a.list.MoveDown()
-		a.description.SetItem(a.mergedItem(a.list.Selected()))
-		a.description.ResetScroll()
-		a.updateActionsForItem()
-		a.cmdBar.SetCmd(a.expandCmd())
-		a.cmdBar.SetDescription(a.actionDescription())
-		a.cmdBar.ResetScroll()
-		a.status.ClearMessage()
+		a.onItemChanged()
 	case "enter", "tab":
 		a.enterActionMode()
 	}
@@ -494,9 +412,7 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			switch {
 			case a.actionsPanel.IsFocused():
 				a.actionsPanel.MoveUp()
-				a.cmdBar.SetCmd(a.expandCmd())
-				a.cmdBar.SetDescription(a.actionDescription())
-				a.cmdBar.ResetScroll()
+				a.refreshCmdBar()
 			case a.description.IsFocused():
 				a.description.ScrollUp()
 			case a.cmdBar.IsFocused():
@@ -512,9 +428,7 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			switch {
 			case a.actionsPanel.IsFocused():
 				a.actionsPanel.MoveDown()
-				a.cmdBar.SetCmd(a.expandCmd())
-				a.cmdBar.SetDescription(a.actionDescription())
-				a.cmdBar.ResetScroll()
+				a.refreshCmdBar()
 			case a.description.IsFocused():
 				a.description.ScrollDown()
 			case a.cmdBar.IsFocused():
@@ -545,29 +459,9 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	case "enter":
 		if a.description.IsCopyMode() {
-			if val, ok := a.description.CurrentCopyValue(); ok {
-				if err := clipboard.WriteAll(val); err != nil {
-					a.status.SetMessage("clipboard unavailable: " + err.Error())
-				} else {
-					field := a.description.CopyValueLabel()
-					bold := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("236"))
-					norm := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("236"))
-					var msg string
-					if a.description.IsCurrentMasked() {
-						if field != "" {
-							msg = "Copied value of " + bold.Render(field) + norm.Render(" to clipboard")
-						} else {
-							msg = "Copied to clipboard"
-						}
-					} else if field != "" {
-						msg = "Copied value of " + bold.Render(field) + norm.Render(": "+val)
-					} else {
-						msg = "Copied: " + val
-					}
-					return a, a.flashMessage(msg, 2*time.Second)
-				}
-			}
-		} else if a.description.IsFocused() {
+			return a, a.copySelectedValue()
+		}
+		if a.description.IsFocused() {
 			if a.description.HasCopyValues() {
 				a.description.EnterCopyMode()
 				a.status.SetContext(ctxDetailsCopyMode)
@@ -575,15 +469,42 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				a.status.SetMessage("No copyable values — wrap text in backticks in the template")
 			}
 		} else if a.actionsPanel.IsFocused() {
-			if action := a.actionsPanel.Selected(); action != nil {
-				a.pendingAction = action
-				a.pendingItem = a.list.Selected()
-				return a, tea.Quit
+			if act := a.actionsPanel.Selected(); act != nil {
+				return a, a.execAction(*act)
 			}
 		}
 	}
 
 	return a, nil
+}
+
+// copySelectedValue writes the value highlighted in copy mode to the
+// clipboard and flashes a confirmation that names the source field.
+func (a *App) copySelectedValue() tea.Cmd {
+	val, ok := a.description.CurrentCopyValue()
+	if !ok {
+		return nil
+	}
+	if err := clipboard.WriteAll(val); err != nil {
+		a.status.SetMessage("clipboard unavailable: " + err.Error())
+		return nil
+	}
+
+	field := a.description.CopyValueLabel()
+	bold := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("255")).Background(lipgloss.Color("236"))
+	norm := lipgloss.NewStyle().Foreground(lipgloss.Color("252")).Background(lipgloss.Color("236"))
+	var msg string
+	switch {
+	case a.description.IsCurrentMasked() && field != "":
+		msg = "Copied value of " + bold.Render(field) + norm.Render(" to clipboard")
+	case a.description.IsCurrentMasked():
+		msg = "Copied to clipboard"
+	case field != "":
+		msg = "Copied value of " + bold.Render(field) + norm.Render(": "+val)
+	default:
+		msg = "Copied: " + val
+	}
+	return a.flashMessage(msg, 2*time.Second)
 }
 
 func (a *App) View() string {

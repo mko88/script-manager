@@ -15,14 +15,9 @@ func renderBox(title, content string, w int, focused bool) string {
 
 	innerW := w - 2
 
-	titleStr := " " + title + " "
-	dashCount := innerW - 1 - len(titleStr)
+	titleStr := truncateToWidth(" "+title+" ", innerW-1)
+	dashCount := innerW - 1 - lipgloss.Width(titleStr)
 	if dashCount < 0 {
-		if innerW-1 > 0 {
-			titleStr = titleStr[:innerW-1]
-		} else {
-			titleStr = ""
-		}
 		dashCount = 0
 	}
 	top := bs.Render("╭─" + titleStr + strings.Repeat("─", dashCount) + "╮")
@@ -61,7 +56,7 @@ func (s *scrollableContent) ScrollUp() {
 		s.scrollOffset--
 	}
 }
-func (s *scrollableContent) ScrollDown() { s.scrollOffset++ }
+func (s *scrollableContent) ScrollDown()  { s.scrollOffset++ }
 func (s *scrollableContent) ResetScroll() { s.scrollOffset = 0 }
 
 // visibleLines clamps the scroll offset, then returns the visible window of
@@ -75,6 +70,29 @@ func (s *scrollableContent) visibleLines(lines []string, innerH int) string {
 		s.scrollOffset = max
 	}
 	return padToLines(strings.Join(lines[s.scrollOffset:], "\n"), innerH)
+}
+
+// truncateToWidth cuts s so its display width is at most max cells, appending
+// … when anything was cut. Measures cells (not bytes or runes) so wide (CJK)
+// characters and multi-byte titles from the config are handled correctly.
+func truncateToWidth(s string, max int) string {
+	if max < 1 {
+		return ""
+	}
+	if lipgloss.Width(s) <= max {
+		return s
+	}
+	var b strings.Builder
+	w := 0
+	for _, r := range s {
+		rw := lipgloss.Width(string(r))
+		if w+rw > max-1 {
+			break
+		}
+		b.WriteRune(r)
+		w += rw
+	}
+	return b.String() + "…"
 }
 
 // wrapLine splits a raw (unstyled) line into segments of at most width runes.

@@ -3,16 +3,28 @@
 ## Project structure
 
 ```
-cmd/script-manager/   ← entry point (main, runAction, waitForKey)
+cmd/script-manager/       ← TUI entry point (thin main: flags + tea.NewProgram)
+cmd/script-manager-gui/   ← Wails GUI entry point (thin main + frontend/)
 internal/
-  config/             ← Config types and YAML loading (config.Load())
+  config/             ← Config types, YAML loading (config.LoadWithError()),
+                        reserved item-key constants (config.KeyName, …)
+  action/             ← logic shared by TUI and GUI: Merge, Expand, Preview, Env
+  render/             ← mask pipeline (MaskFunc, ProcessMaskSpans) shared by both
+  gui/                ← Wails-bound App backend (DTOs, RunAction, temp scripts);
+                        bound under the "gui" namespace (window.go.gui.App)
   ui/                 ← all TUI tiles and the App model
-    app.go            ← App, State, NewApp, SaveState, RestoreState
+    app.go            ← App, NewApp, mode/focus handling
+    exec.go           ← actionProcess (tea.Exec wrapper), waitForKey
     list.go           ← ListTile, selectableList
     detail.go         ← DescriptionTile, ActionsTile
+    cmdbar.go         ← CmdBarTile
     statusbar.go      ← StatusBarTile
-    common.go         ← renderBox, padToLines
+    common.go         ← renderBox, truncateToWidth, scrollableContent
 ```
+
+Actions in the TUI run via `tea.Exec` — Bubble Tea suspends the UI, hands the
+terminal to the subprocess, and resumes the same model. There is no
+save/restore state machinery; don't reintroduce it.
 
 When adding new concerns, create a new package under `internal/` rather than adding files to `cmd/` or the root.
 

@@ -56,9 +56,7 @@ func (s *selectableList) renderRows(labels []string, innerW, innerH int, focused
 		if maxLabel < 1 {
 			maxLabel = 1
 		}
-		if len([]rune(label)) > maxLabel {
-			label = string([]rune(label)[:maxLabel-1]) + "…"
-		}
+		label = truncateToWidth(label, maxLabel)
 
 		var row string
 		switch {
@@ -121,18 +119,22 @@ func (t *ListTile) SetItems(items []map[string]any, displays []config.DisplayCon
 	}
 }
 
+// renderLabel expands the list template for the item, falling back to the
+// item's name when the template failed to parse or execute.
 func (t *ListTile) renderLabel(item map[string]any) string {
 	d := config.FindDisplay(t.displays, item)
 	tmpl := t.tmpls[d.Name]
 	if tmpl == nil {
-		return fmt.Sprint(item["name"])
+		return fmt.Sprint(item[config.KeyName])
 	}
 	var buf bytes.Buffer
-	tmpl.Execute(&buf, item)
+	if err := tmpl.Execute(&buf, item); err != nil {
+		return fmt.Sprint(item[config.KeyName])
+	}
 	return buf.String()
 }
 
-func (t *ListTile) Init() tea.Cmd                            { return nil }
+func (t *ListTile) Init() tea.Cmd                           { return nil }
 func (t *ListTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
 
 func (t *ListTile) View() string {

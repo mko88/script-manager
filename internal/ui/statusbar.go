@@ -76,11 +76,11 @@ func newStatusBarTile() *StatusBarTile {
 	}
 }
 
-func (t *StatusBarTile) SetMessage(msg string)       { t.message = msg }
-func (t *StatusBarTile) ClearMessage()               { t.message = "" }
-func (t *StatusBarTile) SetContext(c statusContext)   { t.context = c }
+func (t *StatusBarTile) SetMessage(msg string)      { t.message = msg }
+func (t *StatusBarTile) ClearMessage()              { t.message = "" }
+func (t *StatusBarTile) SetContext(c statusContext) { t.context = c }
 
-func (t *StatusBarTile) Init() tea.Cmd                            { return nil }
+func (t *StatusBarTile) Init() tea.Cmd                           { return nil }
 func (t *StatusBarTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
 
 func (t *StatusBarTile) View() string {

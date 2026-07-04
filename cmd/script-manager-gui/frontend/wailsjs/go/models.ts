@@ -1,4 +1,4 @@
-export namespace main {
+export namespace gui {
 	
 	export class ActionDTO {
 	    index: number;
@@ -68,6 +68,7 @@ export namespace main {
 	    items: string;
 	    actions: string;
 	    details: string;
+	    command: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new TitlesDTO(source);
@@ -78,6 +79,7 @@ export namespace main {
 	        this.items = source["items"];
 	        this.actions = source["actions"];
 	        this.details = source["details"];
+	        this.command = source["command"];
 	    }
 	}
 

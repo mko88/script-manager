@@ -10,9 +10,9 @@ import (
 	"script-manager/internal/config"
 	"script-manager/internal/render"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/glamour"
 	gansi "github.com/charmbracelet/glamour/ansi"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	tl "github.com/mko88/bubbletea-tilelayout"
 )
@@ -253,8 +253,13 @@ func (t *DescriptionTile) glamourRenderer(width int) *glamour.TermRenderer {
 	return t.renderer
 }
 
-func (t *DescriptionTile) Init() tea.Cmd                            { return nil }
+func (t *DescriptionTile) Init() tea.Cmd                           { return nil }
 func (t *DescriptionTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
+
+var hlStyle = lipgloss.NewStyle().
+	Background(lipgloss.Color("6")).
+	Foreground(lipgloss.Color("0")).
+	Bold(true)
 
 func (t *DescriptionTile) View() string {
 	w := t.Size.Width
@@ -274,85 +279,114 @@ func (t *DescriptionTile) View() string {
 
 	var lines []string
 	if t.item == nil {
-		lines = append(lines, "  No item selected")
+		lines = []string{"  No item selected"}
 	} else {
-		d := config.FindDisplay(t.displays, t.item)
-		tmpl := t.tmpls[d.Name]
-		if tmpl != nil {
-			var buf bytes.Buffer
-			tmpl.Execute(&buf, t.item)
-			expanded := buf.String()
-
-			// Process masks and extract copy values once per item.
-			if !t.copyValuesSet {
-				t.displayMd, t.copyValues, t.copyMasked = render.ProcessMaskSpans(expanded)
-				t.copyValuesSet = true
-			}
-
-			// In copy mode, mark the selected backtick span in the source with a
-			// sentinel before rendering so the highlight is always on the right span,
-			// even when the same value appears in multiple code spans.
-			forRender := t.displayMd
-			if t.copyMode && len(t.copyValues) > 0 {
-				forRender = render.MarkNthCodeSpan(t.displayMd, t.copyIdx, hlSentinel)
-			}
-
-			r := t.glamourRenderer(innerW - 2)
-			if r != nil {
-				if rendered, err := glamourRender(r, forRender); err == nil {
-					rendered = strings.TrimRight(rendered, "\n")
-
-					// Find which line the sentinel landed on, then swap it for
-					// the highlighted value before splitting into display lines.
-					// Masked values display as •••••• even when highlighted so the
-					// actual secret is never shown on screen.
-					sentinelLine := -1
-					if t.copyMode && len(t.copyValues) > 0 {
-						for i, line := range strings.Split(rendered, "\n") {
-							if strings.Contains(line, hlSentinel) {
-								sentinelLine = i
-								break
-							}
-						}
-						displayTarget := t.copyValues[t.copyIdx]
-						if t.copyIdx < len(t.copyMasked) && t.copyMasked[t.copyIdx] {
-							displayTarget = "••••••"
-						}
-						hl := lipgloss.NewStyle().
-							Background(lipgloss.Color("6")).
-							Foreground(lipgloss.Color("0")).
-							Bold(true).
-							Render(displayTarget)
-						rendered = strings.Replace(rendered, hlSentinel, hl, 1)
-					}
-
-					for _, line := range strings.Split(rendered, "\n") {
-						lines = append(lines, line)
-					}
-
-					// Scroll to keep the highlighted span visible.
-					if sentinelLine >= 0 {
-						if sentinelLine < t.scrollOffset {
-							t.scrollOffset = sentinelLine
-						} else if sentinelLine >= t.scrollOffset+innerH {
-							t.scrollOffset = sentinelLine - innerH + 1
-						}
-					}
-				}
-			}
-
-			// Fallback to plain text if glamour fails.
-			if len(lines) == 0 {
-				for _, line := range strings.Split(strings.TrimRight(expanded, "\n"), "\n") {
-					for _, seg := range wrapLine(line, innerW-2) {
-						lines = append(lines, detailContentStyle.Render("  "+seg))
-					}
-				}
-			}
-		}
+		lines = t.renderItem(innerW, innerH)
 	}
 
 	return renderBox(t.title, t.visibleLines(lines, innerH), w, t.IsFocused())
+}
+
+// renderItem expands the details template for the current item and renders it
+// through glamour, falling back to plain wrapped text when glamour fails.
+func (t *DescriptionTile) renderItem(innerW, innerH int) []string {
+	d := config.FindDisplay(t.displays, t.item)
+	tmpl := t.tmpls[d.Name]
+	if tmpl == nil {
+		return nil
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, t.item); err != nil {
+		return t.plainLines("details template error: "+err.Error(), innerW)
+	}
+
+	// Process masks and extract copy values once per item.
+	if !t.copyValuesSet {
+		t.displayMd, t.copyValues, t.copyMasked = render.ProcessMaskSpans(buf.String())
+		t.copyValuesSet = true
+	}
+
+	if lines, ok := t.renderMarkdown(innerW, innerH); ok {
+		return lines
+	}
+	// displayMd, not the raw expansion: the raw text still contains the
+	// decodable mask markers and must never reach the screen.
+	return t.plainLines(t.displayMd, innerW)
+}
+
+// renderMarkdown renders the (mask-processed) markdown, highlighting the copy
+// selection and scrolling it into view when copy mode is active. Returns
+// ok=false when glamour is unavailable or failed.
+func (t *DescriptionTile) renderMarkdown(innerW, innerH int) ([]string, bool) {
+	// In copy mode, mark the selected backtick span in the source with a
+	// sentinel before rendering so the highlight is always on the right span,
+	// even when the same value appears in multiple code spans.
+	highlighting := t.copyMode && len(t.copyValues) > 0
+	forRender := t.displayMd
+	if highlighting {
+		forRender = render.MarkNthCodeSpan(t.displayMd, t.copyIdx, hlSentinel)
+	}
+
+	r := t.glamourRenderer(innerW - 2)
+	if r == nil {
+		return nil, false
+	}
+	rendered, err := glamourRender(r, forRender)
+	if err != nil {
+		return nil, false
+	}
+	rendered = strings.TrimRight(rendered, "\n")
+
+	sentinelLine := -1
+	if highlighting {
+		rendered, sentinelLine = t.highlightSentinel(rendered)
+	}
+
+	lines := strings.Split(rendered, "\n")
+	if sentinelLine >= 0 {
+		t.scrollIntoView(sentinelLine, innerH)
+	}
+	return lines, true
+}
+
+// highlightSentinel swaps the sentinel for the styled copy value and reports
+// which line it landed on. Masked values display as •••••• even when
+// highlighted so the actual secret is never shown on screen.
+func (t *DescriptionTile) highlightSentinel(rendered string) (string, int) {
+	sentinelLine := -1
+	for i, line := range strings.Split(rendered, "\n") {
+		if strings.Contains(line, hlSentinel) {
+			sentinelLine = i
+			break
+		}
+	}
+
+	displayTarget := t.copyValues[t.copyIdx]
+	if t.copyIdx < len(t.copyMasked) && t.copyMasked[t.copyIdx] {
+		displayTarget = "••••••"
+	}
+	return strings.Replace(rendered, hlSentinel, hlStyle.Render(displayTarget), 1), sentinelLine
+}
+
+// scrollIntoView adjusts the scroll offset so the given line is visible.
+func (t *DescriptionTile) scrollIntoView(line, innerH int) {
+	if line < t.scrollOffset {
+		t.scrollOffset = line
+	} else if line >= t.scrollOffset+innerH {
+		t.scrollOffset = line - innerH + 1
+	}
+}
+
+// plainLines wraps raw text into indented, styled display lines.
+func (t *DescriptionTile) plainLines(text string, innerW int) []string {
+	var lines []string
+	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
+		for _, seg := range wrapLine(line, innerW-2) {
+			lines = append(lines, detailContentStyle.Render("  "+seg))
+		}
+	}
+	return lines
 }
 
 // ActionsTile shows the configured actions and tracks the highlighted selection.
@@ -375,8 +409,8 @@ func newActionsTile(actions []config.Action) *ActionsTile {
 }
 
 func (t *ActionsTile) SetActions(actions []config.Action) { t.actions = actions }
-func (t *ActionsTile) MoveUp()                           { t.moveUp() }
-func (t *ActionsTile) MoveDown()                         { t.moveDown(len(t.actions)) }
+func (t *ActionsTile) MoveUp()                            { t.moveUp() }
+func (t *ActionsTile) MoveDown()                          { t.moveDown(len(t.actions)) }
 
 func (t *ActionsTile) Selected() *config.Action {
 	if t.selected >= 0 && t.selected < len(t.actions) {
@@ -385,7 +419,7 @@ func (t *ActionsTile) Selected() *config.Action {
 	return nil
 }
 
-func (t *ActionsTile) Init() tea.Cmd                            { return nil }
+func (t *ActionsTile) Init() tea.Cmd                           { return nil }
 func (t *ActionsTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
 
 func (t *ActionsTile) View() string {

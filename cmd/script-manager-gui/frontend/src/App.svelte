@@ -9,14 +9,14 @@
     CopyToClipboard,
     ReloadConfig,
     RunAction,
-  } from '../wailsjs/go/main/App.js'
-  import type { main } from '../wailsjs/go/models'
+  } from '../wailsjs/go/gui/App.js'
+  import type { gui } from '../wailsjs/go/models'
 
-  let titles: main.TitlesDTO = { items: 'Items', actions: 'Actions', details: 'Details' }
-  let items: main.ItemDTO[] = []
-  let actions: main.ActionDTO[] = []
-  let details: main.DetailsDTO | null = null
-  let actionDetail: main.ActionDetailDTO | null = null
+  let titles: gui.TitlesDTO = { items: 'Items', actions: 'Actions', details: 'Details', command: 'Command' }
+  let items: gui.ItemDTO[] = []
+  let actions: gui.ActionDTO[] = []
+  let details: gui.DetailsDTO | null = null
+  let actionDetail: gui.ActionDetailDTO | null = null
 
   let selectedItem = -1
   let selectedActionIndex = -1
@@ -393,7 +393,7 @@
 
     <section class="panel panel-command" style={bottomStyle(commandCollapsed)}>
       <header class="panel-title">
-        <span>Command</span>
+        <span>{titles.command}</span>
         <button class="collapse-btn" on:click={() => toggleCollapse('command')} title={commandCollapsed ? 'Expand' : 'Collapse'}>
           {commandCollapsed ? '▸' : '▾'}
         </button>

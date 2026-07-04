@@ -2,17 +2,31 @@ package main
 
 import (
 	"embed"
+	"flag"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+
+	"script-manager/internal/config"
+	"script-manager/internal/gui"
 )
 
 //go:embed all:frontend/dist
 var assets embed.FS
 
 func main() {
-	app := NewApp()
+	cfgPath := flag.String("config", "", "path to config file (default: auto-detect)")
+	flag.Parse()
+
+	loadConfig := func() (*config.Config, error) {
+		if *cfgPath != "" {
+			return config.LoadFromWithError(*cfgPath)
+		}
+		return config.LoadWithError()
+	}
+
+	app := gui.NewApp(loadConfig)
 
 	err := wails.Run(&options.App{
 		Title:  "Script Manager",
@@ -22,7 +36,7 @@ func main() {
 			Assets: assets,
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
-		OnStartup:        app.startup,
+		OnStartup:        app.Startup,
 		Bind: []interface{}{
 			app,
 		},

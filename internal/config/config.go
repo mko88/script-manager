@@ -10,6 +10,21 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// Reserved item keys. Every other key in an item map is free-form data for
+// templates and the subprocess environment.
+const (
+	// KeyName is the item's display name, used in headers and titles.
+	KeyName = "name"
+	// KeyDisplay selects which DisplayConfig renders the item.
+	KeyDisplay = "display"
+	// KeyActions restricts the item to the global actions with these IDs.
+	KeyActions = "actions"
+	// KeyActionGroups restricts the item to global actions in these groups.
+	KeyActionGroups = "actionGroups"
+	// KeyCustomActions holds inline item-specific action definitions.
+	KeyCustomActions = "customActions"
+)
+
 type Action struct {
 	ID          string   `yaml:"id"`
 	Title       string   `yaml:"title"`
@@ -54,7 +69,7 @@ func FindDisplay(displays DisplayList, item map[string]any) DisplayConfig {
 		return DisplayConfig{}
 	}
 	if item != nil {
-		if name, ok := item["display"].(string); ok && name != "" {
+		if name, ok := item[KeyDisplay].(string); ok && name != "" {
 			for _, d := range displays {
 				if d.Name == name {
 					return d
@@ -93,9 +108,9 @@ func ActionsForItem(allActions []Action, item map[string]any) []Action {
 		return allActions
 	}
 
-	allowedIDs, hasIDs := asStringSlice(item["actions"])
-	allowedGroups, hasGroups := asStringSlice(item["actionGroups"])
-	customRaw := item["customActions"]
+	allowedIDs, hasIDs := asStringSlice(item[KeyActions])
+	allowedGroups, hasGroups := asStringSlice(item[KeyActionGroups])
+	customRaw := item[KeyCustomActions]
 
 	if !hasIDs && !hasGroups && customRaw == nil {
 		return allActions
@@ -198,40 +213,35 @@ func strVal(v any) string {
 	return s
 }
 
-// Load resolves the config file automatically: next to the binary first,
-// then the working directory. On Windows, config-win.yaml takes precedence.
-// Pass an explicit path via LoadFrom to override this behaviour.
-func Load() *Config {
-	cfg, _ := LoadWithError()
-	return cfg
-}
-
-// LoadWithError behaves like Load but also reports the last error
-// encountered (e.g. a missing file or a YAML syntax error). Callers that want
-// to reload a config without losing the previous one on failure (see a
-// config-reload action) should use this instead of Load.
+// LoadWithError resolves the config file automatically — next to the binary
+// first, then the working directory — and reports the last error encountered
+// (e.g. a missing file or a YAML syntax error) so callers can reload without
+// losing the previous config on failure. On Windows, config-win.yaml takes
+// precedence in both locations, falling back to config.yaml when absent.
+// Use LoadFromWithError to load an explicit path instead.
 func LoadWithError() (*Config, error) {
-	name := "config.yaml"
+	names := []string{"config.yaml"}
 	if runtime.GOOS == "windows" {
-		name = "config-win.yaml"
+		names = []string{"config-win.yaml", "config.yaml"}
+	}
+
+	var exeDir string
+	if exe, err := os.Executable(); err == nil {
+		exeDir = filepath.Dir(exe)
 	}
 
 	var paths []string
-	if exe, err := os.Executable(); err == nil {
-		paths = append(paths, filepath.Join(filepath.Dir(exe), name))
+	for _, name := range names {
+		if exeDir != "" {
+			paths = append(paths, filepath.Join(exeDir, name))
+		}
+		paths = append(paths, name)
 	}
-	paths = append(paths, name)
 
 	return loadPaths(paths)
 }
 
-// LoadFrom loads a config from an explicit file path.
-func LoadFrom(path string) *Config {
-	cfg, _ := LoadFromWithError(path)
-	return cfg
-}
-
-// LoadFromWithError behaves like LoadFrom but also reports the error.
+// LoadFromWithError loads a config from an explicit file path.
 func LoadFromWithError(path string) (*Config, error) {
 	return loadPaths([]string{path})
 }

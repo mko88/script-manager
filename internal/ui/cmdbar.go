@@ -32,11 +32,11 @@ func newCmdBarTile() *CmdBarTile {
 	}
 }
 
-func (t *CmdBarTile) Cmd() string                  { return t.cmd }
-func (t *CmdBarTile) SetCmd(cmd string)             { t.cmd = cmd }
-func (t *CmdBarTile) SetDescription(desc string)    { t.description = desc }
+func (t *CmdBarTile) Cmd() string                { return t.cmd }
+func (t *CmdBarTile) SetCmd(cmd string)          { t.cmd = cmd }
+func (t *CmdBarTile) SetDescription(desc string) { t.description = desc }
 
-func (t *CmdBarTile) Init() tea.Cmd                            { return nil }
+func (t *CmdBarTile) Init() tea.Cmd                           { return nil }
 func (t *CmdBarTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
 
 func (t *CmdBarTile) View() string {
@@ -48,6 +48,12 @@ func (t *CmdBarTile) View() string {
 
 	innerW := w - 2
 	innerH := h - 2
+	if innerW < 1 {
+		innerW = 1
+	}
+	if innerH < 1 {
+		innerH = 1
+	}
 
 	var lines []string
 
