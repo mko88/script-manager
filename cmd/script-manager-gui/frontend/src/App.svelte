@@ -82,6 +82,11 @@
     return a.localeCompare(b)
   })
 
+  // Hide chips that would narrow the filter to nothing — but never hide an
+  // already-selected group, or there'd be no way left to deselect it short of
+  // hitting "All".
+  $: visibleGroups = sortedGroups.filter((g) => selectedGroups.has(g) || (groupCounts[g] ?? 0) > 0)
+
   $: alphaSortLabel = alphaDir === 'desc' ? 'Z-A' : 'A-Z'
   $: alphaSortTitle =
     sortMode !== 'alpha'
@@ -435,7 +440,7 @@
             {#if !groupChipsCollapsed}
               <div class="group-chips">
                 <button class="chip" class:active={selectedGroups.size === 0} on:click={selectAllGroups}>All</button>
-                {#each sortedGroups as group (group)}
+                {#each visibleGroups as group (group)}
                   <button class="chip" class:active={selectedGroups.has(group)} on:click={() => toggleGroup(group)}
                     >{group}<span class="chip-count">({groupCounts[group] ?? 0})</span></button
                   >
