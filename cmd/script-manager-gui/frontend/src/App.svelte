@@ -23,6 +23,11 @@
   // Empty set means "All" — no filter, show everything. Otherwise an action
   // matches if it belongs to any selected group (OR semantics).
   let selectedGroups = new Set<string>()
+  // Group chips are always sorted by both keys together (count first, then
+  // name to break ties among equal counts) — each button just flips its own
+  // key's direction, it doesn't switch sorting on/off.
+  let alphaDir: 'asc' | 'desc' = 'asc'
+  let countDir: 'asc' | 'desc' = 'desc'
   let toast = ''
   let toastTimer: ReturnType<typeof setTimeout>
 
@@ -49,8 +54,40 @@
 
   $: groupSummary = selectedGroups.size === 0 ? 'All' : actionGroups.filter((g) => selectedGroups.has(g)).join(', ')
 
+  // For each group, how many actions would match if that group were added to
+  // the current filter (AND semantics, same rule filteredActions applies) —
+  // for an already-selected group this is just the current filtered count.
+  $: groupCounts = (() => {
+    const counts: Record<string, number> = {}
+    for (const g of actionGroups) {
+      const otherSelected = [...selectedGroups].filter((x) => x !== g)
+      counts[g] = actions.filter(
+        (a) => otherSelected.every((og) => (a.groups ?? []).includes(og)) && (a.groups ?? []).includes(g),
+      ).length
+    }
+    return counts
+  })()
+
+  // Primary key: action count (direction from countDir). Secondary key: name
+  // (direction from alphaDir), which only ever matters as a tie-breaker
+  // since counts repeat across groups but names don't.
+  $: sortedGroups = [...actionGroups].sort((a, b) => {
+    const countCmp = ((groupCounts[a] ?? 0) - (groupCounts[b] ?? 0)) * (countDir === 'asc' ? 1 : -1)
+    if (countCmp !== 0) return countCmp
+    return a.localeCompare(b) * (alphaDir === 'asc' ? 1 : -1)
+  })
+
+  $: alphaSortLabel = alphaDir === 'desc' ? 'Z-A' : 'A-Z'
+  $: alphaSortTitle = alphaDir === 'asc' ? 'Sorted A-Z — click for Z-A' : 'Sorted Z-A — click for A-Z'
+  $: countSortLabel = countDir === 'desc' ? '# ↓' : '# ↑'
+  $: countSortTitle =
+    countDir === 'desc'
+      ? 'Sorted by action count, descending — click for ascending'
+      : 'Sorted by action count, ascending — click for descending'
+
   $: selectedItemLabel = items.find((i) => i.index === selectedItem)?.label ?? ''
   $: selectedActionLabel = actions.find((a) => a.index === selectedActionIndex)?.title ?? ''
+  $: selectedActionGroups = actions.find((a) => a.index === selectedActionIndex)?.groups ?? []
 
   onMount(async () => {
     titles = await GetTitles()
@@ -80,6 +117,11 @@
     selectedGroups = next
     selectedActionIndex = -1
     actionDetail = null
+  }
+
+  function toggleSort(axis: 'alpha' | 'count') {
+    if (axis === 'alpha') alphaDir = alphaDir === 'asc' ? 'desc' : 'asc'
+    else countDir = countDir === 'asc' ? 'desc' : 'asc'
   }
 
   async function selectAction(index: number) {
@@ -272,14 +314,18 @@
 
   // The "top" panel in a pair (Items/Details) gets an explicit height; the
   // "bottom" panel (Actions/Command) fills whatever space is left. Collapsing
-  // either one just swaps who gets the fixed header-only height.
-  function topStyle(topCollapsed: boolean, bottomCollapsed: boolean, size: number) {
-    if (topCollapsed) return `flex: 0 0 ${HEADER_H}px;`
+  // either one just swaps who gets the fixed header-only height. Panels whose
+  // collapsed header shows a selected-item label that can wrap onto multiple
+  // lines (Items, Actions) get an auto flex-basis instead of the fixed
+  // HEADER_H so the wrapped text isn't clipped.
+  function topStyle(topCollapsed: boolean, bottomCollapsed: boolean, size: number, autoCollapse = false) {
+    if (topCollapsed) return autoCollapse ? `flex: 0 0 auto;` : `flex: 0 0 ${HEADER_H}px;`
     if (bottomCollapsed) return `flex: 1 1 auto;`
     return `flex: 0 0 ${size}px;`
   }
-  function bottomStyle(bottomCollapsed: boolean) {
-    return bottomCollapsed ? `flex: 0 0 ${HEADER_H}px;` : `flex: 1 1 auto; min-height: 0;`
+  function bottomStyle(bottomCollapsed: boolean, autoCollapse = false) {
+    if (bottomCollapsed) return autoCollapse ? `flex: 0 0 auto;` : `flex: 0 0 ${HEADER_H}px;`
+    return `flex: 1 1 auto; min-height: 0;`
   }
 </script>
 
@@ -287,9 +333,9 @@
 
 <main class="app-shell" bind:this={shellEl}>
   <div class="col col-left" style="flex: 0 0 {leftWidth}px" bind:this={colLeftEl}>
-    <section class="panel panel-items" style={topStyle(itemsCollapsed, actionsCollapsed, itemsHeight)}>
+    <section class="panel panel-items" style={topStyle(itemsCollapsed, actionsCollapsed, itemsHeight, true)}>
       <header class="panel-title">
-        <span class="panel-title-text">
+        <span class="panel-title-text" class:wrap={itemsCollapsed}>
           {titles.items}{#if itemsCollapsed && selectedItemLabel}<span class="panel-title-selected"> · {selectedItemLabel}</span>{/if}
         </span>
         <button class="collapse-btn" on:click={() => toggleCollapse('items')} title={itemsCollapsed ? 'Expand' : 'Collapse'}>
@@ -315,9 +361,9 @@
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="resizer horizontal" class:disabled={itemsCollapsed || actionsCollapsed} on:mousedown={dragItemsRow}></div>
 
-    <section class="panel panel-actions" style={bottomStyle(actionsCollapsed)}>
+    <section class="panel panel-actions" style={bottomStyle(actionsCollapsed, true)}>
       <header class="panel-title">
-        <span class="panel-title-text">
+        <span class="panel-title-text" class:wrap={actionsCollapsed}>
           {titles.actions}{#if actionsCollapsed && selectedActionLabel}<span class="panel-title-selected"> · {selectedActionLabel}</span>{/if}
         </span>
         <button class="collapse-btn" on:click={() => toggleCollapse('actions')} title={actionsCollapsed ? 'Expand' : 'Collapse'}>
@@ -327,20 +373,34 @@
       {#if !actionsCollapsed}
         {#if actionGroups.length > 0}
           <div class="group-filter">
-            <button
-              class="collapse-btn group-filter-toggle"
-              on:click={toggleGroupChips}
-              title={groupChipsCollapsed ? 'Expand group filter' : 'Collapse group filter'}
-            >
-              {groupChipsCollapsed ? '▸' : '▾'}
-            </button>
-            {#if groupChipsCollapsed}
-              <span class="group-summary">{groupSummary}</span>
-            {:else}
+            <div class="group-filter-header">
+              <button
+                class="collapse-btn group-filter-toggle"
+                on:click={toggleGroupChips}
+                title={groupChipsCollapsed ? 'Expand group filter' : 'Collapse group filter'}
+              >
+                {groupChipsCollapsed ? '▸' : '▾'}
+              </button>
+              {#if groupChipsCollapsed}
+                <span class="group-summary">{groupSummary}</span>
+              {:else}
+                <div class="group-sort">
+                  <button class="sort-btn" on:click={() => toggleSort('alpha')} title={alphaSortTitle}>
+                    {alphaSortLabel}
+                  </button>
+                  <button class="sort-btn" on:click={() => toggleSort('count')} title={countSortTitle}>
+                    {countSortLabel}
+                  </button>
+                </div>
+              {/if}
+            </div>
+            {#if !groupChipsCollapsed}
               <div class="group-chips">
                 <button class="chip" class:active={selectedGroups.size === 0} on:click={selectAllGroups}>All</button>
-                {#each actionGroups as group (group)}
-                  <button class="chip" class:active={selectedGroups.has(group)} on:click={() => toggleGroup(group)}>{group}</button>
+                {#each sortedGroups as group (group)}
+                  <button class="chip" class:active={selectedGroups.has(group)} on:click={() => toggleGroup(group)}
+                    >{group}<span class="chip-count">({groupCounts[group] ?? 0})</span></button
+                  >
                 {/each}
               </div>
             {/if}
@@ -409,6 +469,13 @@
             {/if}
             {#if actionDetail.description}
               <p class="cmd-desc">{actionDetail.description}</p>
+            {/if}
+            {#if selectedActionGroups.length > 0}
+              <div class="cmd-groups">
+                {#each selectedActionGroups as group (group)}
+                  <span class="chip chip-static">{group}</span>
+                {/each}
+              </div>
             {/if}
             {#if actionDetail.cmd}
               <div class="cmd-line">
@@ -496,7 +563,7 @@
   .panel-title {
     flex: none;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     padding: 6px 6px 6px 10px;
     font-size: 0.8rem;
@@ -514,6 +581,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .panel-title-text.wrap {
+    overflow: visible;
+    text-overflow: unset;
+    white-space: normal;
+    line-height: 1.35;
   }
 
   .panel-title-selected {
@@ -572,9 +646,15 @@
   .group-filter {
     flex: none;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 4px;
     padding: 4px 6px 0;
+  }
+
+  .group-filter-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
   }
 
   .group-filter-toggle {
@@ -590,12 +670,34 @@
     white-space: nowrap;
   }
 
+  .group-sort {
+    flex: none;
+    display: flex;
+    gap: 2px;
+  }
+
+  .sort-btn {
+    flex: none;
+    background: none;
+    border: 1px solid #3a4a63;
+    color: #a9b6c8;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.68rem;
+    line-height: 1.2;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .sort-btn:hover {
+    background: #2b3b52;
+    color: #d7dee8;
+  }
+
   .group-chips {
-    flex: 1;
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-    min-width: 0;
   }
 
   .chip {
@@ -619,6 +721,16 @@
     border-color: #e8a33d;
     color: #1b2636;
     font-weight: 700;
+  }
+
+  .chip-count {
+    opacity: 0.75;
+    margin-left: 2px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .chip-static {
+    cursor: default;
   }
 
   .row {
@@ -704,6 +816,13 @@
   .cmd-desc {
     margin: 0 0 8px;
     color: #a9b6c8;
+  }
+
+  .cmd-groups {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin: 0 0 8px;
   }
 
   .cmd-line {
