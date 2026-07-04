@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
-	"time"
 
 	"script-manager/internal/action"
 	"script-manager/internal/config"
@@ -78,10 +77,11 @@ func exeDir() string {
 }
 
 // cleanupTempScripts removes every action script left behind by previous
-// runs, regardless of age. RunAction cleans up its own script shortly after
-// launching (see scheduleTempScriptCleanup); this is the fallback for
-// whatever that missed — e.g. the app was killed before the retry loop
-// finished — so nothing lingers across restarts, however old it is.
+// runs, regardless of age. Every script wrapScript produces deletes itself
+// once the launched shell actually starts executing it (see wrapScript); this
+// is only the fallback for whatever that missed — e.g. the terminal or shell
+// never started at all — so nothing lingers across restarts, however old it
+// is.
 func cleanupTempScripts() {
 	matches, err := filepath.Glob(filepath.Join(os.TempDir(), tempScriptPattern))
 	if err != nil {
@@ -90,31 +90,6 @@ func cleanupTempScripts() {
 	for _, path := range matches {
 		os.Remove(path)
 	}
-}
-
-// scheduleTempScriptCleanup removes path once the launched shell is done
-// reading it. The retry-with-backoff only guards against the file still
-// being open (os.Remove fails while pwsh holds it); it does nothing for a
-// wt.exe/pwsh cold start slower than the first attempt, where nothing has
-// opened the file yet and the delete simply succeeds — deleting the script
-// out from under a shell that hasn't read it yet, so -File then fails with
-// "term ... is not recognized". The initial delay is deliberately generous
-// (well beyond a typical cold terminal start) to make that window rare;
-// anything still locked after the retries (e.g. a long-running noWait: false
-// script) is left for cleanupTempScripts to catch on the next startup.
-func scheduleTempScriptCleanup(path string) {
-	go func() {
-		delay := 1500 * time.Millisecond
-		for i := 0; i < 10; i++ {
-			time.Sleep(delay)
-			if err := os.Remove(path); err == nil || os.IsNotExist(err) {
-				return
-			}
-			if delay < 5*time.Second {
-				delay *= 2
-			}
-		}
-	}()
 }
 
 // ReloadConfig re-reads the config from disk. On failure — a missing file or
@@ -279,10 +254,7 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 	if err != nil {
 		return fmt.Errorf("cmd template error: %w", err)
 	}
-	script := expandedCmd
-	if runtime.GOOS == "linux" {
-		script = wrapScriptUnix(shellBasename(a.cfg.Shell[0]), expandedCmd, !act.NoWait)
-	}
+	script := wrapScript(shellBasename(a.cfg.Shell[0]), expandedCmd, !act.NoWait)
 	scriptPath, err := writeTempScript(a.cfg.Shell[0], script)
 	if err != nil {
 		return fmt.Errorf("failed to write temp script: %w", err)
@@ -314,32 +286,37 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 		os.Remove(scriptPath)
 		return err
 	}
-	if runtime.GOOS == "windows" {
-		// On Windows the launched shell holds the script file locked, so a
-		// too-early removal just fails and retries. Linux has no such lock —
-		// removal would win the race against a terminal that is still
-		// starting up — so there the script deletes itself instead (see
-		// wrapScriptUnix) and startup cleanup catches failed launches.
-		scheduleTempScriptCleanup(scriptPath)
-	}
 	return nil
 }
 
-// wrapScriptUnix wraps the expanded command for launching on Linux. The
-// script deletes itself as its first step — the shell keeps reading from its
-// already-open fd, so unlinking mid-run is safe — because Linux, unlike
-// Windows, lets scheduleTempScriptCleanup remove a file the terminal hasn't
-// even opened yet. When stayOpen is set, POSIX shells get an epilogue that
-// waits for Enter before the terminal window closes; PowerShell doesn't need
-// one since buildShellArgv passes -NoExit instead.
-func wrapScriptUnix(shellBase, script string, stayOpen bool) string {
+// wrapScript wraps the expanded command with a self-delete of its own temp
+// file, so cleanup is synchronized to actual execution instead of guessed by
+// an external timer: whichever line runs the delete, the interpreter must
+// already have opened (and read up to) that point in the file, so it can
+// never race a terminal/shell that is merely slow to start — the previous
+// approach (an external goroutine deleting the file on a timer) could win
+// that race on a slow wt.exe/pwsh cold start, deleting the script before
+// PowerShell ever opened it and making -File fail with "term ... is not
+// recognized".
+//
+//   - pwsh/powershell: self-delete is the first line. PowerShell parses the
+//     whole file before executing any of it, so this is also the fastest
+//     point to get a secret-bearing script off disk.
+//   - POSIX shells (bash, sh, zsh, dash, ksh): self-delete is the first line
+//     too, for the same reason (unlinking a file another process still has
+//     open is always safe on POSIX). When stayOpen is set, an epilogue at the
+//     end waits for Enter before the terminal window closes.
+//   - cmd: self-delete is the *last* line. Deleting a batch file as its very
+//     first line is a well-known source of quirky behavior in cmd.exe (its
+//     line-by-line reads can get confused); appending it after the real
+//     command, once cmd.exe has already consumed everything before it, is
+//     the safe, commonly-recommended placement.
+func wrapScript(shellBase, script string, stayOpen bool) string {
 	switch shellBase {
 	case "pwsh", "powershell":
-		// PowerShell parses the whole file before running the first
-		// statement, so self-deletion up front is safe there too.
 		return "Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue\n" + script + "\n"
 	case "cmd":
-		return script // cmd.exe never runs on Linux; leave it untouched
+		return script + "\r\ndel \"%~f0\"\r\n"
 	default:
 		var b strings.Builder
 		b.WriteString("rm -f -- \"$0\"\n")
@@ -357,11 +334,12 @@ func wrapScriptUnix(shellBase, script string, stayOpen bool) string {
 // writeTempScript writes script to a new temp file with an extension the
 // target shell recognizes, and returns its path. Running the script from a
 // file — rather than inlining it as a single -Command/-c argument — avoids
-// depending on wt.exe's reconstruction of the argv after `--` surviving
+// depending on the terminal launcher's reconstruction of the argv surviving
 // embedded newlines and quotes, which is unreliable for anything beyond a
-// trivial one-liner. RunAction removes this file again shortly after
-// launching (see scheduleTempScriptCleanup); note the expanded command
-// (including any masked values) is on disk in plain text until then.
+// trivial one-liner. script is expected to already be wrapped by wrapScript,
+// so it deletes this very file once the shell starts executing it; note the
+// expanded command (including any masked values) is on disk in plain text
+// until then.
 func writeTempScript(shellBin, script string) (string, error) {
 	ext := ".txt"
 	switch shellBasename(shellBin) {
