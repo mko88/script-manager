@@ -233,12 +233,14 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 	}
 }
 
-// RunAction launches the item/action pair as a new tab in the dedicated
-// Windows Terminal window, reusing it across calls. Windows-only for now —
-// other platforms get a clear error instead of a silent no-op.
+// RunAction launches the item/action pair in a terminal window: on Windows
+// as a new tab in the dedicated Windows Terminal window (reused across
+// calls), on Linux in the first terminal emulator found on PATH (see
+// linuxTerminals for the order). Other platforms get a clear error instead
+// of a silent no-op.
 func (a *App) RunAction(itemIndex, actionIndex int) error {
-	if runtime.GOOS != "windows" {
-		return fmt.Errorf("running actions is currently only supported on Windows")
+	if runtime.GOOS != "windows" && runtime.GOOS != "linux" {
+		return fmt.Errorf("running actions is not supported on %s", runtime.GOOS)
 	}
 	item := a.itemAt(itemIndex)
 	if item == nil {
@@ -251,9 +253,20 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 	if len(a.cfg.Shell) == 0 {
 		return fmt.Errorf("no shell configured")
 	}
-	wtPath, err := exec.LookPath("wt.exe")
-	if err != nil {
-		return fmt.Errorf("Windows Terminal (wt.exe) not found in PATH")
+
+	// Resolve the terminal before writing anything to disk, so a missing
+	// terminal fails fast without leaving a temp script behind.
+	var wtPath string
+	var linTerm linuxTerminal
+	var err error
+	if runtime.GOOS == "windows" {
+		if wtPath, err = exec.LookPath("wt.exe"); err != nil {
+			return fmt.Errorf("Windows Terminal (wt.exe) not found in PATH")
+		}
+	} else {
+		if linTerm, err = findLinuxTerminal(); err != nil {
+			return err
+		}
 	}
 
 	act := actions[actionIndex]
@@ -262,7 +275,11 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 	if err != nil {
 		return fmt.Errorf("cmd template error: %w", err)
 	}
-	scriptPath, err := writeTempScript(a.cfg.Shell[0], expandedCmd)
+	script := expandedCmd
+	if runtime.GOOS == "linux" {
+		script = wrapScriptUnix(shellBasename(a.cfg.Shell[0]), expandedCmd, !act.NoWait)
+	}
+	scriptPath, err := writeTempScript(a.cfg.Shell[0], script)
 	if err != nil {
 		return fmt.Errorf("failed to write temp script: %w", err)
 	}
@@ -273,20 +290,64 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 		title = act.Title + " · " + name
 	}
 
-	wtArgs := []string{"-w", wtWindowName, "new-tab", "--title", title}
-	if a.exeDir != "" {
-		wtArgs = append(wtArgs, "-d", a.exeDir)
+	var cmd *exec.Cmd
+	if runtime.GOOS == "windows" {
+		wtArgs := []string{"-w", wtWindowName, "new-tab", "--title", title}
+		if a.exeDir != "" {
+			wtArgs = append(wtArgs, "-d", a.exeDir)
+		}
+		wtArgs = append(wtArgs, "--")
+		wtArgs = append(wtArgs, shellArgv...)
+		cmd = exec.Command(wtPath, wtArgs...)
+	} else {
+		cmd = exec.Command(linTerm.path, linTerm.args(title, a.exeDir, shellArgv)...)
+		if a.exeDir != "" {
+			cmd.Dir = a.exeDir
+		}
 	}
-	wtArgs = append(wtArgs, "--")
-	wtArgs = append(wtArgs, shellArgv...)
-	cmd := exec.Command(wtPath, wtArgs...)
 	cmd.Env = action.Env(merged)
 	if err := cmd.Start(); err != nil {
 		os.Remove(scriptPath)
 		return err
 	}
-	scheduleTempScriptCleanup(scriptPath)
+	if runtime.GOOS == "windows" {
+		// On Windows the launched shell holds the script file locked, so a
+		// too-early removal just fails and retries. Linux has no such lock —
+		// removal would win the race against a terminal that is still
+		// starting up — so there the script deletes itself instead (see
+		// wrapScriptUnix) and startup cleanup catches failed launches.
+		scheduleTempScriptCleanup(scriptPath)
+	}
 	return nil
+}
+
+// wrapScriptUnix wraps the expanded command for launching on Linux. The
+// script deletes itself as its first step — the shell keeps reading from its
+// already-open fd, so unlinking mid-run is safe — because Linux, unlike
+// Windows, lets scheduleTempScriptCleanup remove a file the terminal hasn't
+// even opened yet. When stayOpen is set, POSIX shells get an epilogue that
+// waits for Enter before the terminal window closes; PowerShell doesn't need
+// one since buildShellArgv passes -NoExit instead.
+func wrapScriptUnix(shellBase, script string, stayOpen bool) string {
+	switch shellBase {
+	case "pwsh", "powershell":
+		// PowerShell parses the whole file before running the first
+		// statement, so self-deletion up front is safe there too.
+		return "Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue\n" + script + "\n"
+	case "cmd":
+		return script // cmd.exe never runs on Linux; leave it untouched
+	default:
+		var b strings.Builder
+		b.WriteString("rm -f -- \"$0\"\n")
+		b.WriteString(script)
+		b.WriteString("\n")
+		if stayOpen {
+			b.WriteString("__status=$?\n")
+			b.WriteString("printf '\\n[exit status %s] Press Enter to close...' \"$__status\"\n")
+			b.WriteString("read -r __line\n")
+		}
+		return b.String()
+	}
 }
 
 // writeTempScript writes script to a new temp file with an extension the
@@ -304,6 +365,8 @@ func writeTempScript(shellBin, script string) (string, error) {
 		ext = ".ps1"
 	case "cmd":
 		ext = ".bat"
+	case "bash", "sh", "zsh", "dash", "ksh":
+		ext = ".sh"
 	}
 	f, err := os.CreateTemp("", tempScriptPattern+ext)
 	if err != nil {
@@ -345,7 +408,18 @@ func buildShellArgv(shell []string, scriptPath string, stayOpen bool) []string {
 		}
 		return []string{shell[0], flag, scriptPath}
 	default:
-		return append(append([]string{}, shell...), scriptPath)
+		// POSIX shells: -c makes the next argument a command *string*, which
+		// would try to execute the script path as a program (and fail without
+		// an exec bit). Strip it so the path is read as a script file, the
+		// same way the -Command strip works for pwsh above.
+		argv := []string{shell[0]}
+		for _, a := range shell[1:] {
+			if a == "-c" {
+				continue
+			}
+			argv = append(argv, a)
+		}
+		return append(argv, scriptPath)
 	}
 }
 

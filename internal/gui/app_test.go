@@ -58,19 +58,95 @@ func TestBuildShellArgv(t *testing.T) {
 			want:     []string{"cmd.exe", "/c", "s.ps1"},
 		},
 		{
-			name:     "other shells get the script appended",
+			name:     "posix shells strip -c and get the script appended",
 			shell:    []string{"bash", "-c"},
 			stayOpen: true,
-			want:     []string{"bash", "-c", "s.ps1"},
+			want:     []string{"bash", "s.sh"},
+		},
+		{
+			name:     "posix shells keep other flags",
+			shell:    []string{"/usr/bin/zsh", "--no-rcs"},
+			stayOpen: false,
+			want:     []string{"/usr/bin/zsh", "--no-rcs", "s.sh"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := buildShellArgv(tt.shell, "s.ps1", tt.stayOpen)
+			script := "s.ps1"
+			if strings.HasSuffix(tt.want[len(tt.want)-1], ".sh") {
+				script = "s.sh"
+			}
+			got := buildShellArgv(tt.shell, script, tt.stayOpen)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("buildShellArgv = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestWrapScriptUnix(t *testing.T) {
+	t.Run("posix shells self-delete then run", func(t *testing.T) {
+		got := wrapScriptUnix("bash", "echo hi", false)
+		if !strings.HasPrefix(got, "rm -f -- \"$0\"\n") {
+			t.Errorf("missing self-delete prologue: %q", got)
+		}
+		if !strings.Contains(got, "echo hi") {
+			t.Errorf("missing command: %q", got)
+		}
+		if strings.Contains(got, "read -r") {
+			t.Errorf("noWait script must not wait for a key: %q", got)
+		}
+	})
+	t.Run("posix stayOpen waits for Enter", func(t *testing.T) {
+		got := wrapScriptUnix("bash", "echo hi", true)
+		if !strings.Contains(got, "read -r") {
+			t.Errorf("stayOpen script must wait for a key: %q", got)
+		}
+		if idx := strings.Index(got, "echo hi"); idx > strings.Index(got, "read -r") {
+			t.Errorf("wait epilogue must come after the command: %q", got)
+		}
+	})
+	t.Run("pwsh self-deletes via PSCommandPath, no read epilogue", func(t *testing.T) {
+		got := wrapScriptUnix("pwsh", "Get-Date", true)
+		if !strings.HasPrefix(got, "Remove-Item -LiteralPath $PSCommandPath") {
+			t.Errorf("missing self-delete prologue: %q", got)
+		}
+		if strings.Contains(got, "read -r") {
+			t.Errorf("pwsh stays open via -NoExit, not a read epilogue: %q", got)
+		}
+	})
+}
+
+func TestLinuxTerminalArgs(t *testing.T) {
+	shellArgv := []string{"bash", "/tmp/s.sh"}
+	tests := []struct {
+		bin  string
+		want []string
+	}{
+		{"x-terminal-emulator", []string{"-T", "t", "-e", "bash", "/tmp/s.sh"}},
+		{"gnome-terminal", []string{"--title", "t", "--working-directory", "/opt/app", "--", "bash", "/tmp/s.sh"}},
+		{"konsole", []string{"--workdir", "/opt/app", "-e", "bash", "/tmp/s.sh"}},
+		{"xfce4-terminal", []string{"-T", "t", "--working-directory", "/opt/app", "-x", "bash", "/tmp/s.sh"}},
+		{"kitty", []string{"--title", "t", "--directory", "/opt/app", "bash", "/tmp/s.sh"}},
+		{"alacritty", []string{"-T", "t", "--working-directory", "/opt/app", "-e", "bash", "/tmp/s.sh"}},
+		{"xterm", []string{"-T", "t", "-e", "bash", "/tmp/s.sh"}},
+	}
+	byBin := map[string]linuxTerminal{}
+	for _, lt := range linuxTerminals {
+		byBin[lt.bin] = lt
+	}
+	for _, tt := range tests {
+		lt, ok := byBin[tt.bin]
+		if !ok {
+			t.Errorf("%s missing from linuxTerminals", tt.bin)
+			continue
+		}
+		if got := lt.args("t", "/opt/app", shellArgv); !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s args = %v, want %v", tt.bin, got, tt.want)
+		}
+	}
+	if len(byBin) != len(tests) {
+		t.Errorf("test covers %d terminals, linuxTerminals has %d", len(tests), len(byBin))
 	}
 }
 
@@ -82,7 +158,9 @@ func TestWriteTempScript(t *testing.T) {
 		{"pwsh.exe", ".ps1"},
 		{"powershell.exe", ".ps1"},
 		{"cmd.exe", ".bat"},
-		{"bash", ".txt"},
+		{"/usr/bin/bash", ".sh"},
+		{"zsh", ".sh"},
+		{"fish", ".txt"},
 	}
 	for _, tt := range tests {
 		path, err := writeTempScript(tt.shell, "echo hi")

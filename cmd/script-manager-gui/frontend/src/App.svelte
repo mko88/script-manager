@@ -184,7 +184,7 @@
     if (selectedItem < 0 || selectedActionIndex < 0) return
     try {
       await RunAction(selectedItem, selectedActionIndex)
-      flash('Running in Windows Terminal…')
+      flash('Running in terminal window…')
     } catch (err) {
       flash(`Run failed: ${err}`)
     }

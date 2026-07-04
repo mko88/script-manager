@@ -3,7 +3,7 @@
 A tool for organising and running shell scripts across a list of configurable items, driven by a single YAML config. It ships two separate interfaces that both read the same `config.yaml`:
 
 - **TUI** (`cmd/script-manager`) — a terminal UI built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). Browse items and actions, and run actions directly in the same terminal session.
-- **GUI** (`cmd/script-manager-gui`) — a desktop app built with [Wails](https://wails.io). Browse items and actions in a resizable, mouse-driven window; on Windows, actions run via a dedicated, reused Windows Terminal window instead of inline (see [GUI](#gui) for details and current platform support).
+- **GUI** (`cmd/script-manager-gui`) — a desktop app built with [Wails](https://wails.io). Browse items and actions in a resizable, mouse-driven window; actions run in a separate terminal window instead of inline — a dedicated, reused Windows Terminal window on Windows, or the first available terminal emulator on Linux (see [GUI](#gui) for details and current platform support).
 
 # Disclaimer
 
@@ -258,19 +258,23 @@ actions:
 - All four panes are collapsible (▾/▸ in each header) and resizable (drag the thin dividers between panes); sizes and collapsed state persist across restarts. Collapsed, the Items and Actions headers show the current selection (e.g. "Actions · Test output"), wrapping onto multiple lines for longer labels, so you don't lose context
 - `F5` reloads the config from disk in place — same semantics as the TUI: previous state is kept on a read/parse failure, with the error shown as a toast instead
 
-### Running actions (Windows only, for now)
+### Running actions (Windows and Linux)
 
-The **Run** button in the Command pane opens the expanded command as a new tab in a dedicated Windows Terminal window (named `script-manager`), reusing that same window across every run instead of spawning a new one each time. Requirements:
+The **Run** button in the Command pane opens the expanded command in a terminal window:
 
-- Windows, with `wt.exe` (Windows Terminal) on `PATH` — if it's missing, Run shows an error toast rather than falling back to another terminal
-- The action's `noWait` flag controls whether the tab stays open after the command finishes: `false` (default) keeps it open so you can read the output; `true` closes it automatically, same intent as the TUI's `noWait`
-- The tab's starting directory is the GUI executable's folder (not the user's home directory), so relative paths in `cmd:` templates resolve the same way as `config.yaml` auto-detection does
+- **Windows** — as a new tab in a dedicated Windows Terminal window (named `script-manager`), reusing that same window across every run instead of spawning a new one each time. Requires `wt.exe` (Windows Terminal) on `PATH`; if it's missing, Run shows an error toast rather than falling back to another terminal.
+- **Linux** — in a new window of the first terminal emulator found on `PATH`, tried in this order: `x-terminal-emulator` (the Debian-alternatives default, so your configured terminal wins), `gnome-terminal`, `konsole`, `xfce4-terminal`, `kitty`, `alacritty`, `xterm`. If none is found, Run shows an error toast listing what was tried.
 
-The expanded command is written to a temporary script file (`.ps1` for PowerShell/pwsh, `.bat` for cmd.exe) and run with `-File`/as the script argument, rather than inlined on the command line — `wt.exe`'s own reconstruction of the argv after `--` doesn't reliably survive multi-line scripts with embedded quotes, so only a plain file path is passed through instead. The script is deleted again moments after launching (retried briefly in case the shell is still opening it); any leftover from a run that didn't clean up after itself (e.g. the app was closed early) is removed unconditionally the next time the GUI starts, regardless of how old it is.
+On both platforms:
+
+- The action's `noWait` flag controls whether the terminal stays open after the command finishes: `false` (default) keeps it open so you can read the output (PowerShell via `-NoExit`; POSIX shells via a "Press Enter to close" prompt appended to the script); `true` closes it automatically, same intent as the TUI's `noWait`
+- The starting directory is the GUI executable's folder (not the user's home directory), so relative paths in `cmd:` templates resolve the same way as `config.yaml` auto-detection does
+
+The expanded command is written to a temporary script file (`.ps1` for PowerShell/pwsh, `.bat` for cmd.exe, `.sh` for bash/sh/zsh/dash/ksh) and run as a script argument, rather than inlined on the command line — terminal launchers' reconstruction of the argv doesn't reliably survive multi-line scripts with embedded quotes, so only a plain file path is passed through instead. On Windows the script is deleted moments after launching (retried briefly in case the shell is still opening it); on Linux the script deletes itself as its first step, since there's no file lock to protect it from an early cleanup while the terminal is still starting. Any leftover from a run that didn't clean up after itself (e.g. the app was closed early) is removed unconditionally the next time the GUI starts, regardless of how old it is.
 
 > **Note on secrets:** the temp script contains the *fully expanded* command. If a `cmd:` template interpolates a value you hide with `{{mask ...}}` in the Details pane, that value sits in plain text in the OS temp directory for the brief window before cleanup runs. Avoid putting secrets in `cmd:` templates on shared machines.
 
-There's no output streamed back into the GUI — the terminal tab is independent once launched, same trade-off as the TUI's own action execution. Linux/macOS support (and non-`wt` terminals) may follow later; other platforms currently get a clear "not supported" error instead of a silent no-op.
+There's no output streamed back into the GUI — the terminal window is independent once launched, same trade-off as the TUI's own action execution. macOS is not supported yet and gets a clear "not supported" error instead of a silent no-op.
 
 Launch it the same way as the TUI:
 
