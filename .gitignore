@@ -24,3 +24,6 @@ Thumbs.db
 
 # Dev container lock file (no features used, nothing to pin)
 .devcontainer/devcontainer-lock.json
+
+# folder to store temporary files (AI analysis, dev todos etc.)
+/temp-docs/
