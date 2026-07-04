@@ -335,7 +335,7 @@
               {groupChipsCollapsed ? '▸' : '▾'}
             </button>
             {#if groupChipsCollapsed}
-              <span class="group-summary">Groups: {groupSummary}</span>
+              <span class="group-summary">{groupSummary}</span>
             {:else}
               <div class="group-chips">
                 <button class="chip" class:active={selectedGroups.size === 0} on:click={selectAllGroups}>All</button>
