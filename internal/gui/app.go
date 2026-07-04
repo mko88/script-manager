@@ -77,21 +77,40 @@ func exeDir() string {
 	return filepath.Dir(exe)
 }
 
-// cleanupTempScripts removes action scripts left behind by previous runs.
-// The shell parses a script fully before executing it, so anything older
-// than an hour can no longer be in use — files younger than that are kept in
-// case a previous instance launched them moments ago.
+// cleanupTempScripts removes every action script left behind by previous
+// runs, regardless of age. RunAction cleans up its own script shortly after
+// launching (see scheduleTempScriptCleanup); this is the fallback for
+// whatever that missed — e.g. the app was killed before the retry loop
+// finished — so nothing lingers across restarts, however old it is.
 func cleanupTempScripts() {
 	matches, err := filepath.Glob(filepath.Join(os.TempDir(), tempScriptPattern))
 	if err != nil {
 		return
 	}
-	cutoff := time.Now().Add(-time.Hour)
 	for _, path := range matches {
-		if info, err := os.Stat(path); err == nil && info.ModTime().Before(cutoff) {
-			os.Remove(path)
-		}
+		os.Remove(path)
 	}
+}
+
+// scheduleTempScriptCleanup removes path once the launched shell is done
+// reading it. Deletion can race the new process still opening the file (wt.exe
+// itself hasn't necessarily spawned the shell yet when this is scheduled), so
+// a failed attempt is retried a few times with backoff; anything still locked
+// after that (e.g. a long-running noWait: false script) is left for
+// cleanupTempScripts to catch on the next startup.
+func scheduleTempScriptCleanup(path string) {
+	go func() {
+		delay := 200 * time.Millisecond
+		for i := 0; i < 10; i++ {
+			time.Sleep(delay)
+			if err := os.Remove(path); err == nil || os.IsNotExist(err) {
+				return
+			}
+			if delay < 5*time.Second {
+				delay *= 2
+			}
+		}
+	}()
 }
 
 // ReloadConfig re-reads the config from disk. On failure — a missing file or
@@ -262,7 +281,12 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 	wtArgs = append(wtArgs, shellArgv...)
 	cmd := exec.Command(wtPath, wtArgs...)
 	cmd.Env = action.Env(merged)
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		os.Remove(scriptPath)
+		return err
+	}
+	scheduleTempScriptCleanup(scriptPath)
+	return nil
 }
 
 // writeTempScript writes script to a new temp file with an extension the
@@ -270,9 +294,9 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 // file — rather than inlining it as a single -Command/-c argument — avoids
 // depending on wt.exe's reconstruction of the argv after `--` surviving
 // embedded newlines and quotes, which is unreliable for anything beyond a
-// trivial one-liner. Leftover files are removed by cleanupTempScripts on the
-// next startup; note the expanded command (including any masked values) is
-// on disk in plain text until then.
+// trivial one-liner. RunAction removes this file again shortly after
+// launching (see scheduleTempScriptCleanup); note the expanded command
+// (including any masked values) is on disk in plain text until then.
 func writeTempScript(shellBin, script string) (string, error) {
 	ext := ".txt"
 	switch shellBasename(shellBin) {

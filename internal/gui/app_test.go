@@ -6,6 +6,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestShellBasename(t *testing.T) {
@@ -101,4 +102,48 @@ func TestWriteTempScript(t *testing.T) {
 			t.Errorf("temp script content = %q, err %v", data, err)
 		}
 	}
+}
+
+func TestCleanupTempScriptsIgnoresAge(t *testing.T) {
+	f, err := os.CreateTemp("", tempScriptPattern+".ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := f.Name()
+	f.Close()
+	t.Cleanup(func() { os.Remove(path) })
+
+	// Backdate the file well past the old one-hour cutoff to prove cleanup no
+	// longer looks at age at all.
+	old := time.Now().Add(-48 * time.Hour)
+	if err := os.Chtimes(path, old, old); err != nil {
+		t.Fatal(err)
+	}
+
+	cleanupTempScripts()
+
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("cleanupTempScripts left %q behind", path)
+	}
+}
+
+func TestScheduleTempScriptCleanupRemovesFile(t *testing.T) {
+	f, err := os.CreateTemp("", tempScriptPattern+".ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := f.Name()
+	f.Close()
+
+	scheduleTempScriptCleanup(path)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	os.Remove(path)
+	t.Errorf("scheduleTempScriptCleanup did not remove %q in time", path)
 }
