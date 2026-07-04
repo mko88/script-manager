@@ -350,11 +350,14 @@ func buildShellArgv(shell []string, scriptPath string, stayOpen bool) []string {
 }
 
 // DetailsDTO is the rendered details pane: HTML plus the copyable values
-// found in the source template, in the order they appear.
+// found in the source template, in the order they appear. MissingFields
+// lists template fields the item lacks (rendered as <nil> in the HTML); the
+// frontend shows them in a pinned warning bar rather than inline markdown.
 type DetailsDTO struct {
-	Html       string   `json:"html"`
-	CopyValues []string `json:"copyValues"`
-	CopyMasked []bool   `json:"copyMasked"`
+	Html          string   `json:"html"`
+	CopyValues    []string `json:"copyValues"`
+	CopyMasked    []bool   `json:"copyMasked"`
+	MissingFields []string `json:"missingFields"`
 }
 
 // codeTagRe matches a single inline <code>...</code> element as emitted by
@@ -374,8 +377,9 @@ func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
 	if err != nil {
 		return DetailsDTO{Html: "<pre>details template error: " + err.Error() + "</pre>"}
 	}
+	data, missing := render.FillMissingFields(tmpl, merged)
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, merged); err != nil {
+	if err := tmpl.Execute(&buf, data); err != nil {
 		return DetailsDTO{Html: "<pre>details template error: " + err.Error() + "</pre>"}
 	}
 	expanded := render.ExpandAllEnv(buf.String(), merged)
@@ -384,7 +388,7 @@ func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
 
 	var htmlBuf bytes.Buffer
 	if err := a.md.Convert([]byte(displayMd), &htmlBuf); err != nil {
-		return DetailsDTO{Html: "<pre>" + strings.TrimSpace(displayMd) + "</pre>"}
+		return DetailsDTO{Html: "<pre>" + strings.TrimSpace(displayMd) + "</pre>", MissingFields: missing}
 	}
 
 	idx := -1
@@ -400,7 +404,7 @@ func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
 		return `<code class="` + cls + `" data-copy-idx="` + strconv.Itoa(idx) + `">` + inner + `</code>`
 	})
 
-	return DetailsDTO{Html: htmlOut, CopyValues: copyValues, CopyMasked: copyMasked}
+	return DetailsDTO{Html: htmlOut, CopyValues: copyValues, CopyMasked: copyMasked, MissingFields: missing}
 }
 
 // CopyToClipboard writes value to the system clipboard.

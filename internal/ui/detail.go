@@ -296,11 +296,13 @@ func (t *DescriptionTile) renderItem(innerW, innerH int) []string {
 		return nil
 	}
 
+	data, missing := render.FillMissingFields(tmpl, t.item)
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, t.item); err != nil {
+	if err := tmpl.Execute(&buf, data); err != nil {
 		return t.plainLines("details template error: "+err.Error(), innerW)
 	}
 	expanded := render.ExpandAllEnv(buf.String(), t.item)
+	expanded = render.MissingFieldsWarning(missing) + expanded
 
 	// Process masks and extract copy values once per item.
 	if !t.copyValuesSet {

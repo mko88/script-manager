@@ -188,6 +188,8 @@ If none of these keys are set the full action list is shown (backward-compatible
 
 `display.details` is rendered as **Markdown** in the Details pane — you can use `**bold**`, `*italic*`, `` `code spans` ``, `## headings`, tables, and bullet lists. Backtick-wrapped values (`` `value` ``) are highlighted in cyan and can be copied to the clipboard.
 
+If the details template references a field an item doesn't have (or the field is null), the field renders as a literal `<nil>` placeholder instead of failing, and a ⚠️ warning at the top of the Details pane lists the missing field names. In the TUI this is a warning line above the rendered details; in the GUI it's a collapsible bar pinned above the details content (like the Actions group filter) that stays visible while the details scroll.
+
 #### Masking sensitive values
 
 Use the built-in `mask` template function to hide passwords or tokens in the Details pane while still making them copyable:

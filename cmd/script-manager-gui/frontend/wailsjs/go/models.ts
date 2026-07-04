@@ -38,6 +38,7 @@ export namespace gui {
 	    html: string;
 	    copyValues: string[];
 	    copyMasked: boolean[];
+	    missingFields: string[];
 	
 	    static createFrom(source: any = {}) {
 	        return new DetailsDTO(source);
@@ -48,6 +49,7 @@ export namespace gui {
 	        this.html = source["html"];
 	        this.copyValues = source["copyValues"];
 	        this.copyMasked = source["copyMasked"];
+	        this.missingFields = source["missingFields"];
 	    }
 	}
 	export class ItemDTO {

@@ -85,6 +85,8 @@
       ? 'Sorted by action count, descending — click for ascending'
       : 'Sorted by action count, ascending — click for descending'
 
+  $: missingFields = details?.missingFields ?? []
+
   $: selectedItemLabel = items.find((i) => i.index === selectedItem)?.label ?? ''
   $: selectedActionLabel = actions.find((a) => a.index === selectedActionIndex)?.title ?? ''
   $: selectedActionGroups = actions.find((a) => a.index === selectedActionIndex)?.groups ?? []
@@ -221,6 +223,7 @@
   let detailsCollapsed = false
   let commandCollapsed = false
   let groupChipsCollapsed = true
+  let detailsWarningCollapsed = true
 
   onMount(() => {
     try {
@@ -233,6 +236,7 @@
       detailsCollapsed = !!saved.detailsCollapsed
       commandCollapsed = !!saved.commandCollapsed
       groupChipsCollapsed = !!saved.groupChipsCollapsed
+      detailsWarningCollapsed = saved.detailsWarningCollapsed ?? true
     } catch {
       // ignore corrupt/missing layout, defaults already set
     }
@@ -250,12 +254,18 @@
         detailsCollapsed,
         commandCollapsed,
         groupChipsCollapsed,
+        detailsWarningCollapsed,
       }),
     )
   }
 
   function toggleGroupChips() {
     groupChipsCollapsed = !groupChipsCollapsed
+    saveLayout()
+  }
+
+  function toggleDetailsWarning() {
+    detailsWarningCollapsed = !detailsWarningCollapsed
     saveLayout()
   }
 
@@ -436,6 +446,29 @@
         </button>
       </header>
       {#if !detailsCollapsed}
+        {#if missingFields.length > 0}
+          <div class="details-warning">
+            <div class="details-warning-header">
+              <button
+                class="collapse-btn warning-toggle"
+                on:click={toggleDetailsWarning}
+                title={detailsWarningCollapsed ? 'Expand missing-values warning' : 'Collapse missing-values warning'}
+              >
+                {detailsWarningCollapsed ? '▸' : '▾'}
+              </button>
+              <span class="warning-summary">
+                ⚠ {missingFields.length} missing value{missingFields.length > 1 ? 's' : ''} (shown as &lt;nil&gt;)
+              </span>
+            </div>
+            {#if !detailsWarningCollapsed}
+              <div class="warning-chips">
+                {#each missingFields as field (field)}
+                  <span class="chip chip-static warning-chip">{field}</span>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/if}
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <!-- svelte-ignore a11y-no-static-element-interactions -->
         <div class="panel-body details-content" on:click={onDetailsClick}>
@@ -762,6 +795,48 @@
     font-size: 0.85rem;
     padding: 8px;
     font-style: italic;
+  }
+
+  .details-warning {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px 6px;
+    background: rgba(232, 163, 61, 0.1);
+    border-bottom: 1px solid #3a4a63;
+  }
+
+  .details-warning-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 4px;
+  }
+
+  .warning-toggle {
+    flex: none;
+    padding: 2px 4px;
+    color: #e8a33d;
+  }
+
+  .warning-summary {
+    color: #e8a33d;
+    font-size: 0.78rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .warning-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding-bottom: 2px;
+  }
+
+  .warning-chip {
+    border-color: #e8a33d;
+    color: #e8a33d;
   }
 
   .details-content {
