@@ -215,7 +215,7 @@ func TestScheduleTempScriptCleanupRemovesFile(t *testing.T) {
 
 	scheduleTempScriptCleanup(path)
 
-	deadline := time.Now().Add(2 * time.Second)
+	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
 		if _, err := os.Stat(path); os.IsNotExist(err) {
 			return

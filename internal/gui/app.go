@@ -93,14 +93,18 @@ func cleanupTempScripts() {
 }
 
 // scheduleTempScriptCleanup removes path once the launched shell is done
-// reading it. Deletion can race the new process still opening the file (wt.exe
-// itself hasn't necessarily spawned the shell yet when this is scheduled), so
-// a failed attempt is retried a few times with backoff; anything still locked
-// after that (e.g. a long-running noWait: false script) is left for
-// cleanupTempScripts to catch on the next startup.
+// reading it. The retry-with-backoff only guards against the file still
+// being open (os.Remove fails while pwsh holds it); it does nothing for a
+// wt.exe/pwsh cold start slower than the first attempt, where nothing has
+// opened the file yet and the delete simply succeeds — deleting the script
+// out from under a shell that hasn't read it yet, so -File then fails with
+// "term ... is not recognized". The initial delay is deliberately generous
+// (well beyond a typical cold terminal start) to make that window rare;
+// anything still locked after the retries (e.g. a long-running noWait: false
+// script) is left for cleanupTempScripts to catch on the next startup.
 func scheduleTempScriptCleanup(path string) {
 	go func() {
-		delay := 200 * time.Millisecond
+		delay := 1500 * time.Millisecond
 		for i := 0; i < 10; i++ {
 			time.Sleep(delay)
 			if err := os.Remove(path); err == nil || os.IsNotExist(err) {
