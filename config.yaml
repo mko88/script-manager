@@ -24,7 +24,8 @@ display:
       | SSH User | `{{.sshUser}}` |
       | Region | `{{.region}}` |{{if .password}}
       | Password | `{{mask .password}}` |{{end}}
-      
+      ### Config file<br>
+      #CONFIG_FILE#
       ### Environment Variables
       #ALL_ENV_LIST#
       #ALL_ENV_TABLE#

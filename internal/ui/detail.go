@@ -152,6 +152,7 @@ type DescriptionTile struct {
 	item          map[string]any
 	displays      []config.DisplayConfig
 	tmpls         map[string]*template.Template // keyed by DisplayConfig.Name
+	configPath    string                        // for the #CONFIG_FILE# placeholder
 	title         string
 	copyValues    []string // actual values for clipboard (decoded for masked spans)
 	copyMasked    []bool   // true when the corresponding value was masked
@@ -185,6 +186,12 @@ func (t *DescriptionTile) SetDisplays(displays config.DisplayList) {
 	}
 	t.displays = displays
 	t.tmpls = tmpls
+}
+
+// SetConfigPath records which config file is loaded, e.g. after a reload, so
+// renderItem can expand #CONFIG_FILE#.
+func (t *DescriptionTile) SetConfigPath(path string) {
+	t.configPath = path
 }
 
 func (t *DescriptionTile) SetItem(item map[string]any) {
@@ -302,6 +309,7 @@ func (t *DescriptionTile) renderItem(innerW, innerH int) []string {
 		return t.plainLines("details template error: "+err.Error(), innerW)
 	}
 	expanded := render.ExpandAllEnv(buf.String(), t.item)
+	expanded = render.ExpandConfigFile(expanded, t.configPath)
 	expanded = render.MissingFieldsWarning(missing) + expanded
 
 	// Process masks and extract copy values once per item.

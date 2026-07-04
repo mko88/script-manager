@@ -101,7 +101,7 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 
 ## Configuration
 
-Place `config.yaml` in the same directory as the binary (or pass it with `-config`). On Windows, `config-win.yaml` takes precedence when present — next to the binary or in the working directory — and `config.yaml` is used as the fallback.
+Place `config.yaml` in the same directory as the binary (or pass it with `-config`). On Windows, `config-win.yaml` takes precedence when present — next to the binary or in the working directory — and `config.yaml` is used as the fallback. If the preferred file exists but fails to parse (e.g. a YAML syntax error), it's skipped in favor of the next candidate and the load error is shown once at startup — a status bar message in the TUI, a toast in the GUI — so a broken `config-win.yaml` falling back to `config.yaml` doesn't go unnoticed.
 
 ```yaml
 shell:
@@ -221,6 +221,17 @@ details: |
 - `#ALL_ENV_TABLE#` renders a two-column Markdown table (`Variable` / `Value`)
 
 Both list every merged variable under its exported (uppercase) name, sorted alphabetically — the `display`, `actions`, `actionGroups`, and `customActions` keys are skipped since they configure action filtering rather than holding data worth displaying. Any variable whose name ends in `password`, `passwd`, `pwd`, `secret`, `key`, `token`, `credential`, `credentials`, or `auth` (case-insensitive) is masked automatically, exactly like an explicit `{{mask ...}}` call — no need to name each secret field yourself.
+
+#### Showing which config file is loaded
+
+The literal placeholder `#CONFIG_FILE#` expands to the full path of the config file actually in use — handy for confirming which of several candidates (`config-win.yaml` vs. `config.yaml`, next to the binary vs. in the working directory) won:
+
+```yaml
+details: |
+  ### {{.description}}
+
+  _Config: `#CONFIG_FILE#`_
+```
 
 ### Environment variables
 

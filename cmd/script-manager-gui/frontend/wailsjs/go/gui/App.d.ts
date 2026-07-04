@@ -14,6 +14,8 @@ export function GetItems():Promise<Array<gui.ItemDTO>>;
 
 export function GetTitles():Promise<gui.TitlesDTO>;
 
+export function LoadError():Promise<string>;
+
 export function ReloadConfig():Promise<void>;
 
 export function RunAction(arg1:number,arg2:number):Promise<void>;

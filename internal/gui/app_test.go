@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,6 +11,21 @@ import (
 
 	"script-manager/internal/config"
 )
+
+func TestLoadError(t *testing.T) {
+	t.Run("surfaces the initial load error", func(t *testing.T) {
+		a := NewApp(func() (*config.Config, error) { return &config.Config{}, errors.New("boom") })
+		if got := a.LoadError(); got != "boom" {
+			t.Errorf("LoadError() = %q, want %q", got, "boom")
+		}
+	})
+	t.Run("empty when the initial load succeeds", func(t *testing.T) {
+		a := NewApp(func() (*config.Config, error) { return &config.Config{}, nil })
+		if got := a.LoadError(); got != "" {
+			t.Errorf("LoadError() = %q, want empty", got)
+		}
+	})
+}
 
 func TestShellBasename(t *testing.T) {
 	// Backslash paths are deliberately absent: filepath.Base splits them only

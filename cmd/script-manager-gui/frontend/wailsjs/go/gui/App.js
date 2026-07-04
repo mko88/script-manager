@@ -26,6 +26,10 @@ export function GetTitles() {
   return window['go']['gui']['App']['GetTitles']();
 }
 
+export function LoadError() {
+  return window['go']['gui']['App']['LoadError']();
+}
+
 export function ReloadConfig() {
   return window['go']['gui']['App']['ReloadConfig']();
 }

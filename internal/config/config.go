@@ -123,6 +123,13 @@ type Config struct {
 	Env      map[string]any   `yaml:"env"`
 	Items    []map[string]any `yaml:"items"`
 	Actions  []Action         `yaml:"actions"`
+
+	// SourcePath is the absolute path of the file this config was actually
+	// loaded from — not part of the YAML itself, but set by loadPaths so
+	// callers (e.g. the #CONFIG_FILE# template placeholder) can show which of
+	// several candidate paths (config-win.yaml vs. config.yaml, exe dir vs.
+	// working dir) won.
+	SourcePath string `yaml:"-"`
 }
 
 // ActionsForItem returns the actions available for the given item.
@@ -287,6 +294,11 @@ func loadPaths(paths []string) (*Config, error) {
 		if err := yaml.Unmarshal(data, &cfg); err != nil {
 			lastErr = err
 			continue
+		}
+		if abs, err := filepath.Abs(p); err == nil {
+			cfg.SourcePath = abs
+		} else {
+			cfg.SourcePath = p
 		}
 		return &cfg, nil
 	}

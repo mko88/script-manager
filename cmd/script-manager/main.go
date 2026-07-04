@@ -21,9 +21,9 @@ func main() {
 		}
 		return config.LoadWithError()
 	}
-	cfg, _ := loadConfig()
+	cfg, err := loadConfig()
 
-	p := tea.NewProgram(ui.NewApp(cfg, loadConfig), tea.WithAltScreen())
+	p := tea.NewProgram(ui.NewApp(cfg, loadConfig, err), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)

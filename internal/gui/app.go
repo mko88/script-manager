@@ -38,27 +38,39 @@ const tempScriptPattern = "script-manager-action-*"
 
 // App is the Wails-bound backend.
 type App struct {
-	ctx    context.Context
-	cfg    *config.Config
-	load   func() (*config.Config, error)
-	md     goldmark.Markdown
-	exeDir string
+	ctx     context.Context
+	cfg     *config.Config
+	load    func() (*config.Config, error)
+	md      goldmark.Markdown
+	exeDir  string
+	loadErr error // from the initial load; the frontend fetches it once via LoadError
 }
 
 // NewApp builds the backend around a config loader, so an explicit -config
 // path and F5 reloads go through the same resolution.
 func NewApp(load func() (*config.Config, error)) *App {
-	cfg, _ := load()
+	cfg, err := load()
 	go cleanupTempScripts()
 	return &App{
-		cfg:    cfg,
-		load:   load,
-		exeDir: exeDir(),
+		cfg:     cfg,
+		load:    load,
+		exeDir:  exeDir(),
+		loadErr: err,
 		md: goldmark.New(
 			goldmark.WithExtensions(extension.GFM),
 			goldmark.WithRendererOptions(html.WithUnsafe()),
 		),
 	}
+}
+
+// LoadError returns the error from the initial config load, if any, so the
+// frontend can surface a startup failure the same way ReloadConfig errors are
+// surfaced. Returns "" when the initial load succeeded.
+func (a *App) LoadError() string {
+	if a.loadErr == nil {
+		return ""
+	}
+	return a.loadErr.Error()
 }
 
 // Startup is wired as the Wails OnStartup callback.
@@ -422,6 +434,7 @@ func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
 		return DetailsDTO{Html: "<pre>details template error: " + err.Error() + "</pre>"}
 	}
 	expanded := render.ExpandAllEnv(buf.String(), merged)
+	expanded = render.ExpandConfigFile(expanded, a.cfg.SourcePath)
 
 	displayMd, copyValues, copyMasked := render.ProcessMaskSpans(expanded)
 

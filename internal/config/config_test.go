@@ -1,6 +1,8 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -194,6 +196,31 @@ func TestFindDisplay(t *testing.T) {
 	}
 	if got := FindDisplay(nil, nil); got.Name != "" {
 		t.Errorf("empty display list should return zero value: got %q", got.Name)
+	}
+}
+
+func TestLoadPathsSourcePath(t *testing.T) {
+	dir := t.TempDir()
+	winPath := filepath.Join(dir, "config-win.yaml")
+	basePath := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(winPath, []byte("shell: [pwsh]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(basePath, []byte("shell: [bash]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Mirrors LoadWithError's Windows precedence order: config-win.yaml is
+	// tried (in both candidate directories) before config.yaml.
+	cfg, err := loadPaths([]string{winPath, basePath})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SourcePath != winPath {
+		t.Errorf("SourcePath = %q, want %q (config-win.yaml should win)", cfg.SourcePath, winPath)
+	}
+	if len(cfg.Shell) != 1 || cfg.Shell[0] != "pwsh" {
+		t.Errorf("expected config-win.yaml's content to win, got shell %v", cfg.Shell)
 	}
 }
 

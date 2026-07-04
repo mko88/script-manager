@@ -40,6 +40,7 @@ type App struct {
 	msgToken         int
 	reload           func() (*config.Config, error)
 	cfg              *config.Config
+	loadErr          error // from the initial load, surfaced once via Init
 }
 
 func orTitle(configured, def string) string {
@@ -49,12 +50,13 @@ func orTitle(configured, def string) string {
 	return def
 }
 
-func NewApp(cfg *config.Config, reload func() (*config.Config, error)) *App {
+func NewApp(cfg *config.Config, reload func() (*config.Config, error), loadErr error) *App {
 	list := newListTile(cfg.Items, cfg.Display)
 	list.title = orTitle(cfg.Titles.Items, list.title)
 
 	description := newDescriptionTile(cfg.Display)
 	description.title = orTitle(cfg.Titles.Details, description.title)
+	description.SetConfigPath(cfg.SourcePath)
 
 	actionsPanel := newActionsTile(cfg.Actions)
 	actionsPanel.title = orTitle(cfg.Titles.Actions, actionsPanel.title)
@@ -92,6 +94,7 @@ func NewApp(cfg *config.Config, reload func() (*config.Config, error)) *App {
 		actionsTileTitle: actionsPanel.title,
 		reload:           reload,
 		cfg:              cfg,
+		loadErr:          loadErr,
 	}
 	a.actionsPanel.selected = -1
 	a.description.SetItem(a.mergedItem(list.Selected()))
@@ -108,6 +111,7 @@ func (a *App) applyConfig(cfg *config.Config) {
 
 	a.description.SetDisplays(cfg.Display)
 	a.description.title = orTitle(cfg.Titles.Details, "Details")
+	a.description.SetConfigPath(cfg.SourcePath)
 
 	a.actionsTileTitle = orTitle(cfg.Titles.Actions, "Actions")
 	a.cmdBar.title = orTitle(cfg.Titles.Command, "Command")
@@ -298,6 +302,9 @@ func (a *App) flashMessage(text string, d time.Duration) tea.Cmd {
 }
 
 func (a *App) Init() tea.Cmd {
+	if a.loadErr != nil {
+		return tea.Batch(a.layout.Init(), a.flashMessage("Config load failed: "+a.loadErr.Error(), 5*time.Second))
+	}
 	return a.layout.Init()
 }
 

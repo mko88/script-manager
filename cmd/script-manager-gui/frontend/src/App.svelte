@@ -9,6 +9,7 @@
     CopyToClipboard,
     ReloadConfig,
     RunAction,
+    LoadError,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
 
@@ -103,6 +104,8 @@
   $: selectedActionGroups = actions.find((a) => a.index === selectedActionIndex)?.groups ?? []
 
   onMount(async () => {
+    const loadErr = await LoadError()
+    if (loadErr) flash(`Config load failed: ${loadErr}`)
     titles = await GetTitles()
     items = await GetItems()
     if (items.length > 0) selectItem(0)
