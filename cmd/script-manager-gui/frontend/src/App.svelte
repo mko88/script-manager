@@ -23,9 +23,11 @@
   // Empty set means "All" — no filter, show everything. Otherwise an action
   // matches if it belongs to any selected group (OR semantics).
   let selectedGroups = new Set<string>()
-  // Group chips are always sorted by both keys together (count first, then
-  // name to break ties among equal counts) — each button just flips its own
-  // key's direction, it doesn't switch sorting on/off.
+  // Group chips are sorted by exactly one key at a time: the active button
+  // (name or count) owns the order. Clicking the active button flips its
+  // direction; clicking the inactive one switches to that key, keeping the
+  // direction it last had.
+  let sortMode: 'alpha' | 'count' = 'alpha'
   let alphaDir: 'asc' | 'desc' = 'asc'
   let countDir: 'asc' | 'desc' = 'desc'
   let toast = ''
@@ -68,22 +70,31 @@
     return counts
   })()
 
-  // Primary key: action count (direction from countDir). Secondary key: name
-  // (direction from alphaDir), which only ever matters as a tie-breaker
-  // since counts repeat across groups but names don't.
   $: sortedGroups = [...actionGroups].sort((a, b) => {
+    if (sortMode === 'alpha') {
+      return a.localeCompare(b) * (alphaDir === 'asc' ? 1 : -1)
+    }
     const countCmp = ((groupCounts[a] ?? 0) - (groupCounts[b] ?? 0)) * (countDir === 'asc' ? 1 : -1)
     if (countCmp !== 0) return countCmp
-    return a.localeCompare(b) * (alphaDir === 'asc' ? 1 : -1)
+    // Equal counts need a deterministic order; plain A-Z, unaffected by the
+    // (inactive) name button.
+    return a.localeCompare(b)
   })
 
   $: alphaSortLabel = alphaDir === 'desc' ? 'Z-A' : 'A-Z'
-  $: alphaSortTitle = alphaDir === 'asc' ? 'Sorted A-Z — click for Z-A' : 'Sorted Z-A — click for A-Z'
+  $: alphaSortTitle =
+    sortMode !== 'alpha'
+      ? 'Sort by name'
+      : alphaDir === 'asc'
+        ? 'Sorted A-Z — click for Z-A'
+        : 'Sorted Z-A — click for A-Z'
   $: countSortLabel = countDir === 'desc' ? '# ↓' : '# ↑'
   $: countSortTitle =
-    countDir === 'desc'
-      ? 'Sorted by action count, descending — click for ascending'
-      : 'Sorted by action count, ascending — click for descending'
+    sortMode !== 'count'
+      ? 'Sort by action count'
+      : countDir === 'desc'
+        ? 'Sorted by action count, descending — click for ascending'
+        : 'Sorted by action count, ascending — click for descending'
 
   $: missingFields = details?.missingFields ?? []
 
@@ -122,6 +133,10 @@
   }
 
   function toggleSort(axis: 'alpha' | 'count') {
+    if (sortMode !== axis) {
+      sortMode = axis
+      return
+    }
     if (axis === 'alpha') alphaDir = alphaDir === 'asc' ? 'desc' : 'asc'
     else countDir = countDir === 'asc' ? 'desc' : 'asc'
   }
@@ -395,10 +410,20 @@
                 <span class="group-summary">{groupSummary}</span>
               {:else}
                 <div class="group-sort">
-                  <button class="sort-btn" on:click={() => toggleSort('alpha')} title={alphaSortTitle}>
+                  <button
+                    class="sort-btn"
+                    class:active={sortMode === 'alpha'}
+                    on:click={() => toggleSort('alpha')}
+                    title={alphaSortTitle}
+                  >
                     {alphaSortLabel}
                   </button>
-                  <button class="sort-btn" on:click={() => toggleSort('count')} title={countSortTitle}>
+                  <button
+                    class="sort-btn"
+                    class:active={sortMode === 'count'}
+                    on:click={() => toggleSort('count')}
+                    title={countSortTitle}
+                  >
                     {countSortLabel}
                   </button>
                 </div>
@@ -725,6 +750,13 @@
   .sort-btn:hover {
     background: #2b3b52;
     color: #d7dee8;
+  }
+
+  .sort-btn.active {
+    background: #e8a33d;
+    border-color: #e8a33d;
+    color: #1b2636;
+    font-weight: 700;
   }
 
   .group-chips {
