@@ -46,6 +46,16 @@ Produces:
 - `bin/script-manager` — Linux amd64
 - `bin/script-manager.exe` — Windows amd64
 
+On a Windows host with no local Go toolchain, working through a VS Code dev
+container (no host Go install; build via `docker exec` into the container),
+run `build-container.ps1` from the repo root instead of the manual
+stop-process + `docker exec` dance: it stops any host-side
+`script-manager*.exe` (a locked binary makes the Windows cross-compile step
+fail with "permission denied"), finds the running dev container for this repo
+by its `devcontainer.local_folder` label (the container name is
+auto-generated and changes across recreations — don't hardcode one), and runs
+`bash build.sh` inside it.
+
 ## Verifying GUI changes
 
 After making changes to `cmd/script-manager-gui/`, build the binaries (`bash build.sh`) but stop there — don't automatically launch into a full visual verification pass (Xvfb, screenshots, simulated clicks via xdotool). It's slow and not always necessary. Instead, ask the user to pick one:

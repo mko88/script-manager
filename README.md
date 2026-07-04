@@ -359,6 +359,16 @@ Produces:
 - `bin/script-manager-gui` — Linux amd64 GUI (only if the `wails` CLI is installed; skipped otherwise)
 - `bin/script-manager-gui.exe` — Windows amd64 GUI, cross-compiled (only if `mingw-w64` is installed; skipped otherwise)
 
+### Building from a Windows host via a dev container
+
+If you develop on Windows with the Go toolchain only available inside a VS Code dev container (no Go on the host), `build-container.ps1` wraps the steps that otherwise have to be repeated by hand:
+
+```powershell
+.\build-container.ps1
+```
+
+It stops any running `script-manager*.exe` on the host first — a locked binary makes the Windows cross-compile step in `build.sh` fail with "permission denied" — then finds the dev container for this repo (matched by its `devcontainer.local_folder` label, since the container name is auto-generated and changes across recreations) and runs `bash build.sh` inside it.
+
 To build for a specific target manually:
 
 ```bash
