@@ -27,6 +27,44 @@ func TestLoadError(t *testing.T) {
 	})
 }
 
+func TestReloadConfig(t *testing.T) {
+	t.Run("total failure keeps the previous config and returns the error", func(t *testing.T) {
+		calls := 0
+		a := NewApp(func() (*config.Config, error) {
+			calls++
+			if calls == 1 {
+				return &config.Config{SourcePath: "/ok.yaml", Shell: []string{"bash"}}, nil
+			}
+			return &config.Config{}, errors.New("boom")
+		})
+		warning, err := a.ReloadConfig()
+		if err == nil {
+			t.Fatal("expected an error")
+		}
+		if warning != "" {
+			t.Errorf("warning = %q, want empty", warning)
+		}
+		if a.cfg.SourcePath != "/ok.yaml" {
+			t.Errorf("previous config should be kept, got SourcePath %q", a.cfg.SourcePath)
+		}
+	})
+	t.Run("fallback success surfaces a warning instead of an error", func(t *testing.T) {
+		a := NewApp(func() (*config.Config, error) {
+			return &config.Config{SourcePath: "/fallback.yaml"}, errors.New("config-win.yaml: boom")
+		})
+		warning, err := a.ReloadConfig()
+		if err != nil {
+			t.Fatalf("expected no error, got %v", err)
+		}
+		if warning == "" {
+			t.Error("expected a non-empty warning")
+		}
+		if a.cfg.SourcePath != "/fallback.yaml" {
+			t.Errorf("SourcePath = %q, want /fallback.yaml", a.cfg.SourcePath)
+		}
+	})
+}
+
 func TestShellBasename(t *testing.T) {
 	// Backslash paths are deliberately absent: filepath.Base splits them only
 	// when the test itself runs on Windows, and these tests run on Linux.

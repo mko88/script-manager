@@ -199,8 +199,9 @@
   }
 
   async function reloadConfig() {
+    let warning = ''
     try {
-      await ReloadConfig()
+      warning = await ReloadConfig()
     } catch (err) {
       flash(`Reload failed: ${err}`)
       return
@@ -216,7 +217,7 @@
     } else {
       await selectItem(Math.min(selectedItem < 0 ? 0 : selectedItem, newItems.length - 1))
     }
-    flash('Config reloaded')
+    flash(warning ? `Config reloaded with a warning: ${warning}` : 'Config reloaded')
   }
 
   function onKeyDown(e: KeyboardEvent) {

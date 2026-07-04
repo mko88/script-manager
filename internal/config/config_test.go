@@ -224,6 +224,37 @@ func TestLoadPathsSourcePath(t *testing.T) {
 	}
 }
 
+func TestLoadPathsParseErrorFallsBackWithWarning(t *testing.T) {
+	dir := t.TempDir()
+	broken := filepath.Join(dir, "config-win.yaml")
+	fallback := filepath.Join(dir, "config.yaml")
+	// Duplicate mapping key: a genuine YAML syntax error, not just "missing".
+	if err := os.WriteFile(broken, []byte("env:\n  a: 1\n  a: 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(fallback, []byte("shell: [bash]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := loadPaths([]string{broken, fallback})
+	if err == nil {
+		t.Fatal("expected a warning error surfacing the broken candidate's parse failure")
+	}
+	if cfg.SourcePath != fallback {
+		t.Errorf("SourcePath = %q, want %q (fallback should still be applied despite the warning)", cfg.SourcePath, fallback)
+	}
+}
+
+func TestLoadPathsTotalFailureHasNoSourcePath(t *testing.T) {
+	cfg, err := loadPaths([]string{filepath.Join(t.TempDir(), "does-not-exist.yaml")})
+	if err == nil {
+		t.Fatal("expected an error")
+	}
+	if cfg.SourcePath != "" {
+		t.Errorf("SourcePath = %q, want empty on total failure", cfg.SourcePath)
+	}
+}
+
 func TestLoadFromWithError(t *testing.T) {
 	t.Run("missing file", func(t *testing.T) {
 		cfg, err := LoadFromWithError("does-not-exist.yaml")

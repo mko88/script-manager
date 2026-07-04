@@ -137,16 +137,23 @@ func (a *App) applyConfig(cfg *config.Config) {
 }
 
 // reloadConfig re-reads the config from disk and, on success, refreshes the
-// app in place. On failure the previous config is kept.
+// app in place. On total failure — nothing at all could be loaded — the
+// previous config is kept. A preferred file (e.g. config-win.yaml) failing to
+// parse while a fallback (config.yaml) still loads is not total failure:
+// cfg.SourcePath is non-empty, so the fallback is applied and the parse error
+// is shown as a warning rather than discarded.
 func (a *App) reloadConfig() tea.Cmd {
 	if a.reload == nil {
 		return nil
 	}
 	cfg, err := a.reload()
-	if err != nil {
+	if cfg.SourcePath == "" {
 		return a.flashMessage("Reload failed: "+err.Error(), 3*time.Second)
 	}
 	a.applyConfig(cfg)
+	if err != nil {
+		return a.flashMessage("Config reloaded with a warning: "+err.Error(), 4*time.Second)
+	}
 	return a.flashMessage("Config reloaded", 2*time.Second)
 }
 

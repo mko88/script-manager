@@ -24,3 +24,23 @@ func TestInitNoLoadError(t *testing.T) {
 		t.Errorf("expected no status message without a load error, got %q", a.status.message)
 	}
 }
+
+func TestReloadConfigTotalFailureKeepsPreviousConfig(t *testing.T) {
+	a := NewApp(&config.Config{SourcePath: "/ok.yaml"}, func() (*config.Config, error) {
+		return &config.Config{}, errors.New("boom")
+	}, nil)
+	a.reloadConfig()
+	if a.cfg.SourcePath != "/ok.yaml" {
+		t.Errorf("previous config should be kept, got SourcePath %q", a.cfg.SourcePath)
+	}
+}
+
+func TestReloadConfigFallbackAppliesWithWarning(t *testing.T) {
+	a := NewApp(&config.Config{SourcePath: "/ok.yaml"}, func() (*config.Config, error) {
+		return &config.Config{SourcePath: "/fallback.yaml"}, errors.New("config-win.yaml: boom")
+	}, nil)
+	a.reloadConfig()
+	if a.cfg.SourcePath != "/fallback.yaml" {
+		t.Errorf("SourcePath = %q, want /fallback.yaml (fallback should be applied despite the warning)", a.cfg.SourcePath)
+	}
+}

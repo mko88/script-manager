@@ -16,6 +16,6 @@ export function GetTitles():Promise<gui.TitlesDTO>;
 
 export function LoadError():Promise<string>;
 
-export function ReloadConfig():Promise<void>;
+export function ReloadConfig():Promise<string>;
 
 export function RunAction(arg1:number,arg2:number):Promise<void>;

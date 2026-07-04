@@ -282,8 +282,16 @@ func LoadFromWithError(path string) (*Config, error) {
 	return loadPaths([]string{path})
 }
 
+// loadPaths tries each candidate path in order and returns the config from
+// the first one that parses. A candidate missing entirely is expected —
+// config-win.yaml/config.yaml are each tried in two locations — and is
+// skipped quietly. A candidate that exists but fails to parse (a YAML syntax
+// error) is a real problem worth knowing about even if a later candidate
+// succeeds, so that error is returned alongside the fallback config instead
+// of being silently swallowed; callers can tell "loaded with a warning" apart
+// from "nothing loaded at all" via cfg.SourcePath being non-empty.
 func loadPaths(paths []string) (*Config, error) {
-	var lastErr error
+	var parseErr, lastErr error
 	for _, p := range paths {
 		data, err := os.ReadFile(p)
 		if err != nil {
@@ -292,7 +300,11 @@ func loadPaths(paths []string) (*Config, error) {
 		}
 		var cfg Config
 		if err := yaml.Unmarshal(data, &cfg); err != nil {
-			lastErr = err
+			wrapped := fmt.Errorf("%s: %w", p, err)
+			if parseErr == nil {
+				parseErr = wrapped
+			}
+			lastErr = wrapped
 			continue
 		}
 		if abs, err := filepath.Abs(p); err == nil {
@@ -300,7 +312,10 @@ func loadPaths(paths []string) (*Config, error) {
 		} else {
 			cfg.SourcePath = p
 		}
-		return &cfg, nil
+		return &cfg, parseErr
+	}
+	if parseErr != nil {
+		return &Config{}, parseErr
 	}
 	if lastErr == nil {
 		lastErr = fmt.Errorf("no config file found (tried %s)", strings.Join(paths, ", "))

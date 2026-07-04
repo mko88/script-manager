@@ -104,16 +104,24 @@ func cleanupTempScripts() {
 	}
 }
 
-// ReloadConfig re-reads the config from disk. On failure — a missing file or
-// a YAML syntax error — the previously loaded config is kept and an error is
-// returned so the frontend can surface it without losing the current view.
-func (a *App) ReloadConfig() error {
+// ReloadConfig re-reads the config from disk. On total failure — nothing at
+// all could be loaded, e.g. a missing file — the previously loaded config is
+// kept and an error is returned so the frontend can surface it without losing
+// the current view. A preferred file (e.g. config-win.yaml) failing to parse
+// while a fallback (config.yaml) still loads is not total failure: the
+// fallback is applied and its parse error comes back as a non-fatal warning
+// string instead, since a Go error return would otherwise reject the whole
+// call on the frontend regardless of the fallback having succeeded.
+func (a *App) ReloadConfig() (string, error) {
 	cfg, err := a.load()
-	if err != nil {
-		return err
+	if cfg.SourcePath == "" {
+		return "", err
 	}
 	a.cfg = cfg
-	return nil
+	if err != nil {
+		return err.Error(), nil
+	}
+	return "", nil
 }
 
 // TitlesDTO mirrors config.TitlesConfig for the frontend pane headers.
