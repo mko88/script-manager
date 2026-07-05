@@ -4,6 +4,7 @@
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
   import ActionForm from './components/ActionForm.svelte'
+  import ViewModeIcon from './components/ViewModeIcon.svelte'
   import {
     InitialState,
     NewBlank,
@@ -481,32 +482,36 @@
               <div class="display-toolbar">
                 <div class="view-mode-group">
                   <button
-                    class="btn"
+                    class="btn icon-btn"
                     class:active={displayViewMode === 'edit'}
                     type="button"
                     title="Edit only"
-                    on:click={() => setDisplayViewMode('edit')}>Edit</button
+                    aria-label="Edit only"
+                    on:click={() => setDisplayViewMode('edit')}><ViewModeIcon mode="edit" /></button
                   >
                   <button
-                    class="btn"
+                    class="btn icon-btn"
                     class:active={displayViewMode === 'preview'}
                     type="button"
                     title="Preview only"
-                    on:click={() => setDisplayViewMode('preview')}>Preview</button
+                    aria-label="Preview only"
+                    on:click={() => setDisplayViewMode('preview')}><ViewModeIcon mode="preview" /></button
                   >
                   <button
-                    class="btn"
+                    class="btn icon-btn"
                     class:active={displayViewMode === 'split-v'}
                     type="button"
                     title="Side by side"
-                    on:click={() => setDisplayViewMode('split-v')}>Split ↔</button
+                    aria-label="Side by side"
+                    on:click={() => setDisplayViewMode('split-v')}><ViewModeIcon mode="split-v" /></button
                   >
                   <button
-                    class="btn"
+                    class="btn icon-btn"
                     class:active={displayViewMode === 'split-h'}
                     type="button"
                     title="Stacked"
-                    on:click={() => setDisplayViewMode('split-h')}>Split ↕</button
+                    aria-label="Stacked"
+                    on:click={() => setDisplayViewMode('split-h')}><ViewModeIcon mode="split-h" /></button
                   >
                 </div>
                 <label class="field preview-item-picker">
@@ -923,6 +928,13 @@
   .view-mode-group {
     display: flex;
     gap: 4px;
+  }
+
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 9px;
   }
 
   .view-mode-group .btn.active {
