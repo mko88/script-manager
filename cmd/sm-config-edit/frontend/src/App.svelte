@@ -539,21 +539,24 @@
                 >
                   {#if displayViewMode !== 'preview'}
                     <div
-                      class="edit-pane"
+                      class="edit-pane panel"
                       style={displayViewMode === 'split-v'
                         ? `flex: 0 1 ${displayEditWidth}px`
                         : displayViewMode === 'split-h'
                           ? `flex: 0 1 ${displayEditHeight}px`
                           : ''}
                     >
-                      <label class="field list-template-field">
-                        <span>List template</span>
-                        <textarea rows="2" bind:value={cfg.display[selectedDisplay].list}></textarea>
-                      </label>
-                      <label class="field details-template-field">
-                        <span>Details template</span>
-                        <textarea bind:value={cfg.display[selectedDisplay].details}></textarea>
-                      </label>
+                      <header class="panel-title"><span>Edit</span></header>
+                      <div class="panel-body edit-pane-body">
+                        <label class="field list-template-field">
+                          <span>List template</span>
+                          <input type="text" bind:value={cfg.display[selectedDisplay].list} />
+                        </label>
+                        <label class="field details-template-field">
+                          <span>Details template</span>
+                          <textarea bind:value={cfg.display[selectedDisplay].details}></textarea>
+                        </label>
+                      </div>
                     </div>
                   {/if}
                   {#if displayViewMode === 'split-v' || displayViewMode === 'split-h'}
@@ -979,19 +982,17 @@
      size (dragDisplaySplit); the other pane keeps flex:1 to soak up
      whatever's left, so together they always fill the full available
      width (split-v) or height (split-h), however the window is sized. */
-  .edit-pane {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    flex: 1 1 auto;
-    min-width: 0;
-    min-height: 0;
-    overflow: hidden;
-  }
-
+  .edit-pane,
   .preview-pane-inline {
     flex: 1 1 auto;
     min-width: 0;
+    min-height: 0;
+  }
+
+  .edit-pane-body {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     min-height: 0;
   }
 
