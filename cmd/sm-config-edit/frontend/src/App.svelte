@@ -60,12 +60,50 @@
   let previewActionIdx = -1
   let actionPreview: configedit.ActionPreviewDTO | null = null
 
+  // Displays section: preview an arbitrary item against the display being
+  // edited (a display isn't tied to one item the way an item's own preview
+  // is), with a layout toggle for how much space editing vs. previewing
+  // gets. Kept across display switches (not reset in resetSelection) so you
+  // can flip through displays while comparing the same item.
+  type DisplayViewMode = 'edit' | 'preview' | 'split-v' | 'split-h'
+  let previewItemForDisplay = -1
+  let displayViewMode: DisplayViewMode = 'split-v'
+  let displayMasterCollapsed = false
+  let displayPreview: configedit.PreviewDTO | null = null
+
+  const DISPLAY_LAYOUT_KEY = 'sm-config-edit:displayLayout'
+
   onMount(async () => {
     const state = await InitialState()
     applyState(state)
     knownTerminals = await KnownTerminals()
     initialized = true
   })
+
+  onMount(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(DISPLAY_LAYOUT_KEY) ?? '{}')
+      if (saved.viewMode) displayViewMode = saved.viewMode
+      displayMasterCollapsed = !!saved.masterCollapsed
+    } catch {
+      // ignore corrupt/missing layout, defaults already set
+    }
+  })
+
+  function saveDisplayLayout() {
+    localStorage.setItem(
+      DISPLAY_LAYOUT_KEY,
+      JSON.stringify({ viewMode: displayViewMode, masterCollapsed: displayMasterCollapsed }),
+    )
+  }
+  function setDisplayViewMode(mode: DisplayViewMode) {
+    displayViewMode = mode
+    saveDisplayLayout()
+  }
+  function toggleDisplayMaster() {
+    displayMasterCollapsed = !displayMasterCollapsed
+    saveDisplayLayout()
+  }
 
   // The "clean" snapshot dirty is compared against, taken every time cfg is
   // set programmatically (load/save) rather than by the user editing a
@@ -93,6 +131,11 @@
     previewActionIdx = -1
     preview = null
     actionPreview = null
+    // A brand new/loaded config invalidates item indices entirely, unlike
+    // switching between displays within the same config (where keeping the
+    // same preview item is the point).
+    previewItemForDisplay = -1
+    displayPreview = null
   }
 
   function flash(msg: string) {
@@ -260,6 +303,32 @@
     if (!act) return
     actionPreview = await PreviewAction(cfg.items[selectedItem], cfg.envFields, act)
   }
+
+  let displayPreviewTimer: ReturnType<typeof setTimeout>
+  // previewItemForDisplay >= -1 is always true — it's just there so Svelte
+  // tracks it as a dependency of this statement (picking a different
+  // preview item must re-trigger this the same way editing the template
+  // does), not a real condition.
+  $: if (
+    initialized &&
+    section === 'display' &&
+    selectedDisplay >= 0 &&
+    cfg.display[selectedDisplay] &&
+    previewItemForDisplay >= -1
+  )
+    scheduleDisplayPreview()
+  function scheduleDisplayPreview() {
+    clearTimeout(displayPreviewTimer)
+    displayPreviewTimer = setTimeout(async () => {
+      const d = cfg.display[selectedDisplay]
+      const item = cfg.items[previewItemForDisplay]
+      if (!d || !item) {
+        displayPreview = null
+        return
+      }
+      displayPreview = await PreviewItem(item, cfg.envFields, cfg.display, d.name)
+    }, 250)
+  }
 </script>
 
 <main class="app-shell">
@@ -339,28 +408,115 @@
           <FieldGrid bind:fields={cfg.envFields} validateField={ValidateField} />
         {:else if section === 'display'}
           <div class="master-detail">
-            <div class="master list">
-              {#each cfg.display as d, i (i)}
-                <button class="row" class:selected={selectedDisplay === i} on:click={() => (selectedDisplay = i)}
-                  >{d.name || '(unnamed)'}</button
-                >
-              {/each}
-              <button class="btn" type="button" on:click={addDisplay}>+ Add display</button>
-            </div>
+            {#if !displayMasterCollapsed}
+              <div class="master list">
+                <div class="master-header">
+                  <span class="master-header-label">Displays</span>
+                  <button class="collapse-btn" type="button" on:click={toggleDisplayMaster} title="Collapse list"
+                    >◂</button
+                  >
+                </div>
+                {#each cfg.display as d, i (i)}
+                  <button class="row" class:selected={selectedDisplay === i} on:click={() => (selectedDisplay = i)}
+                    >{d.name || '(unnamed)'}</button
+                  >
+                {/each}
+                <button class="btn" type="button" on:click={addDisplay}>+ Add display</button>
+              </div>
+            {:else}
+              <button
+                class="master-collapsed-toggle"
+                type="button"
+                on:click={toggleDisplayMaster}
+                title="Expand display list">▸</button
+              >
+            {/if}
             <div class="detail">
               {#if selectedDisplay >= 0 && cfg.display[selectedDisplay]}
                 <label class="field">
                   <span>Name</span>
                   <input type="text" bind:value={cfg.display[selectedDisplay].name} />
                 </label>
-                <label class="field">
-                  <span>List template</span>
-                  <textarea rows="2" bind:value={cfg.display[selectedDisplay].list}></textarea>
-                </label>
-                <label class="field">
-                  <span>Details template</span>
-                  <textarea rows="8" bind:value={cfg.display[selectedDisplay].details}></textarea>
-                </label>
+
+                <div class="display-toolbar">
+                  <div class="view-mode-group">
+                    <button
+                      class="btn"
+                      class:active={displayViewMode === 'edit'}
+                      type="button"
+                      title="Edit only"
+                      on:click={() => setDisplayViewMode('edit')}>Edit</button
+                    >
+                    <button
+                      class="btn"
+                      class:active={displayViewMode === 'preview'}
+                      type="button"
+                      title="Preview only"
+                      on:click={() => setDisplayViewMode('preview')}>Preview</button
+                    >
+                    <button
+                      class="btn"
+                      class:active={displayViewMode === 'split-v'}
+                      type="button"
+                      title="Side by side"
+                      on:click={() => setDisplayViewMode('split-v')}>Split ↔</button
+                    >
+                    <button
+                      class="btn"
+                      class:active={displayViewMode === 'split-h'}
+                      type="button"
+                      title="Stacked"
+                      on:click={() => setDisplayViewMode('split-h')}>Split ↕</button
+                    >
+                  </div>
+                  <label class="field preview-item-picker">
+                    <span>Preview item</span>
+                    <select bind:value={previewItemForDisplay} on:change={scheduleDisplayPreview}>
+                      <option value={-1}>(none)</option>
+                      {#each cfg.items as it, i}<option value={i}>{it.name || `(unnamed item ${i + 1})`}</option
+                        >{/each}
+                    </select>
+                  </label>
+                </div>
+
+                <div
+                  class="display-edit-preview"
+                  class:split-v={displayViewMode === 'split-v'}
+                  class:split-h={displayViewMode === 'split-h'}
+                >
+                  {#if displayViewMode !== 'preview'}
+                    <div class="edit-pane">
+                      <label class="field">
+                        <span>List template</span>
+                        <textarea rows="2" bind:value={cfg.display[selectedDisplay].list}></textarea>
+                      </label>
+                      <label class="field">
+                        <span>Details template</span>
+                        <textarea rows="10" bind:value={cfg.display[selectedDisplay].details}></textarea>
+                      </label>
+                    </div>
+                  {/if}
+                  {#if displayViewMode !== 'edit'}
+                    <div class="preview-pane-inline panel">
+                      <header class="panel-title"><span>Preview</span></header>
+                      <div class="panel-body">
+                        {#if previewItemForDisplay < 0}
+                          <div class="empty">Pick an item above to preview against.</div>
+                        {:else if displayPreview}
+                          {#if displayPreview.error}
+                            <div class="validation-issue validation-error">{displayPreview.error}</div>
+                          {/if}
+                          <p class="preview-label">List label: <strong>{displayPreview.listLabel}</strong></p>
+                          {#if displayPreview.missingFields?.length}
+                            <p class="hint">⚠ missing: {displayPreview.missingFields.join(', ')}</p>
+                          {/if}
+                          <div class="details-preview">{@html displayPreview.detailsHtml}</div>
+                        {/if}
+                      </div>
+                    </div>
+                  {/if}
+                </div>
+
                 <button class="btn" type="button" on:click={() => removeDisplay(selectedDisplay)}
                   >Remove display</button
                 >
@@ -655,11 +811,84 @@
     overflow-y: auto;
   }
 
+  .master-header {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 2px 4px;
+  }
+
+  .master-header-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--sm-text-faint);
+  }
+
+  .master-collapsed-toggle {
+    flex: 0 0 22px;
+    background: var(--sm-bg-alt);
+    border: 1px solid var(--sm-border);
+    border-radius: 4px;
+    color: var(--sm-accent);
+    cursor: pointer;
+    font-size: 0.8rem;
+  }
+
   .detail {
     flex: 1 1 auto;
     min-width: 0;
     overflow-y: auto;
     padding-right: 4px;
+  }
+
+  .display-toolbar {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .view-mode-group {
+    display: flex;
+    gap: 4px;
+  }
+
+  .view-mode-group .btn.active {
+    background: var(--sm-accent-warm);
+    border-color: var(--sm-accent-warm);
+    color: var(--sm-bg);
+    font-weight: 700;
+  }
+
+  .preview-item-picker {
+    flex: 0 0 220px;
+    margin-bottom: 0;
+  }
+
+  .display-edit-preview {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .display-edit-preview.split-v {
+    flex-direction: row;
+    align-items: flex-start;
+  }
+
+  .display-edit-preview.split-v .edit-pane,
+  .display-edit-preview.split-v .preview-pane-inline {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .preview-pane-inline .panel-body {
+    max-height: 400px;
   }
 
   .checkbox-list {
