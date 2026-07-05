@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import Toast from '@shared/components/Toast.svelte'
   import {
     GetTitles,
     GetItems,
@@ -562,9 +563,7 @@
     </section>
   </div>
 
-  {#if toast}
-    <div class="toast">{toast}</div>
-  {/if}
+  <Toast message={toast} />
 </main>
 
 <style>
@@ -617,98 +616,10 @@
     cursor: row-resize;
   }
 
-  .panel {
-    display: flex;
-    flex-direction: column;
-    min-height: 0;
-    border: 1px solid #3a4a63;
-    border-radius: 6px;
-    background: #1f2c3d;
-    overflow: hidden;
-  }
-
-  .panel-title {
-    flex: none;
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    padding: 6px 6px 6px 10px;
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: #7fd4ff;
-    background: #253449;
-    border-bottom: 1px solid #3a4a63;
-  }
-
-  .panel-title-text {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .panel-title-text.wrap {
-    overflow: visible;
-    text-overflow: unset;
-    white-space: normal;
-    line-height: 1.35;
-  }
-
-  .panel-title-selected {
-    text-transform: none;
-    font-weight: 400;
-    color: #d7dee8;
-  }
-
-  .collapse-btn {
-    flex: none;
-    background: none;
-    border: none;
-    color: #7fd4ff;
-    cursor: pointer;
-    font-size: 0.8rem;
-    line-height: 1;
-    padding: 4px 6px;
-    border-radius: 4px;
-  }
-
-  .collapse-btn:hover {
-    background: #34455e;
-  }
-
-  .panel-body {
-    flex: 1;
-    overflow-y: auto;
-    padding: 6px;
-    scrollbar-width: thin;
-    scrollbar-color: rgba(255, 255, 255, 0.14) transparent;
-  }
-
-  .panel-body::-webkit-scrollbar {
-    width: 5px;
-  }
-
-  .panel-body::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .panel-body::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.14);
-    border-radius: 3px;
-  }
-
-  .panel-body::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.28);
-  }
-
-  .list {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-  }
+  /* .panel, .panel-title(-text/-selected), .collapse-btn, .panel-body, .list,
+     .row, .chip, .empty, .toast, .copy-cmd-btn, .run-cmd-btn come from the
+     shared design system (@shared/theme.css, imported via style.css) — not
+     redefined here. */
 
   .group-filter {
     flex: none;
@@ -772,70 +683,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
-  }
-
-  .chip {
-    background: #14202f;
-    color: #a9b6c8;
-    border: 1px solid #3a4a63;
-    border-radius: 999px;
-    padding: 2px 9px;
-    font-size: 0.72rem;
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  .chip:hover {
-    background: #1f3346;
-    color: #d7dee8;
-  }
-
-  .chip.active {
-    background: #e8a33d;
-    border-color: #e8a33d;
-    color: #1b2636;
-    font-weight: 700;
-  }
-
-  .chip-count {
-    opacity: 0.75;
-    margin-left: 2px;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .chip-static {
-    cursor: default;
-  }
-
-  .row {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    border-radius: 4px;
-    color: #d7dee8;
-    padding: 6px 8px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  .row:hover {
-    background: #2b3b52;
-  }
-
-  .row.selected {
-    background: #e8a33d;
-    color: #1b2636;
-    font-weight: 700;
-  }
-
-  .empty {
-    color: #6b7a90;
-    font-size: 0.85rem;
-    padding: 8px;
-    font-style: italic;
   }
 
   .details-warning {
@@ -984,46 +831,4 @@
     box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.5);
   }
 
-  .copy-cmd-btn {
-    background: #2b3b52;
-    color: #d7dee8;
-    border: 1px solid #3a4a63;
-    border-radius: 4px;
-    padding: 5px 10px;
-    cursor: pointer;
-    font-size: 0.8rem;
-  }
-
-  .copy-cmd-btn:hover {
-    background: #34455e;
-  }
-
-  .run-cmd-btn {
-    background: #e8a33d;
-    color: #1b2636;
-    border: 1px solid #e8a33d;
-    border-radius: 4px;
-    padding: 5px 12px;
-    cursor: pointer;
-    font-size: 0.8rem;
-    font-weight: 700;
-  }
-
-  .run-cmd-btn:hover {
-    background: #f0b25a;
-  }
-
-  .toast {
-    position: fixed;
-    bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: #253449;
-    color: #d7dee8;
-    border: 1px solid #3a4a63;
-    border-radius: 6px;
-    padding: 8px 16px;
-    font-size: 0.85rem;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  }
 </style>

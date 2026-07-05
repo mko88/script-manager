@@ -13,7 +13,7 @@ $ErrorActionPreference = "Stop"
 
 $repoRoot = $PSScriptRoot.TrimEnd('\')
 
-Get-Process script-manager* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+Get-Process script-manager*, sm-config-edit* -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
 
 $container = $null
 foreach ($name in (docker ps --format "{{.Names}}")) {

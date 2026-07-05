@@ -145,17 +145,25 @@ func findTerminal(names []string) (terminalLauncher, error) {
 	return terminalLauncher{}, fmt.Errorf("no terminal emulator found on PATH (tried %s)", strings.Join(names, ", "))
 }
 
+// KnownTerminalNames returns every built-in terminal name, alphabetically —
+// the valid values for a `terminal: <name>` config entry. Exported so
+// config-editing tools (internal/configedit) can hint at valid names without
+// duplicating this table.
+func KnownTerminalNames() []string {
+	names := make([]string, 0, len(knownTerminals))
+	for n := range knownTerminals {
+		names = append(names, n)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // namedTerminal resolves an explicit `terminal: <name>` config value against
 // the built-in table, skipping auto-detection entirely.
 func namedTerminal(name string) (terminalLauncher, error) {
 	lt, ok := knownTerminals[name]
 	if !ok {
-		names := make([]string, 0, len(knownTerminals))
-		for n := range knownTerminals {
-			names = append(names, n)
-		}
-		sort.Strings(names)
-		return terminalLauncher{}, fmt.Errorf("unknown terminal %q (known: %s)", name, strings.Join(names, ", "))
+		return terminalLauncher{}, fmt.Errorf("unknown terminal %q (known: %s)", name, strings.Join(KnownTerminalNames(), ", "))
 	}
 	path, err := exec.LookPath(lt.bin)
 	if err != nil {

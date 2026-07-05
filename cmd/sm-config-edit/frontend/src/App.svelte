@@ -1,0 +1,715 @@
+<script lang="ts">
+  import { onMount } from 'svelte'
+  import Toast from '@shared/components/Toast.svelte'
+  import StringListEditor from './components/StringListEditor.svelte'
+  import FieldGrid from './components/FieldGrid.svelte'
+  import ActionForm from './components/ActionForm.svelte'
+  import {
+    InitialState,
+    NewBlank,
+    BrowseOpen,
+    BrowseSaveAs,
+    Save,
+    PreviewItem,
+    PreviewAction,
+    ValidateConfig,
+    ValidateField,
+    KnownTerminals,
+  } from '../wailsjs/go/configedit/App.js'
+  import type { configedit } from '../wailsjs/go/models'
+
+  function emptyConfig(): configedit.ConfigDTO {
+    return {
+      shell: [],
+      display: [],
+      titles: { items: '', actions: '', details: '', command: '' },
+      terminal: { mode: 'auto', name: '', argv: [] },
+      envFields: [],
+      items: [],
+      actions: [],
+    } as unknown as configedit.ConfigDTO
+  }
+
+  let cfg: configedit.ConfigDTO = emptyConfig()
+  let path = ''
+  let toast = ''
+  let toastTimer: ReturnType<typeof setTimeout>
+  let knownTerminals: string[] = []
+  let validation: configedit.ValidationIssueDTO[] = []
+  let initialized = false
+
+  type Section = 'items' | 'actions' | 'display' | 'env' | 'shell' | 'titles' | 'terminal'
+  const sections: { key: Section; label: string }[] = [
+    { key: 'items', label: 'Items' },
+    { key: 'actions', label: 'Actions' },
+    { key: 'display', label: 'Displays' },
+    { key: 'env', label: 'Environment' },
+    { key: 'shell', label: 'Shell' },
+    { key: 'titles', label: 'Titles' },
+    { key: 'terminal', label: 'Terminal' },
+  ]
+  let section: Section = 'items'
+  $: sectionTitle = sections.find((s) => s.key === section)?.label ?? ''
+
+  let selectedItem = -1
+  let selectedAction = -1
+  let selectedDisplay = -1
+
+  let preview: configedit.PreviewDTO | null = null
+  let previewDisplayName = ''
+  let previewActionIdx = -1
+  let actionPreview: configedit.ActionPreviewDTO | null = null
+
+  onMount(async () => {
+    const state = await InitialState()
+    applyState(state)
+    knownTerminals = await KnownTerminals()
+    initialized = true
+  })
+
+  // The "clean" snapshot dirty is compared against, taken every time cfg is
+  // set programmatically (load/save) rather than by the user editing a
+  // field. A boolean toggled by "cfg was reassigned" doesn't work here: cfg
+  // is reassigned by applyState too (loading is itself a reassignment), and
+  // initialized flips true in a *later* tick than applyState's — so an
+  // edge-triggered flag fires once, spuriously, right after every load. A
+  // value comparison instead of an edge trigger sidesteps that entirely.
+  let cleanSnapshot = ''
+  function markClean() {
+    cleanSnapshot = JSON.stringify(cfg)
+  }
+
+  function applyState(state: configedit.StateDTO) {
+    cfg = state.config
+    path = state.path
+    markClean()
+    if (state.warning) flash(`Config load warning: ${state.warning}`)
+  }
+
+  function resetSelection() {
+    selectedItem = -1
+    selectedAction = -1
+    selectedDisplay = -1
+    previewActionIdx = -1
+    preview = null
+    actionPreview = null
+  }
+
+  function flash(msg: string) {
+    toast = msg
+    clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => (toast = ''), 3000)
+  }
+
+  let validateTimer: ReturnType<typeof setTimeout>
+  function scheduleValidate() {
+    clearTimeout(validateTimer)
+    validateTimer = setTimeout(async () => {
+      validation = await ValidateConfig(cfg)
+    }, 300)
+  }
+
+  // dirty is a pure derived comparison against the last clean snapshot, not
+  // an edge-triggered flag — see markClean's comment for why.
+  $: dirty = initialized && JSON.stringify(cfg) !== cleanSnapshot
+
+  // Validation re-runs on every nested edit too: Svelte's bind: chains
+  // (StringListEditor, FieldGrid, ActionForm) all invalidate cfg up to this
+  // root, which this statement is watching. Re-validating once extra right
+  // after a load (before cleanSnapshot is compared) is harmless.
+  $: if (initialized && cfg) scheduleValidate()
+
+  $: hasBlockingError = validation.some((v) => v.severity === 'error')
+
+  async function confirmDiscard(): Promise<boolean> {
+    if (!dirty) return true
+    return confirm('Discard unsaved changes?')
+  }
+
+  async function newConfig() {
+    if (!(await confirmDiscard())) return
+    applyState(await NewBlank())
+    resetSelection()
+  }
+
+  async function openConfig() {
+    if (!(await confirmDiscard())) return
+    try {
+      const state = await BrowseOpen()
+      applyState(state)
+      resetSelection()
+    } catch (err) {
+      flash(`Open failed: ${err}`)
+    }
+  }
+
+  async function doSave(target: string) {
+    try {
+      const result = await Save(cfg, target)
+      path = result.path
+      markClean()
+      flash('Saved')
+    } catch (err) {
+      flash(`Save failed: ${err}`)
+    }
+  }
+
+  async function saveConfig() {
+    if (hasBlockingError) {
+      flash('Fix blocking errors before saving')
+      return
+    }
+    if (path) {
+      await doSave(path)
+      return
+    }
+    const target = await BrowseSaveAs()
+    if (target) await doSave(target)
+  }
+
+  async function saveAsConfig() {
+    if (hasBlockingError) {
+      flash('Fix blocking errors before saving')
+      return
+    }
+    const target = await BrowseSaveAs()
+    if (target) await doSave(target)
+  }
+
+  // The generated DTO classes for nested-object fields (ItemDTO, ConfigDTO)
+  // carry a convertValues method, so a plain object literal isn't
+  // structurally assignable — cast new entries the same way the rest of this
+  // file's initial state does.
+  function newItem(): configedit.ItemDTO {
+    return { name: '', display: '', actions: [], actionGroups: [], customActions: [], fields: [] } as unknown as configedit.ItemDTO
+  }
+  function newAction(): configedit.ActionDTO {
+    return { id: '', title: '', description: '', cmd: '', groups: [], noWait: false } as unknown as configedit.ActionDTO
+  }
+  function newDisplay(): configedit.DisplayDTO {
+    return { name: '', list: '{{.name}}', details: '' } as unknown as configedit.DisplayDTO
+  }
+
+  function addItem() {
+    cfg.items = [...cfg.items, newItem()]
+    selectedItem = cfg.items.length - 1
+    previewActionIdx = -1
+  }
+  function removeItem(i: number) {
+    cfg.items = cfg.items.filter((_, idx) => idx !== i)
+    if (selectedItem === i) selectedItem = -1
+    else if (selectedItem > i) selectedItem -= 1
+  }
+
+  function addAction() {
+    cfg.actions = [...cfg.actions, newAction()]
+    selectedAction = cfg.actions.length - 1
+  }
+  function removeAction(i: number) {
+    cfg.actions = cfg.actions.filter((_, idx) => idx !== i)
+    if (selectedAction === i) selectedAction = -1
+    else if (selectedAction > i) selectedAction -= 1
+  }
+
+  function addDisplay() {
+    cfg.display = [...cfg.display, newDisplay()]
+    selectedDisplay = cfg.display.length - 1
+  }
+  function removeDisplay(i: number) {
+    cfg.display = cfg.display.filter((_, idx) => idx !== i)
+    if (selectedDisplay === i) selectedDisplay = -1
+    else if (selectedDisplay > i) selectedDisplay -= 1
+  }
+
+  function addCustomAction(itemIdx: number) {
+    cfg.items[itemIdx].customActions = [...cfg.items[itemIdx].customActions, newAction()]
+  }
+  function removeCustomAction(itemIdx: number, i: number) {
+    cfg.items[itemIdx].customActions = cfg.items[itemIdx].customActions.filter((_, idx) => idx !== i)
+  }
+
+  function toggleInList(list: string[], value: string): string[] {
+    return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
+  }
+
+  $: allActionIds = cfg.actions.map((a) => a.id).filter((id) => id)
+  $: allActionGroups = (() => {
+    const seen = new Set<string>()
+    for (const a of cfg.actions) for (const g of a.groups ?? []) seen.add(g)
+    return [...seen]
+  })()
+
+  let previewTimer: ReturnType<typeof setTimeout>
+  $: if (initialized && section === 'items' && selectedItem >= 0 && cfg.items[selectedItem]) schedulePreview()
+  function schedulePreview() {
+    clearTimeout(previewTimer)
+    previewTimer = setTimeout(async () => {
+      const item = cfg.items[selectedItem]
+      if (!item) return
+      if (!previewDisplayName && cfg.display.length > 0) previewDisplayName = item.display || cfg.display[0].name
+      preview = await PreviewItem(item, cfg.envFields, cfg.display, previewDisplayName || item.display)
+    }, 250)
+  }
+
+  async function previewSelectedAction() {
+    if (selectedItem < 0 || previewActionIdx < 0) {
+      actionPreview = null
+      return
+    }
+    const act = cfg.actions[previewActionIdx]
+    if (!act) return
+    actionPreview = await PreviewAction(cfg.items[selectedItem], cfg.envFields, act)
+  }
+</script>
+
+<main class="app-shell">
+  <header class="toolbar">
+    <button class="btn" type="button" on:click={newConfig}>New</button>
+    <button class="btn" type="button" on:click={openConfig}>Open</button>
+    <button class="btn btn-primary" type="button" disabled={hasBlockingError} on:click={saveConfig}>Save</button>
+    <button class="btn" type="button" disabled={hasBlockingError} on:click={saveAsConfig}>Save As</button>
+    <span class="toolbar-path">{path || '(unsaved)'}{dirty ? ' *' : ''}</span>
+  </header>
+
+  {#if validation.length > 0}
+    <div class="validation-banner">
+      {#each validation as issue}
+        <div class="validation-issue" class:validation-error={issue.severity === 'error'}>
+          {issue.severity === 'error' ? '⛔' : '⚠'}
+          {issue.message}
+        </div>
+      {/each}
+    </div>
+  {/if}
+
+  <div class="body">
+    <nav class="section-nav list">
+      {#each sections as s (s.key)}
+        <button class="row" class:selected={section === s.key} on:click={() => (section = s.key)}>{s.label}</button>
+      {/each}
+    </nav>
+
+    <section class="panel main-panel">
+      <header class="panel-title"><span>{sectionTitle}</span></header>
+      <div class="panel-body">
+        {#if section === 'shell'}
+          <p class="hint">The command used to launch actions, e.g. <code>pwsh -NoLogo -Command</code>.</p>
+          <StringListEditor bind:items={cfg.shell} placeholder="e.g. pwsh" />
+        {:else if section === 'titles'}
+          <label class="field">
+            <span>Items pane title</span>
+            <input type="text" bind:value={cfg.titles.items} placeholder="Items" />
+          </label>
+          <label class="field">
+            <span>Actions pane title</span>
+            <input type="text" bind:value={cfg.titles.actions} placeholder="Actions" />
+          </label>
+          <label class="field">
+            <span>Details pane title</span>
+            <input type="text" bind:value={cfg.titles.details} placeholder="Details" />
+          </label>
+          <label class="field">
+            <span>Command pane title</span>
+            <input type="text" bind:value={cfg.titles.command} placeholder="Command" />
+          </label>
+        {:else if section === 'terminal'}
+          <div class="radio-group">
+            <label><input type="radio" bind:group={cfg.terminal.mode} value="auto" /> Auto-detect</label>
+            <label><input type="radio" bind:group={cfg.terminal.mode} value="name" /> Named</label>
+            <label><input type="radio" bind:group={cfg.terminal.mode} value="argv" /> Custom command</label>
+          </div>
+          {#if cfg.terminal.mode === 'name'}
+            <label class="field">
+              <span>Terminal name</span>
+              <input type="text" list="known-terminals" bind:value={cfg.terminal.name} placeholder="e.g. wt" />
+              <datalist id="known-terminals">
+                {#each knownTerminals as name}<option value={name} />{/each}
+              </datalist>
+            </label>
+          {:else if cfg.terminal.mode === 'argv'}
+            <p class="hint">
+              First entry is the terminal binary; the rest are its flags. Use <code>{'{{title}}'}</code>/<code
+                >{'{{dir}}'}</code
+              > as placeholders.
+            </p>
+            <StringListEditor bind:items={cfg.terminal.argv} placeholder="e.g. --title" />
+          {/if}
+        {:else if section === 'env'}
+          <p class="hint">Available to every item's templates and subprocess environment.</p>
+          <FieldGrid bind:fields={cfg.envFields} validateField={ValidateField} />
+        {:else if section === 'display'}
+          <div class="master-detail">
+            <div class="master list">
+              {#each cfg.display as d, i (i)}
+                <button class="row" class:selected={selectedDisplay === i} on:click={() => (selectedDisplay = i)}
+                  >{d.name || '(unnamed)'}</button
+                >
+              {/each}
+              <button class="btn" type="button" on:click={addDisplay}>+ Add display</button>
+            </div>
+            <div class="detail">
+              {#if selectedDisplay >= 0 && cfg.display[selectedDisplay]}
+                <label class="field">
+                  <span>Name</span>
+                  <input type="text" bind:value={cfg.display[selectedDisplay].name} />
+                </label>
+                <label class="field">
+                  <span>List template</span>
+                  <textarea rows="2" bind:value={cfg.display[selectedDisplay].list}></textarea>
+                </label>
+                <label class="field">
+                  <span>Details template</span>
+                  <textarea rows="8" bind:value={cfg.display[selectedDisplay].details}></textarea>
+                </label>
+                <button class="btn" type="button" on:click={() => removeDisplay(selectedDisplay)}
+                  >Remove display</button
+                >
+              {:else}
+                <div class="empty">Select a display, or add one.</div>
+              {/if}
+            </div>
+          </div>
+        {:else if section === 'actions'}
+          <div class="master-detail">
+            <div class="master list">
+              {#each cfg.actions as a, i (i)}
+                <button class="row" class:selected={selectedAction === i} on:click={() => (selectedAction = i)}
+                  >{a.title || a.id || '(untitled)'}</button
+                >
+              {/each}
+              <button class="btn" type="button" on:click={addAction}>+ Add action</button>
+            </div>
+            <div class="detail">
+              {#if selectedAction >= 0 && cfg.actions[selectedAction]}
+                <ActionForm bind:action={cfg.actions[selectedAction]} />
+                <button class="btn" type="button" on:click={() => removeAction(selectedAction)}
+                  >Remove action</button
+                >
+              {:else}
+                <div class="empty">Select an action, or add one.</div>
+              {/if}
+            </div>
+          </div>
+        {:else if section === 'items'}
+          <div class="master-detail">
+            <div class="master list">
+              {#each cfg.items as it, i (i)}
+                <button
+                  class="row"
+                  class:selected={selectedItem === i}
+                  on:click={() => {
+                    selectedItem = i
+                    previewActionIdx = -1
+                    actionPreview = null
+                  }}>{it.name || '(unnamed)'}</button
+                >
+              {/each}
+              <button class="btn" type="button" on:click={addItem}>+ Add item</button>
+            </div>
+            <div class="detail">
+              {#if selectedItem >= 0 && cfg.items[selectedItem]}
+                <label class="field">
+                  <span>Name</span>
+                  <input type="text" bind:value={cfg.items[selectedItem].name} />
+                </label>
+                <label class="field">
+                  <span>Display</span>
+                  <select bind:value={cfg.items[selectedItem].display}>
+                    <option value="">(default)</option>
+                    {#each cfg.display as d}<option value={d.name}>{d.name}</option>{/each}
+                  </select>
+                </label>
+
+                {#if allActionIds.length > 0}
+                  <div class="field">
+                    <span>Actions</span>
+                    <div class="checkbox-list">
+                      {#each allActionIds as id}
+                        <label class="checkbox-chip">
+                          <input
+                            type="checkbox"
+                            checked={cfg.items[selectedItem].actions.includes(id)}
+                            on:change={() =>
+                              (cfg.items[selectedItem].actions = toggleInList(cfg.items[selectedItem].actions, id))}
+                          />
+                          {id}
+                        </label>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                {#if allActionGroups.length > 0}
+                  <div class="field">
+                    <span>Action groups</span>
+                    <div class="checkbox-list">
+                      {#each allActionGroups as g}
+                        <label class="checkbox-chip">
+                          <input
+                            type="checkbox"
+                            checked={cfg.items[selectedItem].actionGroups.includes(g)}
+                            on:change={() =>
+                              (cfg.items[selectedItem].actionGroups = toggleInList(
+                                cfg.items[selectedItem].actionGroups,
+                                g,
+                              ))}
+                          />
+                          {g}
+                        </label>
+                      {/each}
+                    </div>
+                  </div>
+                {/if}
+
+                <div class="field">
+                  <span>Custom actions</span>
+                  {#each cfg.items[selectedItem].customActions as _, j (j)}
+                    <div class="nested-action">
+                      <ActionForm bind:action={cfg.items[selectedItem].customActions[j]} showId={false} />
+                      <button class="btn" type="button" on:click={() => removeCustomAction(selectedItem, j)}
+                        >Remove custom action</button
+                      >
+                    </div>
+                  {/each}
+                  <button class="btn" type="button" on:click={() => addCustomAction(selectedItem)}
+                    >+ Add custom action</button
+                  >
+                </div>
+
+                <div class="field">
+                  <span>Additional fields</span>
+                  <FieldGrid bind:fields={cfg.items[selectedItem].fields} validateField={ValidateField} />
+                </div>
+
+                <button class="btn" type="button" on:click={() => removeItem(selectedItem)}>Remove item</button>
+
+                <div class="preview-pane panel">
+                  <header class="panel-title"><span>Preview</span></header>
+                  <div class="panel-body">
+                    {#if cfg.display.length > 1}
+                      <label class="field">
+                        <span>Preview display</span>
+                        <select bind:value={previewDisplayName} on:change={schedulePreview}>
+                          {#each cfg.display as d}<option value={d.name}>{d.name}</option>{/each}
+                        </select>
+                      </label>
+                    {/if}
+                    {#if preview}
+                      {#if preview.error}
+                        <div class="validation-issue validation-error">{preview.error}</div>
+                      {/if}
+                      <p class="preview-label">List label: <strong>{preview.listLabel}</strong></p>
+                      {#if preview.missingFields?.length}
+                        <p class="hint">⚠ missing: {preview.missingFields.join(', ')}</p>
+                      {/if}
+                      <div class="details-preview">{@html preview.detailsHtml}</div>
+                    {/if}
+
+                    {#if cfg.actions.length > 0}
+                      <label class="field">
+                        <span>Preview action</span>
+                        <select bind:value={previewActionIdx} on:change={previewSelectedAction}>
+                          <option value={-1}>(none)</option>
+                          {#each cfg.actions as a, i}<option value={i}>{a.title || a.id}</option>{/each}
+                        </select>
+                      </label>
+                      {#if actionPreview}
+                        {#if actionPreview.error}
+                          <div class="validation-issue validation-error">{actionPreview.error}</div>
+                        {/if}
+                        <p class="preview-label">Command:</p>
+                        <pre class="cmd-preview">{actionPreview.cmd}</pre>
+                        {#if actionPreview.description}<p class="hint">{actionPreview.description}</p>{/if}
+                      {/if}
+                    {/if}
+                  </div>
+                </div>
+              {:else}
+                <div class="empty">Select an item, or add one.</div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+      </div>
+    </section>
+  </div>
+
+  <Toast message={toast} />
+</main>
+
+<style>
+  .app-shell {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    box-sizing: border-box;
+    padding: 8px;
+    gap: 8px;
+    text-align: left;
+  }
+
+  .toolbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .toolbar-path {
+    margin-left: 8px;
+    color: var(--sm-text-muted);
+    font-size: 0.85rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .validation-banner {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 120px;
+    overflow-y: auto;
+    background: rgba(232, 163, 61, 0.1);
+    border: 1px solid var(--sm-border);
+    border-radius: 6px;
+    padding: 6px 10px;
+  }
+
+  .validation-issue {
+    font-size: 0.8rem;
+    color: var(--sm-text-muted);
+  }
+
+  .validation-issue.validation-error {
+    color: var(--sm-accent-warm);
+    font-weight: 700;
+  }
+
+  .body {
+    flex: 1 1 auto;
+    display: flex;
+    gap: 8px;
+    min-height: 0;
+  }
+
+  .section-nav {
+    flex: 0 0 160px;
+  }
+
+  .main-panel {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .hint {
+    color: var(--sm-text-muted);
+    font-size: 0.8rem;
+    margin: 0 0 8px;
+  }
+
+  .hint code {
+    background: var(--sm-bg-deep);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 0.8rem;
+    color: var(--sm-text-muted);
+    margin-bottom: 10px;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    background: var(--sm-bg-deep);
+    color: var(--sm-text);
+    border: 1px solid var(--sm-border);
+    border-radius: 4px;
+    padding: 5px 7px;
+    font-family: inherit;
+    font-size: 0.85rem;
+  }
+
+  .radio-group {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 10px;
+    font-size: 0.85rem;
+  }
+
+  .master-detail {
+    display: flex;
+    gap: 10px;
+    height: 100%;
+    min-height: 0;
+  }
+
+  .master {
+    flex: 0 0 200px;
+    overflow-y: auto;
+  }
+
+  .detail {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .checkbox-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .checkbox-chip {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: var(--sm-bg-deep);
+    border: 1px solid var(--sm-border);
+    border-radius: 999px;
+    padding: 2px 9px;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+
+  .nested-action {
+    border: 1px solid var(--sm-border);
+    border-radius: 6px;
+    padding: 8px;
+    margin-bottom: 8px;
+    background: var(--sm-bg-deep);
+  }
+
+  .preview-pane {
+    margin-top: 16px;
+  }
+
+  .preview-label {
+    margin: 4px 0;
+    font-size: 0.85rem;
+  }
+
+  .details-preview {
+    font-size: 0.85rem;
+    line-height: 1.5;
+    margin-bottom: 8px;
+  }
+
+  .cmd-preview {
+    background: var(--sm-bg-deep);
+    border-radius: 4px;
+    padding: 8px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+</style>

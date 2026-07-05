@@ -1,0 +1,5 @@
+@import '@shared/theme.css';
+
+#app {
+  height: 100vh;
+}

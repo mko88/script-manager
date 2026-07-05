@@ -26,18 +26,18 @@ const (
 )
 
 type Action struct {
-	ID          string   `yaml:"id"`
+	ID          string   `yaml:"id,omitempty"`
 	Title       string   `yaml:"title"`
-	Description string   `yaml:"description"`
+	Description string   `yaml:"description,omitempty"`
 	Cmd         string   `yaml:"cmd"`
-	Groups      []string `yaml:"groups"`
-	NoWait      bool     `yaml:"noWait"`
+	Groups      []string `yaml:"groups,omitempty"`
+	NoWait      bool     `yaml:"noWait,omitempty"`
 }
 
 type DisplayConfig struct {
-	Name    string `yaml:"name"`
-	List    string `yaml:"list"`
-	Details string `yaml:"details"`
+	Name    string `yaml:"name,omitempty"`
+	List    string `yaml:"list,omitempty"`
+	Details string `yaml:"details,omitempty"`
 }
 
 // DisplayList is a slice of DisplayConfig that can be unmarshalled from either
@@ -81,10 +81,10 @@ func FindDisplay(displays DisplayList, item map[string]any) DisplayConfig {
 }
 
 type TitlesConfig struct {
-	Items   string `yaml:"items"`
-	Actions string `yaml:"actions"`
-	Details string `yaml:"details"`
-	Command string `yaml:"command"`
+	Items   string `yaml:"items,omitempty"`
+	Actions string `yaml:"actions,omitempty"`
+	Details string `yaml:"details,omitempty"`
+	Command string `yaml:"command,omitempty"`
 }
 
 // TerminalConfig selects which terminal emulator the GUI's Run button opens
@@ -115,14 +115,31 @@ func (t *TerminalConfig) UnmarshalYAML(value *yaml.Node) error {
 	return fmt.Errorf("terminal: expected a string or a list, got YAML node kind %v", value.Kind)
 }
 
+// MarshalYAML is the write-side counterpart to UnmarshalYAML, keeping the
+// same scalar-or-list convention: Name marshals as a plain string, Argv as a
+// sequence. A zero value marshals to nil, which combined with Config's
+// terminal,omitempty tag omits the key entirely — reflect-based omitempty
+// checks the field's own zero-ness before this method ever runs, so that
+// omission doesn't actually depend on this returning nil, but it's returned
+// for a consistent result if MarshalYAML is ever called directly.
+func (t TerminalConfig) MarshalYAML() (interface{}, error) {
+	if t.Name != "" {
+		return t.Name, nil
+	}
+	if len(t.Argv) > 0 {
+		return t.Argv, nil
+	}
+	return nil, nil
+}
+
 type Config struct {
-	Shell    []string         `yaml:"shell"`
-	Display  DisplayList      `yaml:"display"`
-	Titles   TitlesConfig     `yaml:"titles"`
-	Terminal TerminalConfig   `yaml:"terminal"`
-	Env      map[string]any   `yaml:"env"`
-	Items    []map[string]any `yaml:"items"`
-	Actions  []Action         `yaml:"actions"`
+	Shell    []string         `yaml:"shell,omitempty"`
+	Display  DisplayList      `yaml:"display,omitempty"`
+	Titles   TitlesConfig     `yaml:"titles,omitempty"`
+	Terminal TerminalConfig   `yaml:"terminal,omitempty"`
+	Env      map[string]any   `yaml:"env,omitempty"`
+	Items    []map[string]any `yaml:"items,omitempty"`
+	Actions  []Action         `yaml:"actions,omitempty"`
 
 	// SourcePath is the absolute path of the file this config was actually
 	// loaded from — not part of the YAML itself, but set by loadPaths so
@@ -144,8 +161,8 @@ func ActionsForItem(allActions []Action, item map[string]any) []Action {
 		return allActions
 	}
 
-	allowedIDs, hasIDs := asStringSlice(item[KeyActions])
-	allowedGroups, hasGroups := asStringSlice(item[KeyActionGroups])
+	allowedIDs, hasIDs := AsStringSlice(item[KeyActions])
+	allowedGroups, hasGroups := AsStringSlice(item[KeyActionGroups])
 	customRaw := item[KeyCustomActions]
 
 	if !hasIDs && !hasGroups && customRaw == nil {
@@ -187,11 +204,18 @@ func ActionsForItem(allActions []Action, item map[string]any) []Action {
 		}
 	}
 
-	result = append(result, parseCustomActions(customRaw)...)
+	result = append(result, ParseCustomActions(customRaw)...)
 	return result
 }
 
-func asStringSlice(v any) ([]string, bool) {
+// AsStringSlice reads v as a YAML sequence of strings — the shape item keys
+// like "actions"/"actionGroups" (and a custom action's "groups") take once
+// decoded into a map[string]any. Non-string elements are dropped rather than
+// erroring, since a malformed entry shouldn't break the whole list. The bool
+// reports whether v was a non-empty sequence at all, distinguishing "absent"
+// from "present but empty" for callers like ActionsForItem that treat the two
+// differently.
+func AsStringSlice(v any) ([]string, bool) {
 	if v == nil {
 		return nil, false
 	}
@@ -208,7 +232,10 @@ func asStringSlice(v any) ([]string, bool) {
 	return out, len(out) > 0
 }
 
-func parseCustomActions(v any) []Action {
+// ParseCustomActions decodes an item's "customActions" key (v) into inline
+// Actions. An entry without a title or cmd is dropped, matching the same
+// "nothing useful to run" rule ActionsForItem otherwise relies on.
+func ParseCustomActions(v any) []Action {
 	if v == nil {
 		return nil
 	}
@@ -223,12 +250,12 @@ func parseCustomActions(v any) []Action {
 			continue
 		}
 		a := Action{
-			ID:          strVal(m["id"]),
-			Title:       strVal(m["title"]),
-			Description: strVal(m["description"]),
-			Cmd:         strVal(m["cmd"]),
+			ID:          StrVal(m["id"]),
+			Title:       StrVal(m["title"]),
+			Description: StrVal(m["description"]),
+			Cmd:         StrVal(m["cmd"]),
 		}
-		if gs, ok := asStringSlice(m["groups"]); ok {
+		if gs, ok := AsStringSlice(m["groups"]); ok {
 			a.Groups = gs
 		}
 		if noWait, ok := m["noWait"].(bool); ok {
@@ -241,7 +268,8 @@ func parseCustomActions(v any) []Action {
 	return result
 }
 
-func strVal(v any) string {
+// StrVal reads v as a string, returning "" for nil or any other type.
+func StrVal(v any) string {
 	if v == nil {
 		return ""
 	}

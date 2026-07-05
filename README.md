@@ -4,6 +4,7 @@ A tool for organising and running shell scripts across a list of configurable it
 
 - **TUI** (`cmd/script-manager`) — a terminal UI built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). Browse items and actions, and run actions directly in the same terminal session.
 - **GUI** (`cmd/script-manager-gui`) — a desktop app built with [Wails](https://wails.io). Browse items and actions in a resizable, mouse-driven window; actions run in a separate terminal window instead of inline — a dedicated, reused Windows Terminal window on Windows, or the first available terminal emulator on Linux (see [GUI](#gui) for details and current platform support).
+- **Config Editor** (`cmd/sm-config-edit`) — a second Wails desktop app for creating a new `config.yaml` or editing an existing one through forms, instead of hand-writing YAML (see [Config Editor](#config-editor)).
 
 # Disclaimer
 
@@ -102,6 +103,8 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 ## Configuration
 
 Place `config.yaml` in the same directory as the binary (or pass it with `-config`). On Windows, `config-win.yaml` takes precedence when present — next to the binary or in the working directory — and `config.yaml` is used as the fallback. If the preferred file exists but fails to parse (e.g. a YAML syntax error), it's skipped in favor of the next candidate and the load error is shown once at startup — a status bar message in the TUI, a toast in the GUI — so a broken `config-win.yaml` falling back to `config.yaml` doesn't go unnoticed.
+
+Rather than hand-writing this file, you can use the [Config Editor](#config-editor) (`cmd/sm-config-edit`) to create or edit it through forms.
 
 ```yaml
 shell:
@@ -345,6 +348,26 @@ GOOS=windows GOARCH=amd64 CGO_ENABLED=1 \
 
 macOS is the one target that genuinely needs to be built on macOS (Apple's toolchain/frameworks aren't cross-compilable from Linux).
 
+## Config Editor
+
+`cmd/sm-config-edit/` is a second Wails desktop app (same Go backend + Svelte frontend shape as `script-manager-gui`, and the same dark theme — both share `frontend-shared/`) for creating or editing `config.yaml` through forms instead of hand-writing YAML.
+
+- **New / Open / Save / Save As**, same auto-detect rule as the TUI/GUI: on launch it resolves `config-win.yaml`/`config.yaml` (exe dir then working directory) the same way `-config`-less TUI/GUI startup does, with a native file picker to open a different file or choose where to save a new one. Finding nothing on launch isn't treated as an error — it just starts blank, since a first-time user of this tool plausibly has no config yet.
+- **Sections**: Items, Actions, Displays, Environment, Shell, Titles, Terminal — one form per top-level `config.yaml` concern. An item's reserved keys (`name`, `display`, `actions`, `actionGroups`, `customActions`) get dedicated widgets (text field, a dropdown of configured displays, checkbox lists against the global actions/groups, a repeatable nested action form); anything else is a generic "Additional Fields" grid, where each value's kind (string/number/bool, or a raw YAML snippet for anything more complex, like a nested list or map) drives which widget edits it.
+- **Live preview**: with an item selected, its rendered list label and details (against the chosen display) update as you type, along with a preview of any action's expanded command/description against that item — the same template-preview logic (`action.Preview`, missing-field filling) the GUI's Details pane uses, without needing to save first.
+- **Validation**: duplicate global action IDs block Save; duplicate item names and an item referencing a display/action/group that doesn't exist are shown as non-blocking warnings.
+
+**Important:** saving always re-serializes the whole file through `yaml.Marshal` — comments and the original file's exact formatting/key order are **not preserved**. Editing a hand-crafted `config.yaml` with inline comments through this tool will lose those comments on save.
+
+Launch the same way as the other two:
+
+```bash
+./bin/sm-config-edit
+./bin/sm-config-edit -config /path/to/config.yaml
+```
+
+It has the same [GUI build requirements](#gui-build-requirements) as `script-manager-gui` (Wails CLI, Node.js, GTK/WebKit headers for the Linux target) and is built by the same `bash build.sh` / `build-container.ps1` workflow described below.
+
 ## Building
 
 Requires Go 1.21+.
@@ -358,6 +381,8 @@ Produces:
 - `bin/script-manager.exe` — Windows amd64
 - `bin/script-manager-gui` — Linux amd64 GUI (only if the `wails` CLI is installed; skipped otherwise)
 - `bin/script-manager-gui.exe` — Windows amd64 GUI, cross-compiled (only if `mingw-w64` is installed; skipped otherwise)
+- `bin/sm-config-edit` — Linux amd64 Config Editor (only if the `wails` CLI is installed; skipped otherwise)
+- `bin/sm-config-edit.exe` — Windows amd64 Config Editor, cross-compiled (only if `mingw-w64` is installed; skipped otherwise)
 
 ### Building from a Windows host via a dev container
 
@@ -367,7 +392,7 @@ If you develop on Windows with the Go toolchain only available inside a VS Code 
 .\build-container.ps1
 ```
 
-It stops any running `script-manager*.exe` on the host first — a locked binary makes the Windows cross-compile step in `build.sh` fail with "permission denied" — then finds the dev container for this repo (matched by its `devcontainer.local_folder` label, since the container name is auto-generated and changes across recreations) and runs `bash build.sh` inside it.
+It stops any running `script-manager*.exe`/`sm-config-edit*.exe` on the host first — a locked binary makes the Windows cross-compile step in `build.sh` fail with "permission denied" — then finds the dev container for this repo (matched by its `devcontainer.local_folder` label, since the container name is auto-generated and changes across recreations) and runs `bash build.sh` inside it.
 
 To build for a specific target manually:
 
@@ -375,7 +400,7 @@ To build for a specific target manually:
 GOOS=linux   GOARCH=amd64 go build -o bin/script-manager     ./cmd/script-manager/
 GOOS=windows GOARCH=amd64 go build -o bin/script-manager.exe ./cmd/script-manager/
 
-# GUI, Linux
+# GUI, Linux (either app — substitute cmd/sm-config-edit for the other one)
 (cd cmd/script-manager-gui && wails build)
 
 # GUI, Windows (cross-compiled, see above)
