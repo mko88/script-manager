@@ -4,7 +4,6 @@
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
   import ActionForm from './components/ActionForm.svelte'
-  import LineNumberedTextarea from './components/LineNumberedTextarea.svelte'
   import {
     InitialState,
     NewBlank,
@@ -541,10 +540,10 @@
                         <span>List template</span>
                         <input type="text" bind:value={cfg.display[selectedDisplay].list} />
                       </label>
-                      <div class="field details-template-field">
+                      <label class="field details-template-field">
                         <span>Details template</span>
-                        <LineNumberedTextarea bind:value={cfg.display[selectedDisplay].details} />
-                      </div>
+                        <textarea bind:value={cfg.display[selectedDisplay].details}></textarea>
+                      </label>
                     </div>
                   </div>
                 {/if}
@@ -835,7 +834,8 @@
   }
 
   .field input,
-  .field select {
+  .field select,
+  .field textarea {
     background: var(--sm-bg-deep);
     color: var(--sm-text);
     border: 1px solid var(--sm-border);
@@ -990,13 +990,18 @@
     flex: none;
   }
 
-  /* LineNumberedTextarea sizes and styles its own <textarea>; this just
-     needs to hand it the remaining vertical space in the edit pane
-     (display: flex; flex-direction: column already come from .field). */
   .details-template-field {
     flex: 1 1 auto;
     min-height: 0;
     margin-bottom: 0;
+  }
+
+  .details-template-field textarea {
+    flex: 1 1 auto;
+    min-height: 60px;
+    resize: none;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.8rem;
   }
 
   .checkbox-list {
