@@ -1000,6 +1000,8 @@
     flex: 1 1 auto;
     min-height: 60px;
     resize: none;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.8rem;
   }
 
   .checkbox-list {
