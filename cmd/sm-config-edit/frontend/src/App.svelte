@@ -75,8 +75,11 @@
   // always gets flex:1 to soak up whatever's left, so together they fill
   // the full available width (split-v) or height (split-h) — same
   // fixed-primary-pane-plus-flex:1-remainder pattern script-manager-gui's
-  // own resizer uses (leftWidth/itemsHeight there).
-  const DISPLAY_MIN_PANE = 160
+  // own resizer uses (leftWidth/itemsHeight there). Minimums match gui's
+  // MIN_COL/MIN_PANEL exactly — same reasoning: a width split needs more
+  // headroom for usable content than a height split does.
+  const DISPLAY_MIN_WIDTH = 180
+  const DISPLAY_MIN_HEIGHT = 60
   const DISPLAY_RESIZER = 6
   let displayEditWidth = 480
   let displayEditHeight = 260
@@ -126,14 +129,15 @@
   function dragDisplaySplit(e: MouseEvent) {
     e.preventDefault()
     const horizontal = displayViewMode === 'split-h'
+    const min = horizontal ? DISPLAY_MIN_HEIGHT : DISPLAY_MIN_WIDTH
     const startPos = horizontal ? e.clientY : e.clientX
     const startSize = horizontal ? displayEditHeight : displayEditWidth
     function onMove(ev: MouseEvent) {
       const rect = displaySplitEl.getBoundingClientRect()
       const total = horizontal ? rect.height : rect.width
-      const max = total - DISPLAY_MIN_PANE - DISPLAY_RESIZER
+      const max = total - min - DISPLAY_RESIZER
       const pos = horizontal ? ev.clientY : ev.clientX
-      const next = Math.min(max, Math.max(DISPLAY_MIN_PANE, startSize + (pos - startPos)))
+      const next = Math.min(max, Math.max(min, startSize + (pos - startPos)))
       if (horizontal) displayEditHeight = next
       else displayEditWidth = next
     }
@@ -976,15 +980,19 @@
     flex-direction: column;
   }
 
-  /* Base size for both panes is flex:1, so a single visible pane (Edit-only/
-     Preview-only) always fills the full width and height. In split modes,
-     the template above overrides edit-pane's flex-basis to a fixed pixel
-     size (dragDisplaySplit); the other pane keeps flex:1 to soak up
-     whatever's left, so together they always fill the full available
-     width (split-v) or height (split-h), however the window is sized. */
+  /* Base flex-basis is 0, not auto: with auto, an unconstrained pane's basis
+     is its max-content size — for the Preview pane that means the table's
+     *unwrapped* natural width, which can be huge regardless of the
+     word-wrap CSS below (max-content sizing ignores wrapping opportunities
+     by definition). That huge implicit basis was swamping the edit pane's
+     explicit pixel basis during flex-shrink, collapsing it to ~2px even
+     though its own flex-basis said otherwise. flex-basis:0 makes both
+     panes' share of space depend only on flex-grow/shrink and the explicit
+     pixel size below, never on content. A single visible pane (Edit-only/
+     Preview-only) still fills 100% via flex-grow regardless of basis. */
   .edit-pane,
   .preview-pane-inline {
-    flex: 1 1 auto;
+    flex: 1 1 0;
     min-width: 0;
     min-height: 0;
   }
@@ -1047,10 +1055,49 @@
     font-size: 0.85rem;
   }
 
+  /* Mirrors script-manager-gui's .details-content rules for the same
+     goldmark-rendered HTML. table-layout: fixed (gui's own table rule
+     doesn't need this — it only ever resizes panes by height, never width)
+     is the important addition here: without it, an unstyled <table> sizes
+     itself to its widest cell and refuses to shrink below that, fighting
+     the drag-to-resize divider in split-v mode — this pane, unlike gui's,
+     genuinely needs to shrink to arbitrary widths. */
   .details-preview {
     font-size: 0.85rem;
     line-height: 1.5;
     margin-bottom: 8px;
+    min-width: 0;
+    overflow-wrap: break-word;
+  }
+
+  .details-preview :global(h1),
+  .details-preview :global(h2),
+  .details-preview :global(h3) {
+    color: var(--sm-accent);
+    margin: 0.6em 0 0.3em;
+  }
+
+  .details-preview :global(table) {
+    table-layout: fixed;
+    border-collapse: collapse;
+    width: 100%;
+  }
+
+  .details-preview :global(td),
+  .details-preview :global(th) {
+    border: 1px solid var(--sm-border);
+    padding: 4px 8px;
+    text-align: left;
+    overflow-wrap: break-word;
+  }
+
+  .details-preview :global(code) {
+    background: var(--sm-bg-deep);
+    color: #6ee7d8;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-family: "SF Mono", Consolas, monospace;
+    overflow-wrap: break-word;
   }
 
   .cmd-preview {
