@@ -71,6 +71,17 @@
   let displayMasterCollapsed = false
   let displayPreview: configedit.PreviewDTO | null = null
 
+  // Split-v sizes the edit pane by width, split-h by height; the other pane
+  // always gets flex:1 to soak up whatever's left, so together they fill
+  // the full available width (split-v) or height (split-h) — same
+  // fixed-primary-pane-plus-flex:1-remainder pattern script-manager-gui's
+  // own resizer uses (leftWidth/itemsHeight there).
+  const DISPLAY_MIN_PANE = 160
+  const DISPLAY_RESIZER = 6
+  let displayEditWidth = 480
+  let displayEditHeight = 260
+  let displaySplitEl: HTMLElement
+
   const DISPLAY_LAYOUT_KEY = 'sm-config-edit:displayLayout'
 
   onMount(async () => {
@@ -85,6 +96,8 @@
       const saved = JSON.parse(localStorage.getItem(DISPLAY_LAYOUT_KEY) ?? '{}')
       if (saved.viewMode) displayViewMode = saved.viewMode
       displayMasterCollapsed = !!saved.masterCollapsed
+      if (typeof saved.editWidth === 'number') displayEditWidth = saved.editWidth
+      if (typeof saved.editHeight === 'number') displayEditHeight = saved.editHeight
     } catch {
       // ignore corrupt/missing layout, defaults already set
     }
@@ -93,7 +106,12 @@
   function saveDisplayLayout() {
     localStorage.setItem(
       DISPLAY_LAYOUT_KEY,
-      JSON.stringify({ viewMode: displayViewMode, masterCollapsed: displayMasterCollapsed }),
+      JSON.stringify({
+        viewMode: displayViewMode,
+        masterCollapsed: displayMasterCollapsed,
+        editWidth: displayEditWidth,
+        editHeight: displayEditHeight,
+      }),
     )
   }
   function setDisplayViewMode(mode: DisplayViewMode) {
@@ -103,6 +121,29 @@
   function toggleDisplayMaster() {
     displayMasterCollapsed = !displayMasterCollapsed
     saveDisplayLayout()
+  }
+
+  function dragDisplaySplit(e: MouseEvent) {
+    e.preventDefault()
+    const horizontal = displayViewMode === 'split-h'
+    const startPos = horizontal ? e.clientY : e.clientX
+    const startSize = horizontal ? displayEditHeight : displayEditWidth
+    function onMove(ev: MouseEvent) {
+      const rect = displaySplitEl.getBoundingClientRect()
+      const total = horizontal ? rect.height : rect.width
+      const max = total - DISPLAY_MIN_PANE - DISPLAY_RESIZER
+      const pos = horizontal ? ev.clientY : ev.clientX
+      const next = Math.min(max, Math.max(DISPLAY_MIN_PANE, startSize + (pos - startPos)))
+      if (horizontal) displayEditHeight = next
+      else displayEditWidth = next
+    }
+    function onUp() {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+      saveDisplayLayout()
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
   }
 
   // The "clean" snapshot dirty is compared against, taken every time cfg is
@@ -262,6 +303,10 @@
     cfg.display = cfg.display.filter((_, idx) => idx !== i)
     if (selectedDisplay === i) selectedDisplay = -1
     else if (selectedDisplay > i) selectedDisplay -= 1
+  }
+  function confirmRemoveDisplay(i: number) {
+    const name = cfg.display[i]?.name || '(unnamed)'
+    if (confirm(`Remove display "${name}"? This can't be undone.`)) removeDisplay(i)
   }
 
   function addCustomAction(itemIdx: number) {
@@ -431,70 +476,92 @@
                 title="Expand display list">▸</button
               >
             {/if}
-            <div class="detail">
+            <div class="detail display-detail">
               {#if selectedDisplay >= 0 && cfg.display[selectedDisplay]}
-                <label class="field">
-                  <span>Name</span>
-                  <input type="text" bind:value={cfg.display[selectedDisplay].name} />
-                </label>
+                <div class="display-top">
+                  <label class="field">
+                    <span>Name</span>
+                    <input type="text" bind:value={cfg.display[selectedDisplay].name} />
+                  </label>
 
-                <div class="display-toolbar">
-                  <div class="view-mode-group">
+                  <div class="display-toolbar">
+                    <div class="view-mode-group">
+                      <button
+                        class="btn"
+                        class:active={displayViewMode === 'edit'}
+                        type="button"
+                        title="Edit only"
+                        on:click={() => setDisplayViewMode('edit')}>Edit</button
+                      >
+                      <button
+                        class="btn"
+                        class:active={displayViewMode === 'preview'}
+                        type="button"
+                        title="Preview only"
+                        on:click={() => setDisplayViewMode('preview')}>Preview</button
+                      >
+                      <button
+                        class="btn"
+                        class:active={displayViewMode === 'split-v'}
+                        type="button"
+                        title="Side by side"
+                        on:click={() => setDisplayViewMode('split-v')}>Split ↔</button
+                      >
+                      <button
+                        class="btn"
+                        class:active={displayViewMode === 'split-h'}
+                        type="button"
+                        title="Stacked"
+                        on:click={() => setDisplayViewMode('split-h')}>Split ↕</button
+                      >
+                    </div>
+                    <label class="field preview-item-picker">
+                      <span>Preview item</span>
+                      <select bind:value={previewItemForDisplay} on:change={scheduleDisplayPreview}>
+                        <option value={-1}>(none)</option>
+                        {#each cfg.items as it, i}<option value={i}>{it.name || `(unnamed item ${i + 1})`}</option
+                          >{/each}
+                      </select>
+                    </label>
                     <button
-                      class="btn"
-                      class:active={displayViewMode === 'edit'}
+                      class="btn btn-danger"
                       type="button"
-                      title="Edit only"
-                      on:click={() => setDisplayViewMode('edit')}>Edit</button
-                    >
-                    <button
-                      class="btn"
-                      class:active={displayViewMode === 'preview'}
-                      type="button"
-                      title="Preview only"
-                      on:click={() => setDisplayViewMode('preview')}>Preview</button
-                    >
-                    <button
-                      class="btn"
-                      class:active={displayViewMode === 'split-v'}
-                      type="button"
-                      title="Side by side"
-                      on:click={() => setDisplayViewMode('split-v')}>Split ↔</button
-                    >
-                    <button
-                      class="btn"
-                      class:active={displayViewMode === 'split-h'}
-                      type="button"
-                      title="Stacked"
-                      on:click={() => setDisplayViewMode('split-h')}>Split ↕</button
+                      on:click={() => confirmRemoveDisplay(selectedDisplay)}>Remove display</button
                     >
                   </div>
-                  <label class="field preview-item-picker">
-                    <span>Preview item</span>
-                    <select bind:value={previewItemForDisplay} on:change={scheduleDisplayPreview}>
-                      <option value={-1}>(none)</option>
-                      {#each cfg.items as it, i}<option value={i}>{it.name || `(unnamed item ${i + 1})`}</option
-                        >{/each}
-                    </select>
-                  </label>
                 </div>
 
                 <div
                   class="display-edit-preview"
                   class:split-v={displayViewMode === 'split-v'}
                   class:split-h={displayViewMode === 'split-h'}
+                  bind:this={displaySplitEl}
                 >
                   {#if displayViewMode !== 'preview'}
-                    <div class="edit-pane">
-                      <label class="field">
+                    <div
+                      class="edit-pane"
+                      style={displayViewMode === 'split-v'
+                        ? `flex: 0 1 ${displayEditWidth}px`
+                        : displayViewMode === 'split-h'
+                          ? `flex: 0 1 ${displayEditHeight}px`
+                          : ''}
+                    >
+                      <label class="field list-template-field">
                         <span>List template</span>
                         <textarea rows="2" bind:value={cfg.display[selectedDisplay].list}></textarea>
                       </label>
-                      <label class="field">
+                      <label class="field details-template-field">
                         <span>Details template</span>
-                        <textarea rows="10" bind:value={cfg.display[selectedDisplay].details}></textarea>
+                        <textarea bind:value={cfg.display[selectedDisplay].details}></textarea>
                       </label>
                     </div>
+                  {/if}
+                  {#if displayViewMode === 'split-v' || displayViewMode === 'split-h'}
+                    <!-- svelte-ignore a11y-no-static-element-interactions -->
+                    <div
+                      class="resizer {displayViewMode === 'split-h' ? 'horizontal' : 'vertical'}"
+                      on:mousedown={dragDisplaySplit}
+                    ></div>
                   {/if}
                   {#if displayViewMode !== 'edit'}
                     <div class="preview-pane-inline panel">
@@ -516,10 +583,6 @@
                     </div>
                   {/if}
                 </div>
-
-                <button class="btn" type="button" on:click={() => removeDisplay(selectedDisplay)}
-                  >Remove display</button
-                >
               {:else}
                 <div class="empty">Select a display, or add one.</div>
               {/if}
@@ -844,6 +907,21 @@
     padding-right: 4px;
   }
 
+  /* The Displays detail pane doesn't scroll as a whole (unlike .detail
+     elsewhere): its edit/preview split needs a real, bounded height to
+     resize within, so display-detail fills the available height exactly
+     and lets display-edit-preview's two panes scroll internally instead. */
+  .display-detail {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .display-top {
+    flex: none;
+  }
+
   .display-toolbar {
     display: flex;
     align-items: flex-end;
@@ -870,25 +948,67 @@
     margin-bottom: 0;
   }
 
+  .btn-danger {
+    background: var(--sm-bg-deep);
+    border-color: #b23b3b;
+    color: #ff8a8a;
+  }
+
+  .btn-danger:hover {
+    background: #b23b3b;
+    color: var(--sm-text);
+  }
+
+  /* Row by default (also covers single-pane Edit-only/Preview-only modes,
+     where whichever one pane is present just fills 100% via flex:1 below);
+     .split-h switches to a column so the panes stack instead. */
   .display-edit-preview {
     display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .display-edit-preview.split-h {
     flex-direction: column;
-    gap: 10px;
   }
 
-  .display-edit-preview.split-v {
-    flex-direction: row;
-    align-items: flex-start;
-  }
-
-  .display-edit-preview.split-v .edit-pane,
-  .display-edit-preview.split-v .preview-pane-inline {
-    flex: 1 1 0;
+  /* Base size for both panes is flex:1, so a single visible pane (Edit-only/
+     Preview-only) always fills the full width and height. In split modes,
+     the template above overrides edit-pane's flex-basis to a fixed pixel
+     size (dragDisplaySplit); the other pane keeps flex:1 to soak up
+     whatever's left, so together they always fill the full available
+     width (split-v) or height (split-h), however the window is sized. */
+  .edit-pane {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    flex: 1 1 auto;
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
   }
 
-  .preview-pane-inline .panel-body {
-    max-height: 400px;
+  .preview-pane-inline {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .list-template-field {
+    flex: none;
+  }
+
+  .details-template-field {
+    flex: 1 1 auto;
+    min-height: 0;
+    margin-bottom: 0;
+  }
+
+  .details-template-field textarea {
+    flex: 1 1 auto;
+    min-height: 60px;
+    resize: none;
   }
 
   .checkbox-list {

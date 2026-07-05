@@ -242,6 +242,38 @@ body {
   background: #f0b25a;
 }
 
+/* Draggable divider between two resizable panes — see each app's own drag*
+   handler (mousedown here, mousemove/mouseup on window) for the resize
+   logic itself; this is just the hit target/visual. */
+.resizer {
+  flex: none;
+  background: transparent;
+}
+
+.resizer:hover,
+.resizer:active {
+  background: var(--sm-border);
+}
+
+.resizer.disabled,
+.resizer.disabled:hover,
+.resizer.disabled:active {
+  background: transparent;
+  cursor: default;
+}
+
+.resizer.vertical {
+  width: 6px;
+  margin: 0 1px;
+  cursor: col-resize;
+}
+
+.resizer.horizontal {
+  height: 6px;
+  margin: 1px 0;
+  cursor: row-resize;
+}
+
 .toast {
   position: fixed;
   bottom: 16px;

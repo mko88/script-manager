@@ -587,36 +587,7 @@
     flex: 1 1 auto;
   }
 
-  .resizer {
-    flex: none;
-    background: transparent;
-  }
-
-  .resizer:hover,
-  .resizer:active {
-    background: #3a4a63;
-  }
-
-  .resizer.disabled,
-  .resizer.disabled:hover,
-  .resizer.disabled:active {
-    background: transparent;
-    cursor: default;
-  }
-
-  .resizer.vertical {
-    width: 6px;
-    margin: 0 1px;
-    cursor: col-resize;
-  }
-
-  .resizer.horizontal {
-    height: 6px;
-    margin: 1px 0;
-    cursor: row-resize;
-  }
-
-  /* .panel, .panel-title(-text/-selected), .collapse-btn, .panel-body, .list,
+  /* .resizer(.vertical/.horizontal/.disabled), .panel, .panel-title(-text/-selected), .collapse-btn, .panel-body, .list,
      .row, .chip, .empty, .toast, .copy-cmd-btn, .run-cmd-btn come from the
      shared design system (@shared/theme.css, imported via style.css) — not
      redefined here. */
