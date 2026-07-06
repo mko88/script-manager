@@ -154,6 +154,15 @@ items:
     clusterIp: 10.0.0.2
     display: compact              # optional — picks a named display config; omit to use first
 
+actionGroups:                       # optional — a catalog giving groups a friendlier title/color;
+  - id: connect                     # the groups: keys above/below still just reference plain
+    title: Connectivity             # IDs and work the same with or without a matching entry here
+    color: "#7fd4ff"
+  - id: safe
+    title: Safe to run anytime
+    color: "#4caf50"
+  - id: diagnostics                 # title/color are both optional — id alone is a valid entry
+
 actions:
   - id: ssh              # optional — used for per-item action filtering
     title: SSH into cluster
@@ -184,6 +193,10 @@ By default every item sees all global actions. To restrict which actions appear 
 | `customActions` | list of action objects | append item-specific actions (same fields as global actions) |
 
 If none of these keys are set the full action list is shown (backward-compatible). When `actions` and `actionGroups` are both set, matches from each are included in that order without duplicates. `customActions` are always appended last.
+
+#### Naming and coloring groups
+
+The top-level `actionGroups:` list is an optional catalog: each entry is `id` (the same string an action's `groups:` or an item's `actionGroups:` already references — required), plus an optional `title` and `color` for tools that want a friendlier label or a color swatch instead of showing the bare ID. Nothing about actually resolving a group (`config.ActionsForItem`) reads this list — it exists purely for editors/UIs to attach a display name and color to a group name, and an existing config with no `actionGroups:` catalog at all keeps working exactly as before.
 
 ### Templates
 
@@ -353,7 +366,7 @@ macOS is the one target that genuinely needs to be built on macOS (Apple's toolc
 `cmd/sm-config-edit/` is a second Wails desktop app (same Go backend + Svelte frontend shape as `script-manager-gui`, and the same dark theme — both share `frontend-shared/`) for creating or editing `config.yaml` through forms instead of hand-writing YAML.
 
 - **New / Open / Save / Save As**, same auto-detect rule as the TUI/GUI: on launch it resolves `config-win.yaml`/`config.yaml` (exe dir then working directory) the same way `-config`-less TUI/GUI startup does, with a native file picker to open a different file or choose where to save a new one. Finding nothing on launch isn't treated as an error — it just starts blank, since a first-time user of this tool plausibly has no config yet.
-- **Sections**: Items, Actions, Displays, Environment, Shell, Titles, Terminal — one form per top-level `config.yaml` concern. An item's reserved keys (`name`, `display`, `actions`, `actionGroups`, `customActions`) get dedicated widgets (text field, a dropdown of configured displays, checkbox lists against the global actions/groups, a repeatable nested action form); anything else is a generic "Additional Fields" grid, where each value's kind (string/number/bool, or a raw YAML snippet for anything more complex, like a nested list or map) drives which widget edits it.
+- **Sections**: Items, Action Groups, Actions, Displays, Environment, Shell, Titles, Terminal — one form per top-level `config.yaml` concern. Action Groups edits the `id`/`title`/`color` catalog entries (with a color picker and a swatch next to each entry in the list); an item's reserved keys (`name`, `display`, `actions`, `actionGroups`, `customActions`) get dedicated widgets (text field, a dropdown of configured displays, checkbox lists against the global actions/groups, a repeatable nested action form); anything else is a generic "Additional Fields" grid, where each value's kind (string/number/bool, or a raw YAML snippet for anything more complex, like a nested list or map) drives which widget edits it.
 - **Live preview**: with an item selected, its rendered list label and details (against the chosen display) update as you type, along with a preview of any action's expanded command/description against that item — the same template-preview logic (`action.Preview`, missing-field filling) the GUI's Details pane uses, without needing to save first. The Displays section has the same live preview, but since a display isn't tied to one item, pick any item from the "Preview item" dropdown to see how *that* display would render it. Unlike the other sections, Displays has no master-list sidebar — a "Display" combobox picks which one you're editing, and its name plus a "Remove display" button live in their own small panel above the editor. Four view modes (Edit / Preview / Split ↔ / Split ↕) control how much space editing vs. previewing gets, with a draggable divider between them in the two split modes; the chosen mode and divider position persist across restarts.
 - **Validation**: duplicate global action IDs block Save; duplicate item names and an item referencing a display/action/group that doesn't exist are shown as non-blocking warnings.
 

@@ -22,6 +22,22 @@ export namespace configedit {
 	        this.noWait = source["noWait"];
 	    }
 	}
+	export class ActionGroupDTO {
+	    id: string;
+	    title: string;
+	    color: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ActionGroupDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.title = source["title"];
+	        this.color = source["color"];
+	    }
+	}
 	export class ActionPreviewDTO {
 	    description: string;
 	    cmd: string;
@@ -151,6 +167,7 @@ export namespace configedit {
 	    terminal: TerminalDTO;
 	    envFields: FieldDTO[];
 	    items: ItemDTO[];
+	    actionGroups: ActionGroupDTO[];
 	    actions: ActionDTO[];
 	
 	    static createFrom(source: any = {}) {
@@ -165,6 +182,7 @@ export namespace configedit {
 	        this.terminal = this.convertValues(source["terminal"], TerminalDTO);
 	        this.envFields = this.convertValues(source["envFields"], FieldDTO);
 	        this.items = this.convertValues(source["items"], ItemDTO);
+	        this.actionGroups = this.convertValues(source["actionGroups"], ActionGroupDTO);
 	        this.actions = this.convertValues(source["actions"], ActionDTO);
 	    }
 	

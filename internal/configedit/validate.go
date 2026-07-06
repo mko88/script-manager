@@ -5,8 +5,8 @@ import "fmt"
 // ValidateConfig checks draft form state for problems ActionsForItem would
 // otherwise resolve silently (an unknown display/action/group reference just
 // falls back or drops the entry at runtime) or that would make IDs
-// ambiguous. Duplicate action IDs are the only blocking error — everything
-// else is a warning.
+// ambiguous. Duplicate action IDs and duplicate action group IDs are the
+// only blocking errors — everything else is a warning.
 func ValidateConfig(dto ConfigDTO) []ValidationIssueDTO {
 	issues := []ValidationIssueDTO{}
 
@@ -22,6 +22,20 @@ func ValidateConfig(dto ConfigDTO) []ValidationIssueDTO {
 			})
 		}
 		actionIDs[act.ID] = true
+	}
+
+	actionGroupIDs := map[string]bool{}
+	for _, g := range dto.ActionGroups {
+		if g.ID == "" {
+			continue
+		}
+		if actionGroupIDs[g.ID] {
+			issues = append(issues, ValidationIssueDTO{
+				Severity: "error",
+				Message:  fmt.Sprintf("duplicate action group id %q", g.ID),
+			})
+		}
+		actionGroupIDs[g.ID] = true
 	}
 
 	itemNames := map[string]bool{}

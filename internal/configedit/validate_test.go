@@ -65,4 +65,12 @@ func TestValidateConfig(t *testing.T) {
 			t.Errorf("expected a warning, got %+v", issues)
 		}
 	})
+
+	t.Run("duplicate action group id is an error", func(t *testing.T) {
+		dto := ConfigDTO{ActionGroups: []ActionGroupDTO{{ID: "safe"}, {ID: "safe"}}}
+		issues := ValidateConfig(dto)
+		if !hasIssue(issues, "error") {
+			t.Errorf("expected an error-severity issue, got %+v", issues)
+		}
+	})
 }

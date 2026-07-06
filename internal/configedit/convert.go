@@ -157,6 +157,14 @@ func actionFromDTO(dto ActionDTO) config.Action {
 	}
 }
 
+func actionGroupToDTO(g config.ActionGroup) ActionGroupDTO {
+	return ActionGroupDTO{ID: g.ID, Title: g.Title, Color: g.Color}
+}
+
+func actionGroupFromDTO(dto ActionGroupDTO) config.ActionGroup {
+	return config.ActionGroup{ID: dto.ID, Title: dto.Title, Color: dto.Color}
+}
+
 // actionDTOToMap encodes an ActionDTO the same way a hand-written
 // customActions entry is shaped, for round-tripping through
 // config.ParseCustomActions.
@@ -279,14 +287,18 @@ func ToConfigDTO(cfg *config.Config) ConfigDTO {
 			Details: cfg.Titles.Details,
 			Command: cfg.Titles.Command,
 		},
-		Terminal:  terminalToDTO(cfg.Terminal),
-		EnvFields: FieldsFromMap(cfg.Env, nil),
-		Display:   []DisplayDTO{},
-		Actions:   []ActionDTO{},
-		Items:     []ItemDTO{},
+		Terminal:     terminalToDTO(cfg.Terminal),
+		EnvFields:    FieldsFromMap(cfg.Env, nil),
+		Display:      []DisplayDTO{},
+		ActionGroups: []ActionGroupDTO{},
+		Actions:      []ActionDTO{},
+		Items:        []ItemDTO{},
 	}
 	for _, d := range cfg.Display {
 		dto.Display = append(dto.Display, DisplayDTO{Name: d.Name, List: d.List, Details: d.Details})
+	}
+	for _, g := range cfg.ActionGroups {
+		dto.ActionGroups = append(dto.ActionGroups, actionGroupToDTO(g))
 	}
 	for _, a := range cfg.Actions {
 		dto.Actions = append(dto.Actions, actionToDTO(a))
@@ -311,6 +323,9 @@ func FromConfigDTO(dto ConfigDTO) (*config.Config, error) {
 	}
 	for _, d := range dto.Display {
 		cfg.Display = append(cfg.Display, config.DisplayConfig{Name: d.Name, List: d.List, Details: d.Details})
+	}
+	for _, g := range dto.ActionGroups {
+		cfg.ActionGroups = append(cfg.ActionGroups, actionGroupFromDTO(g))
 	}
 	for _, a := range dto.Actions {
 		cfg.Actions = append(cfg.Actions, actionFromDTO(a))

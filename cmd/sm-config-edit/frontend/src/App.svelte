@@ -27,6 +27,7 @@
       terminal: { mode: 'auto', name: '', argv: [] },
       envFields: [],
       items: [],
+      actionGroups: [],
       actions: [],
     } as unknown as configedit.ConfigDTO
   }
@@ -39,9 +40,10 @@
   let validation: configedit.ValidationIssueDTO[] = []
   let initialized = false
 
-  type Section = 'items' | 'actions' | 'display' | 'env' | 'shell' | 'titles' | 'terminal'
+  type Section = 'items' | 'actionGroups' | 'actions' | 'display' | 'env' | 'shell' | 'titles' | 'terminal'
   const sections: { key: Section; label: string }[] = [
     { key: 'items', label: 'Items' },
+    { key: 'actionGroups', label: 'Action Groups' },
     { key: 'actions', label: 'Actions' },
     { key: 'display', label: 'Displays' },
     { key: 'env', label: 'Environment' },
@@ -53,6 +55,7 @@
   $: sectionTitle = sections.find((s) => s.key === section)?.label ?? ''
 
   let selectedItem = -1
+  let selectedActionGroup = -1
   let selectedAction = -1
   let selectedDisplay = -1
 
@@ -165,6 +168,7 @@
 
   function resetSelection() {
     selectedItem = -1
+    selectedActionGroup = -1
     selectedAction = -1
     selectedDisplay = -1
     previewActionIdx = -1
@@ -268,6 +272,9 @@
   function newAction(): configedit.ActionDTO {
     return { id: '', title: '', description: '', cmd: '', groups: [], noWait: false } as unknown as configedit.ActionDTO
   }
+  function newActionGroup(): configedit.ActionGroupDTO {
+    return { id: '', title: '', color: '' } as unknown as configedit.ActionGroupDTO
+  }
   function newDisplay(): configedit.DisplayDTO {
     return { name: '', list: '{{.name}}', details: '' } as unknown as configedit.DisplayDTO
   }
@@ -291,6 +298,20 @@
     cfg.actions = cfg.actions.filter((_, idx) => idx !== i)
     if (selectedAction === i) selectedAction = -1
     else if (selectedAction > i) selectedAction -= 1
+  }
+
+  function addActionGroup() {
+    cfg.actionGroups = [...cfg.actionGroups, newActionGroup()]
+    selectedActionGroup = cfg.actionGroups.length - 1
+  }
+  function removeActionGroup(i: number) {
+    cfg.actionGroups = cfg.actionGroups.filter((_, idx) => idx !== i)
+    if (selectedActionGroup === i) selectedActionGroup = -1
+    else if (selectedActionGroup > i) selectedActionGroup -= 1
+  }
+  function confirmRemoveActionGroup(i: number) {
+    const name = cfg.actionGroups[i]?.title || cfg.actionGroups[i]?.id || '(unnamed)'
+    if (confirm(`Remove action group "${name}"? This can't be undone.`)) removeActionGroup(i)
   }
 
   function addDisplay() {
@@ -582,6 +603,67 @@
             {:else}
               <div class="empty">Select a display, or add one.</div>
             {/if}
+          </div>
+        {:else if section === 'actionGroups'}
+          <div class="master-detail">
+            <div class="master list">
+              {#each cfg.actionGroups as g, i (i)}
+                <button
+                  class="row"
+                  class:selected={selectedActionGroup === i}
+                  on:click={() => (selectedActionGroup = i)}
+                >
+                  <span class="group-swatch" style="background: {g.color || 'var(--sm-border)'}"></span>
+                  {g.title || g.id || '(unnamed)'}
+                </button>
+              {/each}
+              <button class="btn" type="button" on:click={addActionGroup}>+ Add action group</button>
+            </div>
+            <div class="detail">
+              {#if selectedActionGroup >= 0 && cfg.actionGroups[selectedActionGroup]}
+                <label class="field">
+                  <span>ID</span>
+                  <input
+                    type="text"
+                    bind:value={cfg.actionGroups[selectedActionGroup].id}
+                    placeholder="unique id, referenced by actions/items"
+                  />
+                </label>
+                <label class="field">
+                  <span>Title</span>
+                  <input
+                    type="text"
+                    bind:value={cfg.actionGroups[selectedActionGroup].title}
+                    placeholder="display name (optional)"
+                  />
+                </label>
+                <div class="field">
+                  <span>Color</span>
+                  <div class="color-field">
+                    <input
+                      type="color"
+                      value={/^#[0-9a-fA-F]{6}$/.test(cfg.actionGroups[selectedActionGroup].color)
+                        ? cfg.actionGroups[selectedActionGroup].color
+                        : '#7fd4ff'}
+                      on:input={(e) => (cfg.actionGroups[selectedActionGroup].color = e.currentTarget.value)}
+                      title="Pick a color"
+                    />
+                    <input
+                      type="text"
+                      bind:value={cfg.actionGroups[selectedActionGroup].color}
+                      placeholder="#7fd4ff or a CSS color name"
+                    />
+                  </div>
+                </div>
+                <button
+                  class="btn btn-danger"
+                  type="button"
+                  on:click={() => confirmRemoveActionGroup(selectedActionGroup)}>Remove action group</button
+                >
+              {:else}
+                <div class="empty">Select an action group, or add one.</div>
+              {/if}
+            </div>
           </div>
         {:else if section === 'actions'}
           <div class="master-detail">
@@ -1032,6 +1114,35 @@
     padding: 2px 9px;
     font-size: 0.75rem;
     cursor: pointer;
+  }
+
+  .group-swatch {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-right: 6px;
+    vertical-align: middle;
+    border: 1px solid var(--sm-border);
+  }
+
+  .color-field {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .color-field input[type="color"] {
+    flex: none;
+    width: 40px;
+    height: 30px;
+    padding: 2px;
+    cursor: pointer;
+  }
+
+  .color-field input[type="text"] {
+    flex: 1 1 auto;
+    min-width: 0;
   }
 
   .nested-action {

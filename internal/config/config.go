@@ -34,6 +34,17 @@ type Action struct {
 	NoWait      bool     `yaml:"noWait,omitempty"`
 }
 
+// ActionGroup is the catalog entry for a group name: Action.Groups and an
+// item's "actionGroups" key still just reference groups by plain string
+// (matched against ID here), the same as before this existed — this only
+// adds an optional friendlier title and a color for the UI to use instead
+// of showing/coloring the bare ID everywhere.
+type ActionGroup struct {
+	ID    string `yaml:"id"`
+	Title string `yaml:"title,omitempty"`
+	Color string `yaml:"color,omitempty"`
+}
+
 type DisplayConfig struct {
 	Name    string `yaml:"name,omitempty"`
 	List    string `yaml:"list,omitempty"`
@@ -133,13 +144,14 @@ func (t TerminalConfig) MarshalYAML() (interface{}, error) {
 }
 
 type Config struct {
-	Shell    []string         `yaml:"shell,omitempty"`
-	Display  DisplayList      `yaml:"display,omitempty"`
-	Titles   TitlesConfig     `yaml:"titles,omitempty"`
-	Terminal TerminalConfig   `yaml:"terminal,omitempty"`
-	Env      map[string]any   `yaml:"env,omitempty"`
-	Items    []map[string]any `yaml:"items,omitempty"`
-	Actions  []Action         `yaml:"actions,omitempty"`
+	Shell        []string         `yaml:"shell,omitempty"`
+	Display      DisplayList      `yaml:"display,omitempty"`
+	Titles       TitlesConfig     `yaml:"titles,omitempty"`
+	Terminal     TerminalConfig   `yaml:"terminal,omitempty"`
+	Env          map[string]any   `yaml:"env,omitempty"`
+	Items        []map[string]any `yaml:"items,omitempty"`
+	ActionGroups []ActionGroup    `yaml:"actionGroups,omitempty"`
+	Actions      []Action         `yaml:"actions,omitempty"`
 
 	// SourcePath is the absolute path of the file this config was actually
 	// loaded from — not part of the YAML itself, but set by loadPaths so

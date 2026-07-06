@@ -38,6 +38,15 @@ type ActionDTO struct {
 	NoWait      bool     `json:"noWait"`
 }
 
+// ActionGroupDTO mirrors config.ActionGroup — the catalog entry. Actions and
+// items still just reference a group by plain string ID (via Groups/
+// actionGroups), unchanged by this addition.
+type ActionGroupDTO struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Color string `json:"color"`
+}
+
 // FieldDTO edits one entry of a map[string]any (Env, or an item's
 // non-reserved keys) without needing a widget per possible YAML shape.
 // String/bool/number values get their own kind and a plain-value widget;
@@ -63,13 +72,14 @@ type ItemDTO struct {
 
 // ConfigDTO mirrors config.Config as a whole.
 type ConfigDTO struct {
-	Shell     []string     `json:"shell"`
-	Display   []DisplayDTO `json:"display"`
-	Titles    TitlesDTO    `json:"titles"`
-	Terminal  TerminalDTO  `json:"terminal"`
-	EnvFields []FieldDTO   `json:"envFields"`
-	Items     []ItemDTO    `json:"items"`
-	Actions   []ActionDTO  `json:"actions"`
+	Shell        []string         `json:"shell"`
+	Display      []DisplayDTO     `json:"display"`
+	Titles       TitlesDTO        `json:"titles"`
+	Terminal     TerminalDTO      `json:"terminal"`
+	EnvFields    []FieldDTO       `json:"envFields"`
+	Items        []ItemDTO        `json:"items"`
+	ActionGroups []ActionGroupDTO `json:"actionGroups"`
+	Actions      []ActionDTO      `json:"actions"`
 }
 
 // StateDTO is what the frontend fetches after any operation that (re)loads a

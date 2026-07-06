@@ -190,6 +190,9 @@ func TestConfigDTORoundTrip(t *testing.T) {
 		Display: config.DisplayList{
 			{Name: "default", List: "{{.name}}", Details: "**{{.name}}**"},
 		},
+		ActionGroups: []config.ActionGroup{
+			{ID: "remote", Title: "Remote access", Color: "#7fd4ff"},
+		},
 		Actions: []config.Action{
 			{ID: "ssh", Title: "SSH", Cmd: "ssh {{.host}}", Groups: []string{"remote"}},
 		},
