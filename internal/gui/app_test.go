@@ -27,6 +27,32 @@ func TestLoadError(t *testing.T) {
 	})
 }
 
+func TestGetActionGroups(t *testing.T) {
+	t.Run("converts the catalog", func(t *testing.T) {
+		a := NewApp(func() (*config.Config, error) {
+			return &config.Config{ActionGroups: []config.ActionGroup{
+				{ID: "safe", Title: "Safe", Color: "#2ca02c"},
+				{ID: "diagnostics"},
+			}}, nil
+		})
+		got := a.GetActionGroups()
+		want := []ActionGroupDTO{
+			{ID: "safe", Title: "Safe", Color: "#2ca02c"},
+			{ID: "diagnostics"},
+		}
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("GetActionGroups() = %+v, want %+v", got, want)
+		}
+	})
+	t.Run("empty catalog returns an empty (non-nil) slice", func(t *testing.T) {
+		a := NewApp(func() (*config.Config, error) { return &config.Config{}, nil })
+		got := a.GetActionGroups()
+		if got == nil || len(got) != 0 {
+			t.Errorf("GetActionGroups() = %#v, want a non-nil empty slice", got)
+		}
+	})
+}
+
 func TestReloadConfig(t *testing.T) {
 	t.Run("total failure keeps the previous config and returns the error", func(t *testing.T) {
 		calls := 0

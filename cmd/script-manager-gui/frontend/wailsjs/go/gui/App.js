@@ -10,6 +10,10 @@ export function GetActionDetail(arg1, arg2) {
   return window['go']['gui']['App']['GetActionDetail'](arg1, arg2);
 }
 
+export function GetActionGroups() {
+  return window['go']['gui']['App']['GetActionGroups']();
+}
+
 export function GetActions(arg1) {
   return window['go']['gui']['App']['GetActions'](arg1);
 }

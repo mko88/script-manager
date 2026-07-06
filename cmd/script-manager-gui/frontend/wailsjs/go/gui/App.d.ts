@@ -6,6 +6,8 @@ export function CopyToClipboard(arg1:string):Promise<void>;
 
 export function GetActionDetail(arg1:number,arg2:number):Promise<gui.ActionDetailDTO>;
 
+export function GetActionGroups():Promise<Array<gui.ActionGroupDTO>>;
+
 export function GetActions(arg1:number):Promise<Array<gui.ActionDTO>>;
 
 export function GetItemDetails(arg1:number):Promise<gui.DetailsDTO>;

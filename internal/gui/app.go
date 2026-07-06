@@ -148,6 +148,24 @@ func orDefault(v, def string) string {
 	return v
 }
 
+// ActionGroupDTO is one entry of the config's optional actionGroups catalog
+// — the frontend uses Color to paint group chips instead of showing every
+// group with the same flat color; a group with no catalog entry (or no
+// Color set) just falls back to the default chip styling.
+type ActionGroupDTO struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+	Color string `json:"color"`
+}
+
+func (a *App) GetActionGroups() []ActionGroupDTO {
+	out := make([]ActionGroupDTO, len(a.cfg.ActionGroups))
+	for i, g := range a.cfg.ActionGroups {
+		out[i] = ActionGroupDTO{ID: g.ID, Title: g.Title, Color: g.Color}
+	}
+	return out
+}
+
 // ItemDTO is a row in the item list.
 type ItemDTO struct {
 	Index int    `json:"index"`

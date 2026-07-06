@@ -7,6 +7,7 @@
     GetActions,
     GetActionDetail,
     GetItemDetails,
+    GetActionGroups,
     CopyToClipboard,
     ReloadConfig,
     RunAction,
@@ -17,6 +18,7 @@
   let titles: gui.TitlesDTO = { items: 'Items', actions: 'Actions', details: 'Details', command: 'Command' }
   let items: gui.ItemDTO[] = []
   let actions: gui.ActionDTO[] = []
+  let actionGroupCatalog: gui.ActionGroupDTO[] = []
   let details: gui.DetailsDTO | null = null
   let actionDetail: gui.ActionDetailDTO | null = null
 
@@ -109,11 +111,35 @@
   $: selectedActionLabel = actions.find((a) => a.index === selectedActionIndex)?.title ?? ''
   $: selectedActionGroups = actions.find((a) => a.index === selectedActionIndex)?.groups ?? []
 
+  // Only groups with a configured color get one here — a group with no
+  // catalog entry (or an entry with no color set) just keeps the default
+  // chip styling, so this feature is fully opt-in per group.
+  $: groupColors = Object.fromEntries(
+    actionGroupCatalog.filter((g) => /^#[0-9a-fA-F]{6}$/.test(g.color)).map((g) => [g.id, g.color]),
+  ) as Record<string, string>
+
+  function readableTextColor(hex: string): string {
+    const r = parseInt(hex.slice(1, 3), 16)
+    const g = parseInt(hex.slice(3, 5), 16)
+    const b = parseInt(hex.slice(5, 7), 16)
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000
+    return brightness > 128 ? '#1b2636' : '#d7dee8'
+  }
+
+  // Active/selected chips keep the existing accent-warm highlight regardless
+  // of the group's own color, so "this filter is active" stays unambiguous.
+  function groupChipStyle(group: string, active: boolean): string {
+    const color = groupColors[group]
+    if (active || !color) return ''
+    return `background: ${color}; border-color: ${color}; color: ${readableTextColor(color)};`
+  }
+
   onMount(async () => {
     const loadErr = await LoadError()
     if (loadErr) flash(`Config load failed: ${loadErr}`)
     titles = await GetTitles()
     items = await GetItems()
+    actionGroupCatalog = await GetActionGroups()
     if (items.length > 0) selectItem(0)
   })
 
@@ -208,6 +234,7 @@
       return
     }
     titles = await GetTitles()
+    actionGroupCatalog = await GetActionGroups()
     const newItems = await GetItems()
     items = newItems
     if (newItems.length === 0) {
@@ -443,7 +470,11 @@
               <div class="group-chips">
                 <button class="chip" class:active={selectedGroups.size === 0} on:click={selectAllGroups}>All</button>
                 {#each visibleGroups as group (group)}
-                  <button class="chip" class:active={selectedGroups.has(group)} on:click={() => toggleGroup(group)}
+                  <button
+                    class="chip"
+                    class:active={selectedGroups.has(group)}
+                    style={groupChipStyle(group, selectedGroups.has(group))}
+                    on:click={() => toggleGroup(group)}
                     >{group}<span class="chip-count">({groupCounts[group] ?? 0})</span></button
                   >
                 {/each}
@@ -541,7 +572,7 @@
             {#if selectedActionGroups.length > 0}
               <div class="cmd-groups">
                 {#each selectedActionGroups as group (group)}
-                  <span class="chip chip-static">{group}</span>
+                  <span class="chip chip-static" style={groupChipStyle(group, false)}>{group}</span>
                 {/each}
               </div>
             {/if}

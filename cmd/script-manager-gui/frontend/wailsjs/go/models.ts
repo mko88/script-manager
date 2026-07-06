@@ -34,6 +34,22 @@ export namespace gui {
 	        this.noWait = source["noWait"];
 	    }
 	}
+	export class ActionGroupDTO {
+	    id: string;
+	    title: string;
+	    color: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ActionGroupDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.title = source["title"];
+	        this.color = source["color"];
+	    }
+	}
 	export class DetailsDTO {
 	    html: string;
 	    copyValues: string[];
