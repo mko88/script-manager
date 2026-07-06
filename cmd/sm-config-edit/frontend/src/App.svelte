@@ -304,14 +304,41 @@
     cfg.actionGroups = [...cfg.actionGroups, newActionGroup()]
     selectedActionGroup = cfg.actionGroups.length - 1
   }
+  // How many actions/items/custom-actions currently reference a group id —
+  // used both to warn before deleting and to actually scrub the reference so
+  // deleting a group doesn't leave dangling entries in groups/actionGroups
+  // lists (the picker UI already hides them, but the underlying data would
+  // otherwise silently keep the stale id forever).
+  function actionGroupRefCount(id: string): number {
+    let count = 0
+    for (const a of cfg.actions) if (a.groups.includes(id)) count++
+    for (const it of cfg.items) {
+      if (it.actionGroups.includes(id)) count++
+      for (const ca of it.customActions) if (ca.groups.includes(id)) count++
+    }
+    return count
+  }
+  function removeActionGroupReferences(id: string) {
+    cfg.actions = cfg.actions.map((a) => ({ ...a, groups: a.groups.filter((g) => g !== id) })) as unknown as configedit.ActionDTO[]
+    cfg.items = cfg.items.map((it) => ({
+      ...it,
+      actionGroups: it.actionGroups.filter((g) => g !== id),
+      customActions: it.customActions.map((ca) => ({ ...ca, groups: ca.groups.filter((g) => g !== id) })),
+    })) as unknown as configedit.ItemDTO[]
+  }
   function removeActionGroup(i: number) {
+    const id = cfg.actionGroups[i]?.id
     cfg.actionGroups = cfg.actionGroups.filter((_, idx) => idx !== i)
+    if (id) removeActionGroupReferences(id)
     if (selectedActionGroup === i) selectedActionGroup = -1
     else if (selectedActionGroup > i) selectedActionGroup -= 1
   }
   function confirmRemoveActionGroup(i: number) {
-    const name = cfg.actionGroups[i]?.title || cfg.actionGroups[i]?.id || '(unnamed)'
-    if (confirm(`Remove action group "${name}"? This can't be undone.`)) removeActionGroup(i)
+    const g = cfg.actionGroups[i]
+    const name = g?.title || g?.id || '(unnamed)'
+    const refCount = g?.id ? actionGroupRefCount(g.id) : 0
+    const refSuffix = refCount > 0 ? ` It's referenced by ${refCount} action/item field${refCount > 1 ? 's' : ''} — those references will be removed too.` : ''
+    if (confirm(`Remove action group "${name}"? This can't be undone.${refSuffix}`)) removeActionGroup(i)
   }
 
   function addDisplay() {
@@ -340,11 +367,7 @@
   }
 
   $: allActionIds = cfg.actions.map((a) => a.id).filter((id) => id)
-  $: allActionGroups = (() => {
-    const seen = new Set<string>()
-    for (const a of cfg.actions) for (const g of a.groups ?? []) seen.add(g)
-    return [...seen]
-  })()
+  $: allActionGroups = cfg.actionGroups.map((g) => g.id).filter((id) => id)
 
   let previewTimer: ReturnType<typeof setTimeout>
   $: if (initialized && section === 'items' && selectedItem >= 0 && cfg.items[selectedItem]) schedulePreview()
@@ -677,7 +700,7 @@
             </div>
             <div class="detail">
               {#if selectedAction >= 0 && cfg.actions[selectedAction]}
-                <ActionForm bind:action={cfg.actions[selectedAction]} />
+                <ActionForm bind:action={cfg.actions[selectedAction]} {allActionGroups} />
                 <button class="btn" type="button" on:click={() => removeAction(selectedAction)}
                   >Remove action</button
                 >
@@ -761,7 +784,7 @@
                   <span>Custom actions</span>
                   {#each cfg.items[selectedItem].customActions as _, j (j)}
                     <div class="nested-action">
-                      <ActionForm bind:action={cfg.items[selectedItem].customActions[j]} showId={false} />
+                      <ActionForm bind:action={cfg.items[selectedItem].customActions[j]} showId={false} {allActionGroups} />
                       <button class="btn" type="button" on:click={() => removeCustomAction(selectedItem, j)}
                         >Remove custom action</button
                       >
