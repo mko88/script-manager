@@ -128,6 +128,12 @@ items:
     loadBalancerIp: 101.20.30.40
     loadBalancerName: dr-lb1
 
+actionGroups:
+  - id: safe
+    color: "#2ca02c"
+  - id: diagnostics
+    color: "#1f77b4"
+
 actions:
   - id: print-template
     title: Print variables (template)
