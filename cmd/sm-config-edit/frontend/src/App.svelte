@@ -548,24 +548,24 @@
                     >{/each}
                 </select>
               </label>
-              <button class="btn" type="button" on:click={addDisplay}>+ Add display</button>
+              <button class="btn icon-btn" type="button" title="Add display" aria-label="Add display" on:click={addDisplay}
+                ><ListActionIcon mode="add" /></button
+              >
+              <button
+                class="btn icon-btn"
+                type="button"
+                title="Remove display"
+                aria-label="Remove display"
+                disabled={selectedDisplay < 0}
+                on:click={() => confirmRemoveDisplay(selectedDisplay)}><ListActionIcon mode="remove" /></button
+              >
             </div>
 
             {#if selectedDisplay >= 0 && cfg.display[selectedDisplay]}
-              <div class="panel display-info-panel">
-                <header class="panel-title"><span>Display</span></header>
-                <div class="panel-body display-info-body">
-                  <label class="field">
-                    <span>Name</span>
-                    <input type="text" bind:value={cfg.display[selectedDisplay].name} />
-                  </label>
-                  <button
-                    class="btn btn-danger"
-                    type="button"
-                    on:click={() => confirmRemoveDisplay(selectedDisplay)}>Remove display</button
-                  >
-                </div>
-              </div>
+              <label class="field">
+                <span>Name</span>
+                <input type="text" bind:value={cfg.display[selectedDisplay].name} />
+              </label>
 
               <div class="display-toolbar">
                 <div class="view-mode-group">
@@ -1081,21 +1081,6 @@
     margin-bottom: 0;
   }
 
-  .display-info-panel {
-    flex: none;
-  }
-
-  .display-info-body {
-    display: flex;
-    align-items: flex-end;
-    gap: 12px;
-  }
-
-  .display-info-body .field {
-    flex: 1 1 auto;
-    margin-bottom: 0;
-  }
-
   .display-toolbar {
     display: flex;
     align-items: flex-end;
@@ -1137,17 +1122,6 @@
   .preview-item-picker {
     flex: 0 0 220px;
     margin-bottom: 0;
-  }
-
-  .btn-danger {
-    background: var(--sm-bg-deep);
-    border-color: #b23b3b;
-    color: #ff8a8a;
-  }
-
-  .btn-danger:hover {
-    background: #b23b3b;
-    color: var(--sm-text);
   }
 
   /* Row by default (also covers single-pane Edit-only/Preview-only modes,
