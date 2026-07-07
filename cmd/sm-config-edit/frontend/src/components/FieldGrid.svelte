@@ -100,4 +100,17 @@
     font-family: inherit;
     font-size: 0.85rem;
   }
+
+  /* See App.svelte's .field select for why appearance: none is needed —
+     without it, Chromium/WebView2 keeps a native, light dropdown-arrow
+     box regardless of the background/color set above. */
+  select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9b6c8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    padding-right: 24px;
+  }
 </style>

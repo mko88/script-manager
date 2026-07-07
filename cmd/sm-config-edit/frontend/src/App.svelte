@@ -1179,6 +1179,21 @@
     font-size: 0.85rem;
   }
 
+  /* Without appearance: none, <select> keeps its native dropdown-arrow
+     chrome in Chromium/WebView2 regardless of the background/color set
+     above, showing as a jarring light box behind the arrow against this
+     dark theme. appearance: none removes that entirely (including the
+     arrow itself), so a plain custom chevron replaces it here instead. */
+  .field select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9b6c8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    padding-right: 28px;
+  }
+
   .radio-group {
     display: flex;
     gap: 16px;

@@ -301,6 +301,16 @@ button:focus-visible {
   outline-offset: -2px;
 }
 
+/* Tints the native checkbox/radio "checked" fill to match the theme
+   instead of whatever the browser/OS default is (plain blue on Windows,
+   varies elsewhere) — much simpler than reimplementing these controls
+   from scratch, and enough to stop them looking out of place against a
+   dark theme. */
+input[type="checkbox"],
+input[type="radio"] {
+  accent-color: var(--sm-accent);
+}
+
 .toast {
   position: fixed;
   bottom: 16px;
