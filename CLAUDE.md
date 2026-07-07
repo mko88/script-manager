@@ -67,6 +67,17 @@ container for this repo by its `devcontainer.local_folder` label (the
 container name is auto-generated and changes across recreations — don't
 hardcode one), and runs `bash build.sh` inside it.
 
+### Interim checks before that final build
+
+`bash build.sh` is still always the real build step, but run only the interim
+checks the actual changes can affect — don't reflexively run all of them
+every time:
+- Go code touched (`internal/`, any `cmd/*/main.go`, …): `go build ./... && go vet ./... && go test ./...`.
+- A Svelte frontend touched (`cmd/*/frontend/`): `npm run check` (svelte-check) in that frontend's directory.
+- A pure Svelte/CSS UI change needs no Go build/vet/test — nothing Go-related
+  changed, so those commands can't catch anything the edit could have broken.
+  Go straight to `npm run check`, then `bash build.sh`.
+
 ## Verifying GUI changes
 
 After making changes to `cmd/script-manager-gui/` or `cmd/sm-config-edit/`, build the binaries (`bash build.sh`) but stop there — don't automatically launch into a full visual verification pass (Xvfb, screenshots, simulated clicks via xdotool). It's slow and not always necessary. Instead, ask the user to pick one:
