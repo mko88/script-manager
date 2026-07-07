@@ -5,6 +5,8 @@
   import FieldGrid from './components/FieldGrid.svelte'
   import ActionForm from './components/ActionForm.svelte'
   import ViewModeIcon from './components/ViewModeIcon.svelte'
+  import ListActionIcon from './components/ListActionIcon.svelte'
+  import ToolbarIcon from './components/ToolbarIcon.svelte'
   import {
     InitialState,
     NewBlank,
@@ -262,6 +264,28 @@
     if (target) await doSave(target)
   }
 
+  // Standard New/Open/Save/Save As shortcuts — Ctrl on Windows/Linux, Cmd on
+  // Mac. These are modifier combos, not text a focused input would ever
+  // insert, so it's safe to handle them regardless of what's focused.
+  function handleGlobalKeydown(e: KeyboardEvent) {
+    if (!(e.ctrlKey || e.metaKey)) return
+    switch (e.key.toLowerCase()) {
+      case 'n':
+        e.preventDefault()
+        newConfig()
+        break
+      case 'o':
+        e.preventDefault()
+        openConfig()
+        break
+      case 's':
+        e.preventDefault()
+        if (e.shiftKey) saveAsConfig()
+        else saveConfig()
+        break
+    }
+  }
+
   // The generated DTO classes for nested-object fields (ItemDTO, ConfigDTO)
   // carry a convertValues method, so a plain object literal isn't
   // structurally assignable — cast new entries the same way the rest of this
@@ -418,12 +442,32 @@
   }
 </script>
 
+<svelte:window on:keydown={handleGlobalKeydown} />
+
 <main class="app-shell">
   <header class="toolbar">
-    <button class="btn" type="button" on:click={newConfig}>New</button>
-    <button class="btn" type="button" on:click={openConfig}>Open</button>
-    <button class="btn btn-primary" type="button" disabled={hasBlockingError} on:click={saveConfig}>Save</button>
-    <button class="btn" type="button" disabled={hasBlockingError} on:click={saveAsConfig}>Save As</button>
+    <button class="btn icon-btn" type="button" title="New (Ctrl+N)" aria-label="New" on:click={newConfig}
+      ><ToolbarIcon mode="new" /></button
+    >
+    <button class="btn icon-btn" type="button" title="Open (Ctrl+O)" aria-label="Open" on:click={openConfig}
+      ><ToolbarIcon mode="open" /></button
+    >
+    <button
+      class="btn btn-primary icon-btn"
+      type="button"
+      title="Save (Ctrl+S)"
+      aria-label="Save"
+      disabled={hasBlockingError}
+      on:click={saveConfig}><ToolbarIcon mode="save" /></button
+    >
+    <button
+      class="btn icon-btn"
+      type="button"
+      title="Save As (Ctrl+Shift+S)"
+      aria-label="Save As"
+      disabled={hasBlockingError}
+      on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></button
+    >
     <span class="toolbar-path">{path || '(unsaved)'}{dirty ? ' *' : ''}</span>
   </header>
 
@@ -628,6 +672,23 @@
             {/if}
           </div>
         {:else if section === 'actionGroups'}
+          <div class="list-toolbar">
+            <button
+              class="btn icon-btn"
+              type="button"
+              title="Add action group"
+              aria-label="Add action group"
+              on:click={addActionGroup}><ListActionIcon mode="add" /></button
+            >
+            <button
+              class="btn icon-btn"
+              type="button"
+              title="Remove action group"
+              aria-label="Remove action group"
+              disabled={selectedActionGroup < 0}
+              on:click={() => confirmRemoveActionGroup(selectedActionGroup)}><ListActionIcon mode="remove" /></button
+            >
+          </div>
           <div class="master-detail">
             <div class="master list">
               {#each cfg.actionGroups as g, i (i)}
@@ -640,7 +701,6 @@
                   {g.title || g.id || '(unnamed)'}
                 </button>
               {/each}
-              <button class="btn" type="button" on:click={addActionGroup}>+ Add action group</button>
             </div>
             <div class="detail">
               {#if selectedActionGroup >= 0 && cfg.actionGroups[selectedActionGroup]}
@@ -678,17 +738,25 @@
                     />
                   </div>
                 </div>
-                <button
-                  class="btn btn-danger"
-                  type="button"
-                  on:click={() => confirmRemoveActionGroup(selectedActionGroup)}>Remove action group</button
-                >
               {:else}
                 <div class="empty">Select an action group, or add one.</div>
               {/if}
             </div>
           </div>
         {:else if section === 'actions'}
+          <div class="list-toolbar">
+            <button class="btn icon-btn" type="button" title="Add action" aria-label="Add action" on:click={addAction}
+              ><ListActionIcon mode="add" /></button
+            >
+            <button
+              class="btn icon-btn"
+              type="button"
+              title="Remove action"
+              aria-label="Remove action"
+              disabled={selectedAction < 0}
+              on:click={() => removeAction(selectedAction)}><ListActionIcon mode="remove" /></button
+            >
+          </div>
           <div class="master-detail">
             <div class="master list">
               {#each cfg.actions as a, i (i)}
@@ -696,20 +764,29 @@
                   >{a.title || a.id || '(untitled)'}</button
                 >
               {/each}
-              <button class="btn" type="button" on:click={addAction}>+ Add action</button>
             </div>
             <div class="detail">
               {#if selectedAction >= 0 && cfg.actions[selectedAction]}
                 <ActionForm bind:action={cfg.actions[selectedAction]} {allActionGroups} />
-                <button class="btn" type="button" on:click={() => removeAction(selectedAction)}
-                  >Remove action</button
-                >
               {:else}
                 <div class="empty">Select an action, or add one.</div>
               {/if}
             </div>
           </div>
         {:else if section === 'items'}
+          <div class="list-toolbar">
+            <button class="btn icon-btn" type="button" title="Add item" aria-label="Add item" on:click={addItem}
+              ><ListActionIcon mode="add" /></button
+            >
+            <button
+              class="btn icon-btn"
+              type="button"
+              title="Remove item"
+              aria-label="Remove item"
+              disabled={selectedItem < 0}
+              on:click={() => removeItem(selectedItem)}><ListActionIcon mode="remove" /></button
+            >
+          </div>
           <div class="master-detail">
             <div class="master list">
               {#each cfg.items as it, i (i)}
@@ -723,7 +800,6 @@
                   }}>{it.name || '(unnamed)'}</button
                 >
               {/each}
-              <button class="btn" type="button" on:click={addItem}>+ Add item</button>
             </div>
             <div class="detail">
               {#if selectedItem >= 0 && cfg.items[selectedItem]}
@@ -799,8 +875,6 @@
                   <span>Additional fields</span>
                   <FieldGrid bind:fields={cfg.items[selectedItem].fields} validateField={ValidateField} />
                 </div>
-
-                <button class="btn" type="button" on:click={() => removeItem(selectedItem)}>Remove item</button>
 
                 <div class="preview-pane panel">
                   <header class="panel-title"><span>Preview</span></header>
@@ -1040,6 +1114,17 @@
     align-items: center;
     justify-content: center;
     padding: 6px 9px;
+  }
+
+  .icon-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  .list-toolbar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
   }
 
   .view-mode-group .btn.active {
