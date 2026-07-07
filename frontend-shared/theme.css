@@ -288,6 +288,19 @@ textarea:focus {
   outline-offset: -2px;
 }
 
+/* Buttons (.row list items included) get the same inset ring, but only
+   via :focus-visible rather than :focus — a plain click, or the mousedown
+   that starts a drag gesture, still focuses the button in Chromium/
+   WebView2, and a mouse-triggered focus ring on every list row you drag
+   or click reads as a wide, distracting border rather than useful
+   feedback. :focus-visible's own heuristic already skips that case and
+   only fires for keyboard navigation (Tab), which is exactly where the
+   ring is actually useful. */
+button:focus-visible {
+  outline: 2px solid var(--sm-accent);
+  outline-offset: -2px;
+}
+
 .toast {
   position: fixed;
   bottom: 16px;
