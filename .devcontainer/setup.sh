@@ -4,6 +4,17 @@
 # cross-compiling the GUI's Windows binary, all inside this devcontainer.
 set -e
 
+echo "Configuring git..."
+# The workspace is bind-mounted from the Windows host, which owns the files
+# under a different uid than the container's vscode user — without this, git
+# refuses to operate on it at all ("detected dubious ownership").
+git config --global --add safe.directory /workspaces/script-manager
+# The repo's shell scripts (build.sh, this file) must keep LF line endings
+# regardless of which side (Windows host or Linux container) last touched
+# them; core.autocrlf would otherwise risk converting them to CRLF, which
+# bash can't execute ("bad interpreter" / silent script corruption).
+git config core.autocrlf false
+
 echo "Installing build dependencies..."
 sudo apt-get update
 sudo apt-get install -y \
