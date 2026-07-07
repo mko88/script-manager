@@ -920,7 +920,7 @@
                         {/if}
                         <p class="preview-label">Command:</p>
                         <pre class="cmd-preview">{actionPreview.cmd}</pre>
-                        {#if actionPreview.description}<p class="hint">{actionPreview.description}</p>{/if}
+                        {#if actionPreview.description}<p class="hint action-desc-preview">{actionPreview.description}</p>{/if}
                       {/if}
                     {/if}
                   </div>
@@ -1008,6 +1008,10 @@
     color: var(--sm-text-muted);
     font-size: 0.8rem;
     margin: 0 0 8px;
+  }
+
+  .action-desc-preview {
+    white-space: pre-wrap;
   }
 
   .hint code {

@@ -26,9 +26,9 @@
   </label>
   <label class="field">
     <span>Description</span>
-    <input type="text" bind:value={action.description} />
+    <textarea rows="3" bind:value={action.description}></textarea>
   </label>
-  <label class="field">
+  <label class="field cmd-field">
     <span>Command</span>
     <textarea rows="3" bind:value={action.cmd}></textarea>
   </label>
@@ -74,7 +74,7 @@
     font-family: inherit;
     font-size: 0.85rem;
   }
-  .field textarea {
+  .cmd-field textarea {
     font-family: "SF Mono", Consolas, monospace;
   }
   .field-checkbox {

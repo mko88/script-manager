@@ -781,6 +781,7 @@
   .cmd-desc {
     margin: 0 0 8px;
     color: #a9b6c8;
+    white-space: pre-wrap;
   }
 
   .cmd-groups {
