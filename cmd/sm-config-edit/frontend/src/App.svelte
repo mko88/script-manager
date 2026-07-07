@@ -313,6 +313,10 @@
     if (selectedItem === i) selectedItem = -1
     else if (selectedItem > i) selectedItem -= 1
   }
+  function confirmRemoveItem(i: number) {
+    const name = cfg.items[i]?.name || '(unnamed)'
+    if (confirm(`Remove item "${name}"? This can't be undone.`)) removeItem(i)
+  }
 
   function addAction() {
     cfg.actions = [...cfg.actions, newAction()]
@@ -322,6 +326,10 @@
     cfg.actions = cfg.actions.filter((_, idx) => idx !== i)
     if (selectedAction === i) selectedAction = -1
     else if (selectedAction > i) selectedAction -= 1
+  }
+  function confirmRemoveAction(i: number) {
+    const name = cfg.actions[i]?.title || cfg.actions[i]?.id || '(untitled)'
+    if (confirm(`Remove action "${name}"? This can't be undone.`)) removeAction(i)
   }
 
   function addActionGroup() {
@@ -754,7 +762,7 @@
               title="Remove action"
               aria-label="Remove action"
               disabled={selectedAction < 0}
-              on:click={() => removeAction(selectedAction)}><ListActionIcon mode="remove" /></button
+              on:click={() => confirmRemoveAction(selectedAction)}><ListActionIcon mode="remove" /></button
             >
           </div>
           <div class="master-detail">
@@ -784,7 +792,7 @@
               title="Remove item"
               aria-label="Remove item"
               disabled={selectedItem < 0}
-              on:click={() => removeItem(selectedItem)}><ListActionIcon mode="remove" /></button
+              on:click={() => confirmRemoveItem(selectedItem)}><ListActionIcon mode="remove" /></button
             >
           </div>
           <div class="master-detail">
