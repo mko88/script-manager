@@ -50,12 +50,17 @@ Always use `./build.sh` to compile — never run `go build` manually.
 bash build.sh
 ```
 
-Produces:
-- `bin/script-manager` — Linux amd64
-- `bin/script-manager.exe` — Windows amd64
+Builds both Windows and Linux binaries by default. Produces:
+- `bin/script-manager` / `bin/script-manager.exe` — Linux / Windows amd64
 - `bin/script-manager-gui[.exe]`, `bin/sm-config-edit[.exe]` — the two Wails
   GUI apps, built in the same loop in `build.sh` (skipped individually if
   `wails`/`mingw-w64` aren't available)
+
+Pass `--windows` or `--linux` to build only that platform:
+`bash build.sh --windows` for routine use (this Windows host never runs the
+Linux binaries — always prefer this to save the ~40s the Linux Wails builds
+otherwise cost); `bash build.sh --linux` when only a Linux binary is needed,
+e.g. Xvfb-based visual verification of the GUI apps in the dev container.
 
 On a Windows host with no local Go toolchain, working through a VS Code dev
 container (no host Go install; build via `docker exec` into the container),
@@ -65,7 +70,9 @@ stop-process + `docker exec` dance: it stops any host-side
 cross-compile step fail with "permission denied"), finds the running dev
 container for this repo by its `devcontainer.local_folder` label (the
 container name is auto-generated and changes across recreations — don't
-hardcode one), and runs `bash build.sh` inside it.
+hardcode one), and runs `bash build.sh` inside it. Same default-both /
+`--windows` / `--linux` split, via `-Windows`/`-Linux`:
+`.\build-container.ps1 -Windows`.
 
 ### Interim checks before that final build
 

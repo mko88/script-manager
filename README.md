@@ -389,13 +389,20 @@ Requires Go 1.21+.
 bash build.sh
 ```
 
-Produces:
+Builds both platforms by default. Produces:
 - `bin/script-manager` — Linux amd64
 - `bin/script-manager.exe` — Windows amd64
 - `bin/script-manager-gui` — Linux amd64 GUI (only if the `wails` CLI is installed; skipped otherwise)
 - `bin/script-manager-gui.exe` — Windows amd64 GUI, cross-compiled (only if `mingw-w64` is installed; skipped otherwise)
 - `bin/sm-config-edit` — Linux amd64 Config Editor (only if the `wails` CLI is installed; skipped otherwise)
 - `bin/sm-config-edit.exe` — Windows amd64 Config Editor, cross-compiled (only if `mingw-w64` is installed; skipped otherwise)
+
+Pass `--windows` or `--linux` to build only that platform — `--windows` for routine use on a Windows host (which never runs the Linux binaries), `--linux` when only a Linux binary is needed (e.g. Xvfb-based visual testing of the GUI apps):
+
+```bash
+bash build.sh --windows
+bash build.sh --linux
+```
 
 ### Building from a Windows host via a dev container
 
@@ -405,7 +412,7 @@ If you develop on Windows with the Go toolchain only available inside a VS Code 
 .\build-container.ps1
 ```
 
-It stops any running `script-manager*.exe`/`sm-config-edit*.exe` on the host first — a locked binary makes the Windows cross-compile step in `build.sh` fail with "permission denied" — then finds the dev container for this repo (matched by its `devcontainer.local_folder` label, since the container name is auto-generated and changes across recreations) and runs `bash build.sh` inside it.
+It stops any running `script-manager*.exe`/`sm-config-edit*.exe` on the host first — a locked binary makes the Windows cross-compile step in `build.sh` fail with "permission denied" — then finds the dev container for this repo (matched by its `devcontainer.local_folder` label, since the container name is auto-generated and changes across recreations) and runs `bash build.sh` inside it. Same default-both / `--windows` / `--linux` split as `build.sh`, via `-Windows`/`-Linux`: `.\build-container.ps1 -Windows`.
 
 To build for a specific target manually:
 

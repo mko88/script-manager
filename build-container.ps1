@@ -8,6 +8,16 @@
 #   2. Find that devcontainer (its name is auto-generated and changes across
 #      recreations, so it's matched by the "devcontainer.local_folder" label
 #      instead of a hardcoded name) and run build.sh inside it.
+#
+# Builds both platforms by default, matching build.sh — pass -Windows or
+# -Linux to build only that platform (-Windows for routine use on this
+# host, which never runs the Linux binaries; -Linux when only a Linux
+# binary is needed, e.g. Xvfb-based visual verification inside the
+# container).
+param(
+    [switch]$Windows,
+    [switch]$Linux
+)
 
 $ErrorActionPreference = "Stop"
 
@@ -29,5 +39,6 @@ if (-not $container) {
 }
 Write-Host "Using container: $container"
 
-docker exec $container bash -c "cd /workspaces/script-manager && bash build.sh"
+$buildArgs = if ($Windows) { "--windows" } elseif ($Linux) { "--linux" } else { "" }
+docker exec $container bash -c "cd /workspaces/script-manager && bash build.sh $buildArgs"
 exit $LASTEXITCODE
