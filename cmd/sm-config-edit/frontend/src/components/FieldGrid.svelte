@@ -6,7 +6,7 @@
   export let fields: { key: string; kind: string; value: string }[] = []
   export let validateField: (kind: string, value: string) => Promise<string> = async () => ''
 
-  const kinds = ['string', 'number', 'bool', 'yaml'] as const
+  const kinds = ['string', 'multiline', 'password', 'number', 'bool', 'yaml'] as const
 
   let errors: Record<number, string> = {}
 
@@ -26,12 +26,33 @@
     }
     await check(i)
   }
+
+  // Mirrors internal/configedit's looksLikeSecretKey — defaults a field's
+  // kind to "password" (masked) the moment its key looks like it holds a
+  // secret, without waiting for a config reload to notice. Only while the
+  // kind is still at the "string" default: once the user has picked
+  // something else themselves, further key edits shouldn't override that.
+  function looksLikeSecretKey(key: string): boolean {
+    const lower = key.toLowerCase()
+    return lower.endsWith('secret') || lower.endsWith('password') || lower.endsWith('key')
+  }
+  function onKeyInput(i: number) {
+    if (fields[i].kind === 'string' && looksLikeSecretKey(fields[i].key)) {
+      fields[i].kind = 'password'
+    }
+  }
 </script>
 
 <div class="field-grid">
   {#each fields as _, i (i)}
     <div class="field-row">
-      <input class="field-key" type="text" placeholder="key" bind:value={fields[i].key} />
+      <input
+        class="field-key"
+        type="text"
+        placeholder="key"
+        bind:value={fields[i].key}
+        on:input={() => onKeyInput(i)}
+      />
       <select class="field-kind" bind:value={fields[i].kind} on:change={() => onKindChange(i)}>
         {#each kinds as k}<option value={k}>{k}</option>{/each}
       </select>
@@ -47,6 +68,10 @@
           bind:value={fields[i].value}
           on:input={() => check(i)}
         ></textarea>
+      {:else if fields[i].kind === 'multiline'}
+        <textarea class="field-value" rows="3" bind:value={fields[i].value} on:input={() => check(i)}></textarea>
+      {:else if fields[i].kind === 'password'}
+        <input class="field-value" type="password" bind:value={fields[i].value} on:input={() => check(i)} />
       {:else}
         <input class="field-value" type="text" bind:value={fields[i].value} on:input={() => check(i)} />
       {/if}

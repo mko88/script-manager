@@ -68,15 +68,18 @@ func TestClassifyAndDecodeValue(t *testing.T) {
 		{"nested list", []interface{}{"a", "b"}},
 		{"nested map", map[string]interface{}{"x": "y"}},
 		{"nil", nil},
+		{"multiline string", "line1\nline2"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			kind, value := classifyValue(tt.in)
+			// "field" deliberately doesn't match looksLikeSecretKey, so these
+			// cases exercise classification purely by value shape.
+			kind, value := classifyValue("field", tt.in)
 			decoded, err := decodeValue(kind, value)
 			if err != nil {
 				t.Fatalf("decodeValue(%q, %q): %v", kind, value, err)
 			}
-			gotKind, gotValue := classifyValue(decoded)
+			gotKind, gotValue := classifyValue("field", decoded)
 			if gotKind != kind || gotValue != value {
 				t.Errorf("round trip = (%q, %q), want (%q, %q)", gotKind, gotValue, kind, value)
 			}
@@ -85,9 +88,31 @@ func TestClassifyAndDecodeValue(t *testing.T) {
 }
 
 func TestClassifyValueIntStaysUndotted(t *testing.T) {
-	kind, value := classifyValue(42)
+	kind, value := classifyValue("field", 42)
 	if kind != "number" || value != "42" {
 		t.Errorf("classifyValue(42) = (%q, %q), want (number, 42) — not 42.0 or exponential form", kind, value)
+	}
+}
+
+func TestClassifyValueSecretKey(t *testing.T) {
+	tests := []struct {
+		key  string
+		want string
+	}{
+		{"apiSecret", "password"},
+		{"DB_PASSWORD", "password"},
+		{"ApiKey", "password"},
+		{"secretkey", "password"},
+		{"username", "string"},
+		{"keyboard", "string"}, // contains "key" but doesn't end with it
+	}
+	for _, tt := range tests {
+		t.Run(tt.key, func(t *testing.T) {
+			kind, _ := classifyValue(tt.key, "some-value")
+			if kind != tt.want {
+				t.Errorf("classifyValue(%q, ...) kind = %q, want %q", tt.key, kind, tt.want)
+			}
+		})
 	}
 }
 

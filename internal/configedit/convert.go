@@ -11,16 +11,32 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// looksLikeSecretKey reports whether a field's key suggests its value is
+// sensitive (an API key, password, or secret) — used to default such a
+// field's kind to "password" (masked) without the user having to notice
+// and switch it themselves.
+func looksLikeSecretKey(key string) bool {
+	lower := strings.ToLower(key)
+	return strings.HasSuffix(lower, "secret") || strings.HasSuffix(lower, "password") || strings.HasSuffix(lower, "key")
+}
+
 // classifyValue picks the FieldDTO kind/value pair for an existing
 // map[string]any value, decoded moments earlier by yaml.v3. Anything that
 // isn't a plain string/bool/number falls back to a YAML snippet, which is
 // the same shape decodeValue's "yaml" case parses back.
-func classifyValue(v any) (kind, value string) {
+func classifyValue(key string, v any) (kind, value string) {
 	switch t := v.(type) {
 	case nil:
 		return "yaml", "null"
 	case string:
-		return "string", t
+		switch {
+		case looksLikeSecretKey(key):
+			return "password", t
+		case strings.Contains(t, "\n"):
+			return "multiline", t
+		default:
+			return "string", t
+		}
 	case bool:
 		return "bool", strconv.FormatBool(t)
 	case int:
@@ -45,7 +61,7 @@ func classifyValue(v any) (kind, value string) {
 // reformatted through a float path (42.0, exponential notation, ...).
 func decodeValue(kind, value string) (any, error) {
 	switch kind {
-	case "string":
+	case "string", "multiline", "password":
 		return value, nil
 	case "bool":
 		b, err := strconv.ParseBool(value)
@@ -89,7 +105,7 @@ func FieldsFromMap(m map[string]any, exclude map[string]bool) []FieldDTO {
 
 	fields := make([]FieldDTO, 0, len(keys))
 	for _, k := range keys {
-		kind, value := classifyValue(m[k])
+		kind, value := classifyValue(k, m[k])
 		fields = append(fields, FieldDTO{Key: k, Kind: kind, Value: value})
 	}
 	return fields

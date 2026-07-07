@@ -52,10 +52,14 @@ type ActionGroupDTO struct {
 // String/bool/number values get their own kind and a plain-value widget;
 // anything else (nested map/list, or a value of an unrecognized type)
 // becomes Kind "yaml", edited as a raw YAML snippet in Value and re-parsed on
-// save — the escape hatch that keeps this scheme minimal.
+// save — the escape hatch that keeps this scheme minimal. "multiline" and
+// "password" are both still plain strings underneath (same as "string"
+// once saved) — they only pick a different edit widget: a textarea for an
+// existing value with embedded newlines, and a masked input for a key that
+// looks like a secret (see looksLikeSecretKey).
 type FieldDTO struct {
 	Key   string `json:"key"`
-	Kind  string `json:"kind"` // "string" | "number" | "bool" | "yaml"
+	Kind  string `json:"kind"` // "string" | "multiline" | "password" | "number" | "bool" | "yaml"
 	Value string `json:"value"`
 }
 
