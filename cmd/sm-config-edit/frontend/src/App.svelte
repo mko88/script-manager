@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { dndzone } from 'svelte-dnd-action'
+  import type { DndEvent } from 'svelte-dnd-action'
   import Toast from '@shared/components/Toast.svelte'
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
@@ -398,6 +400,115 @@
     return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
   }
 
+  // Drag-and-drop reordering for the Items/Action Groups/Actions master
+  // lists, via svelte-dnd-action rather than native HTML5 drag-and-drop.
+  // Native dnd's cursor is browser-controlled, and it disagreed with the
+  // live reorder + animation (dragover hit-tests against the real,
+  // already-reordered layout, while the FLIP transform visually lags
+  // behind it) — that mismatch is what read as the cursor flickering
+  // between "grab" and a no-drop icon. svelte-dnd-action drives
+  // everything from pointer events instead, so there's no browser drag
+  // cursor involved at all, and it handles the live-reorder animation and
+  // cancelled-drag revert internally.
+  //
+  // dndzone needs every item to carry an "id" it can track across
+  // reorders. None of items/actions/action groups reliably have one — an
+  // item has no id field at all, and a brand-new action/action group
+  // defaults its own id to "" (several can exist before being named) — so
+  // each list is wrapped in a {id, ref} pair with a synthetic,
+  // session-only id (a WeakMap keyed by object identity; never touches
+  // the saved data) instead of reusing the domain id field.
+  let dndSeq = 0
+  const dndIds = new WeakMap<object, string>()
+  function dndId(ref: object): string {
+    let id = dndIds.get(ref)
+    if (id === undefined) {
+      id = `d${dndSeq++}`
+      dndIds.set(ref, id)
+    }
+    return id
+  }
+
+  type DndEntry<T> = { id: string; ref: T }
+  function wrap<T extends object>(list: T[]): DndEntry<T>[] {
+    return list.map((ref) => ({ id: dndId(ref), ref }))
+  }
+
+  // svelte-dnd-action's consider/finalize are custom events the dndzone
+  // action adds to its node, not real attributes of a plain <div> — this
+  // project's Svelte/svelte-check versions don't have a working ambient
+  // typing hook for that, so on:consider/on:finalize on the element
+  // itself won't type-check. Attaching them here via plain
+  // addEventListener sidesteps Svelte's (mistaken) typed-attribute check
+  // entirely; nothing about actual behavior changes.
+  type SyncFn<T> = (e: CustomEvent<DndEvent<DndEntry<T>>>, final: boolean) => void
+  function sortableList<T extends object>(node: HTMLElement, params: { items: DndEntry<T>[]; onSync: SyncFn<T> }) {
+    const zone = dndzone(node, { items: params.items, flipDurationMs: 200 })
+    const considerHandler = (e: Event) => params.onSync(e as CustomEvent<DndEvent<DndEntry<T>>>, false)
+    const finalizeHandler = (e: Event) => params.onSync(e as CustomEvent<DndEvent<DndEntry<T>>>, true)
+    node.addEventListener('consider', considerHandler)
+    node.addEventListener('finalize', finalizeHandler)
+    return {
+      update(newParams: { items: DndEntry<T>[]; onSync: SyncFn<T> }) {
+        zone.update?.({ items: newParams.items, flipDurationMs: 200 })
+      },
+      destroy() {
+        node.removeEventListener('consider', considerHandler)
+        node.removeEventListener('finalize', finalizeHandler)
+        zone.destroy?.()
+      },
+    }
+  }
+
+  // Re-derived from cfg.* on any change EXCEPT while a drag is active —
+  // during the drag, dndzone owns itemEntries via consider (below), and
+  // reactively overwriting it out from under it too (with freshly
+  // recreated wrapper objects on every one of our own cfg.items writes)
+  // corrupted its internal drag tracking: the dragged entry vanished
+  // entirely on drop instead of moving. Outside a drag this still stays
+  // correct for free with no manual sync needed at every add/remove/load
+  // call site.
+  let dragging = false
+  let itemEntries: DndEntry<configedit.ItemDTO>[] = wrap(cfg.items)
+  let actionGroupEntries: DndEntry<configedit.ActionGroupDTO>[] = wrap(cfg.actionGroups)
+  let actionEntries: DndEntry<configedit.ActionDTO>[] = wrap(cfg.actions)
+  $: if (!dragging) itemEntries = wrap(cfg.items)
+  $: if (!dragging) actionGroupEntries = wrap(cfg.actionGroups)
+  $: if (!dragging) actionEntries = wrap(cfg.actions)
+
+  // consider fires continuously during the drag (giving the live-shifting
+  // preview via dndzone's own flip animation); finalize fires once,
+  // settled, on drop or cancel. Only finalize commits to the real cfg.*
+  // data — consider only updates what's rendered, exactly the pattern
+  // svelte-dnd-action's own examples use.
+  function syncItems(e: CustomEvent<DndEvent<DndEntry<configedit.ItemDTO>>>, final: boolean) {
+    itemEntries = e.detail.items
+    dragging = !final
+    if (!final) return
+    const prevSelectedRef = selectedItem >= 0 ? cfg.items[selectedItem] : null
+    const newList = e.detail.items.filter((w) => w.ref).map((w) => w.ref)
+    cfg.items = newList
+    if (prevSelectedRef) selectedItem = newList.indexOf(prevSelectedRef)
+  }
+  function syncActionGroups(e: CustomEvent<DndEvent<DndEntry<configedit.ActionGroupDTO>>>, final: boolean) {
+    actionGroupEntries = e.detail.items
+    dragging = !final
+    if (!final) return
+    const prevSelectedRef = selectedActionGroup >= 0 ? cfg.actionGroups[selectedActionGroup] : null
+    const newList = e.detail.items.filter((w) => w.ref).map((w) => w.ref)
+    cfg.actionGroups = newList
+    if (prevSelectedRef) selectedActionGroup = newList.indexOf(prevSelectedRef)
+  }
+  function syncActions(e: CustomEvent<DndEvent<DndEntry<configedit.ActionDTO>>>, final: boolean) {
+    actionEntries = e.detail.items
+    dragging = !final
+    if (!final) return
+    const prevSelectedRef = selectedAction >= 0 ? cfg.actions[selectedAction] : null
+    const newList = e.detail.items.filter((w) => w.ref).map((w) => w.ref)
+    cfg.actions = newList
+    if (prevSelectedRef) selectedAction = newList.indexOf(prevSelectedRef)
+  }
+
   $: allActionIds = cfg.actions.map((a) => a.id).filter((id) => id)
   $: allActionGroups = cfg.actionGroups.map((g) => g.id).filter((id) => id)
 
@@ -701,15 +812,14 @@
             >
           </div>
           <div class="master-detail">
-            <div class="master list">
-              {#each cfg.actionGroups as g, i (i)}
-                <button
-                  class="row"
-                  class:selected={selectedActionGroup === i}
-                  on:click={() => (selectedActionGroup = i)}
-                >
-                  <span class="group-swatch" style="background: {g.color || 'var(--sm-border)'}"></span>
-                  {g.title || g.id || '(unnamed)'}
+            <div
+              class="master list"
+              use:sortableList={{ items: actionGroupEntries, onSync: syncActionGroups }}
+            >
+              {#each actionGroupEntries as entry, i (entry.id)}
+                <button class="row" class:selected={selectedActionGroup === i} on:click={() => (selectedActionGroup = i)}>
+                  <span class="group-swatch" style="background: {entry.ref.color || 'var(--sm-border)'}"></span>
+                  {entry.ref.title || entry.ref.id || '(unnamed)'}
                 </button>
               {/each}
             </div>
@@ -769,10 +879,13 @@
             >
           </div>
           <div class="master-detail">
-            <div class="master list">
-              {#each cfg.actions as a, i (i)}
+            <div
+              class="master list"
+              use:sortableList={{ items: actionEntries, onSync: syncActions }}
+            >
+              {#each actionEntries as entry, i (entry.id)}
                 <button class="row" class:selected={selectedAction === i} on:click={() => (selectedAction = i)}
-                  >{a.title || a.id || '(untitled)'}</button
+                  >{entry.ref.title || entry.ref.id || '(untitled)'}</button
                 >
               {/each}
             </div>
@@ -799,8 +912,11 @@
             >
           </div>
           <div class="master-detail">
-            <div class="master list">
-              {#each cfg.items as it, i (i)}
+            <div
+              class="master list"
+              use:sortableList={{ items: itemEntries, onSync: syncItems }}
+            >
+              {#each itemEntries as entry, i (entry.id)}
                 <button
                   class="row"
                   class:selected={selectedItem === i}
@@ -808,7 +924,7 @@
                     selectedItem = i
                     previewActionIdx = -1
                     actionPreview = null
-                  }}>{it.name || '(unnamed)'}</button
+                  }}>{entry.ref.name || '(unnamed)'}</button
                 >
               {/each}
             </div>
@@ -1087,6 +1203,10 @@
     min-width: 0;
     overflow-y: auto;
     padding-right: 4px;
+  }
+
+  .master .row {
+    cursor: grab;
   }
 
   /* Displays has no master-list sidebar (a combobox picks the display
