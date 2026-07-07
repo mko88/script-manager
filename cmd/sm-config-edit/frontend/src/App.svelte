@@ -499,7 +499,10 @@
 
     <section class="panel main-panel">
       <header class="panel-title"><span>{sectionTitle}</span></header>
-      <div class="panel-body">
+      <div
+        class="panel-body"
+        class:list-body={section === 'items' || section === 'actionGroups' || section === 'actions'}
+      >
         {#if section === 'shell'}
           <p class="hint">The command used to launch actions, e.g. <code>pwsh -NoLogo -Command</code>.</p>
           <StringListEditor bind:items={cfg.shell} placeholder="e.g. pwsh" />
@@ -1004,6 +1007,25 @@
     min-width: 0;
   }
 
+  /* Items/Action Groups/Actions: .master-detail's height:100% only works
+     out if it's the sole child filling panel-body — with .list-toolbar as
+     a sibling above it, "100%" of the same box overflows by the toolbar's
+     own height, forcing a scrollbar on panel-body that a user could never
+     actually need (master/detail already scroll internally). Making
+     panel-body a column flex here — toolbar fixed-height, master-detail
+     filling exactly what's left — removes that spurious overflow and, as a
+     side effect, keeps the toolbar permanently visible above the list
+     without needing script-manager-gui's position:sticky trick (nothing
+     here scrolls at the panel-body level to begin with). The extra
+     specificity over the plain .panel-body rule is deliberate so this
+     doesn't depend on CSS source order between the shared theme and this
+     component's scoped styles. */
+  .panel-body.list-body {
+    display: flex;
+    flex-direction: column;
+    overflow-y: hidden;
+  }
+
   .hint {
     color: var(--sm-text-muted);
     font-size: 0.8rem;
@@ -1051,7 +1073,7 @@
   .master-detail {
     display: flex;
     gap: 10px;
-    height: 100%;
+    flex: 1 1 auto;
     min-height: 0;
   }
 
@@ -1119,6 +1141,7 @@
   }
 
   .list-toolbar {
+    flex: none;
     display: flex;
     gap: 4px;
     margin-bottom: 8px;
