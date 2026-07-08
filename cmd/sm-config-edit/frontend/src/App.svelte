@@ -1051,7 +1051,8 @@
                 </div>
 
                 <div class="field">
-                  <span>Additional fields</span>
+                  <span>Environment</span>
+                  <p class="hint">Available to this item's templates and subprocess environment — overrides a same-named value from the global Environment section.</p>
                   <FieldGrid bind:fields={cfg.items[selectedItem].fields} validateField={ValidateField} />
                 </div>
 

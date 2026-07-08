@@ -52,15 +52,22 @@ type ActionGroupDTO struct {
 // String/bool/number values get their own kind and a plain-value widget;
 // anything else (nested map/list, or a value of an unrecognized type)
 // becomes Kind "yaml", edited as a raw YAML snippet in Value and re-parsed on
-// save — the escape hatch that keeps this scheme minimal. "multiline" and
-// "password" are both still plain strings underneath (same as "string"
-// once saved) — they only pick a different edit widget: a textarea for an
-// existing value with embedded newlines, and a masked input for a key that
-// looks like a secret (see looksLikeSecretKey).
+// save — the escape hatch that keeps this scheme minimal. "multiline" is
+// still a plain string underneath (same as "string" once saved) — it only
+// picks a different edit widget, a textarea for an existing value with
+// embedded newlines.
+//
+// Secret is independent of Kind — a lock toggle in the UI, not a kind of its
+// own — so any field, including a multi-line one, can be edited masked. Like
+// Kind it's a display hint only: it never round-trips through the saved
+// YAML, and is re-derived fresh from the key's name (see looksLikeSecretKey)
+// every time the field is classified, defaulting a key that looks like a
+// secret to masked without the user having to notice and toggle it.
 type FieldDTO struct {
-	Key   string `json:"key"`
-	Kind  string `json:"kind"` // "string" | "multiline" | "password" | "number" | "bool" | "yaml"
-	Value string `json:"value"`
+	Key    string `json:"key"`
+	Kind   string `json:"kind"` // "string" | "multiline" | "number" | "bool" | "yaml"
+	Value  string `json:"value"`
+	Secret bool   `json:"secret"`
 }
 
 // ItemDTO mirrors one entry of config.Items: the five reserved keys get

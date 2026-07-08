@@ -1,17 +1,31 @@
 <script lang="ts">
   // Drives a []FieldDTO (Environment, or an item's non-reserved "Additional
-  // Fields"): a key, a kind selector, and a kind-appropriate value widget —
-  // the frontend half of internal/configedit's classify/decode scheme, which
-  // avoids needing a widget per possible YAML shape.
-  export let fields: { key: string; kind: string; value: string }[] = []
+  // Fields"): a key, a kind selector, a kind-appropriate value widget, and a
+  // lock toggle — the frontend half of internal/configedit's classify/decode
+  // scheme, which avoids needing a widget per possible YAML shape. Secret is
+  // independent of kind (unlike the old "password" kind it replaces), so a
+  // multi-line value can be masked too, not just a plain string.
+  export let fields: { key: string; kind: string; value: string; secret: boolean }[] = []
   export let validateField: (kind: string, value: string) => Promise<string> = async () => ''
 
-  const kinds = ['string', 'multiline', 'password', 'number', 'bool', 'yaml'] as const
+  const kinds = ['string', 'multiline', 'number', 'bool', 'yaml'] as const
+
+  // A fixed-length placeholder for an at-rest secret field — unlike
+  // -webkit-text-security (which masks the real value character-for-character,
+  // still revealing its length), this gives away nothing until the field is
+  // focused, matching the masked-field convention seen in most other forms.
+  const secretPlaceholder = '••••••••'
 
   let errors: Record<number, string> = {}
+  let focused: Record<number, boolean> = {}
+
+  function onValueInput(i: number, e: Event) {
+    fields[i].value = (e.currentTarget as HTMLInputElement | HTMLTextAreaElement).value
+    check(i)
+  }
 
   function add() {
-    fields = [...fields, { key: '', kind: 'string', value: '' }]
+    fields = [...fields, { key: '', kind: 'string', value: '', secret: false }]
   }
   function remove(i: number) {
     fields = fields.filter((_, idx) => idx !== i)
@@ -26,19 +40,22 @@
     }
     await check(i)
   }
+  function toggleSecret(i: number) {
+    fields[i].secret = !fields[i].secret
+  }
 
-  // Mirrors internal/configedit's looksLikeSecretKey — defaults a field's
-  // kind to "password" (masked) the moment its key looks like it holds a
-  // secret, without waiting for a config reload to notice. Only while the
-  // kind is still at the "string" default: once the user has picked
-  // something else themselves, further key edits shouldn't override that.
+  // Mirrors internal/configedit's looksLikeSecretKey — defaults a field to
+  // secret (masked) the moment its key looks like it holds one, without
+  // waiting for a config reload to notice. Only while secret is still at
+  // its "false" default: once the user has toggled the lock themselves,
+  // further key edits shouldn't override that.
   function looksLikeSecretKey(key: string): boolean {
     const lower = key.toLowerCase()
     return lower.endsWith('secret') || lower.endsWith('password') || lower.endsWith('key')
   }
   function onKeyInput(i: number) {
-    if (fields[i].kind === 'string' && looksLikeSecretKey(fields[i].key)) {
-      fields[i].kind = 'password'
+    if (!fields[i].secret && looksLikeSecretKey(fields[i].key)) {
+      fields[i].secret = true
     }
   }
 </script>
@@ -64,18 +81,54 @@
       {:else if fields[i].kind === 'yaml'}
         <textarea
           class="field-value field-value-yaml"
+          class:field-value-secret={fields[i].secret && focused[i]}
           rows="2"
-          bind:value={fields[i].value}
-          on:input={() => check(i)}
+          value={fields[i].secret && !focused[i] ? secretPlaceholder : fields[i].value}
+          on:input={(e) => onValueInput(i, e)}
+          on:focus={() => (focused = { ...focused, [i]: true })}
+          on:blur={() => (focused = { ...focused, [i]: false })}
         ></textarea>
       {:else if fields[i].kind === 'multiline'}
-        <textarea class="field-value" rows="3" bind:value={fields[i].value} on:input={() => check(i)}></textarea>
-      {:else if fields[i].kind === 'password'}
-        <input class="field-value" type="password" bind:value={fields[i].value} on:input={() => check(i)} />
+        <textarea
+          class="field-value"
+          class:field-value-secret={fields[i].secret && focused[i]}
+          rows="3"
+          value={fields[i].secret && !focused[i] ? secretPlaceholder : fields[i].value}
+          on:input={(e) => onValueInput(i, e)}
+          on:focus={() => (focused = { ...focused, [i]: true })}
+          on:blur={() => (focused = { ...focused, [i]: false })}
+        ></textarea>
       {:else}
-        <input class="field-value" type="text" bind:value={fields[i].value} on:input={() => check(i)} />
+        <input
+          class="field-value"
+          class:field-value-secret={fields[i].secret && focused[i]}
+          type="text"
+          value={fields[i].secret && !focused[i] ? secretPlaceholder : fields[i].value}
+          on:input={(e) => onValueInput(i, e)}
+          on:focus={() => (focused = { ...focused, [i]: true })}
+          on:blur={() => (focused = { ...focused, [i]: false })}
+        />
       {/if}
-      <button class="btn" type="button" title="Remove field" on:click={() => remove(i)}>✕</button>
+      <button
+        class="btn icon-btn"
+        class:active={fields[i].secret}
+        type="button"
+        title={fields[i].secret ? 'Marked as secret — click to unmark' : 'Mark as secret'}
+        on:click={() => toggleSecret(i)}
+      >
+        {#if fields[i].secret}
+          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+            <rect x="3.5" y="7" width="9" height="6.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3" />
+            <path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.3" />
+          </svg>
+        {:else}
+          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+            <rect x="3.5" y="7" width="9" height="6.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3" />
+            <path d="M5 7V5a3 3 0 0 1 5.7-1.3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+          </svg>
+        {/if}
+      </button>
+      <button class="btn icon-btn" type="button" title="Remove field" on:click={() => remove(i)}>✕</button>
     </div>
     {#if errors[i]}
       <div class="field-error">{errors[i]}</div>
@@ -109,10 +162,40 @@
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.8rem;
   }
+
+  /* Applied only while a secret field is focused — at rest it already shows
+     the fixed secretPlaceholder text as-is, nothing further to hide. Masks
+     the real value being typed/edited character-for-character; a
+     non-standard but WebKit/Blink-supported property, which covers both of
+     Wails' engines (WebKitGTK on Linux, Chromium-based WebView2 on Windows)
+     — so a textarea (multiline/yaml) can be masked too, unlike a native
+     type="password" input. */
+  .field-value-secret {
+    -webkit-text-security: disc;
+  }
+
   .field-error {
     color: var(--sm-accent-warm);
     font-size: 0.75rem;
     margin: -2px 0 4px 144px;
+  }
+  /* A fixed box (not just matching padding) so the lock's SVG and the
+     remove button's "✕" text glyph — different intrinsic content sizes —
+     still render at identical dimensions. */
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    flex: none;
+  }
+  .icon-btn.active {
+    background: var(--sm-accent-warm);
+    border-color: var(--sm-accent-warm);
+    color: var(--sm-bg);
   }
   input,
   select,

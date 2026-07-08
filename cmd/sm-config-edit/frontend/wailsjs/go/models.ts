@@ -98,6 +98,7 @@ export namespace configedit {
 	    key: string;
 	    kind: string;
 	    value: string;
+	    secret: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new FieldDTO(source);
@@ -108,6 +109,7 @@ export namespace configedit {
 	        this.key = source["key"];
 	        this.kind = source["kind"];
 	        this.value = source["value"];
+	        this.secret = source["secret"];
 	    }
 	}
 	export class TerminalDTO {

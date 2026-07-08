@@ -13,55 +13,56 @@ import (
 
 // looksLikeSecretKey reports whether a field's key suggests its value is
 // sensitive (an API key, password, or secret) — used to default such a
-// field's kind to "password" (masked) without the user having to notice
-// and switch it themselves.
+// field's Secret flag without the user having to notice and toggle it
+// themselves.
 func looksLikeSecretKey(key string) bool {
 	lower := strings.ToLower(key)
 	return strings.HasSuffix(lower, "secret") || strings.HasSuffix(lower, "password") || strings.HasSuffix(lower, "key")
 }
 
-// classifyValue picks the FieldDTO kind/value pair for an existing
+// classifyValue picks the FieldDTO kind/value/secret for an existing
 // map[string]any value, decoded moments earlier by yaml.v3. Anything that
 // isn't a plain string/bool/number falls back to a YAML snippet, which is
-// the same shape decodeValue's "yaml" case parses back.
-func classifyValue(key string, v any) (kind, value string) {
+// the same shape decodeValue's "yaml" case parses back. secret is a hint
+// only — independent of kind, so e.g. a multi-line value can be masked too —
+// and never round-trips through the saved YAML itself; it's re-derived from
+// looksLikeSecretKey every time a field is freshly classified.
+func classifyValue(key string, v any) (kind, value string, secret bool) {
+	secret = looksLikeSecretKey(key)
 	switch t := v.(type) {
 	case nil:
-		return "yaml", "null"
+		return "yaml", "null", secret
 	case string:
-		switch {
-		case looksLikeSecretKey(key):
-			return "password", t
-		case strings.Contains(t, "\n"):
-			return "multiline", t
-		default:
-			return "string", t
+		if strings.Contains(t, "\n") {
+			return "multiline", t, secret
 		}
+		return "string", t, secret
 	case bool:
-		return "bool", strconv.FormatBool(t)
+		return "bool", strconv.FormatBool(t), secret
 	case int:
-		return "number", strconv.FormatInt(int64(t), 10)
+		return "number", strconv.FormatInt(int64(t), 10), secret
 	case int64:
-		return "number", strconv.FormatInt(t, 10)
+		return "number", strconv.FormatInt(t, 10), secret
 	case uint64:
-		return "number", strconv.FormatUint(t, 10)
+		return "number", strconv.FormatUint(t, 10), secret
 	case float64:
-		return "number", strconv.FormatFloat(t, 'g', -1, 64)
+		return "number", strconv.FormatFloat(t, 'g', -1, 64), secret
 	default:
 		out, err := yaml.Marshal(v)
 		if err != nil {
-			return "yaml", fmt.Sprintf("%v", v)
+			return "yaml", fmt.Sprintf("%v", v), secret
 		}
-		return "yaml", strings.TrimRight(string(out), "\n")
+		return "yaml", strings.TrimRight(string(out), "\n"), secret
 	}
 }
 
-// decodeValue is classifyValue's inverse. Number decoding tries ParseInt
-// before ParseFloat so an integer like 42 doesn't round-trip back out
-// reformatted through a float path (42.0, exponential notation, ...).
+// decodeValue is classifyValue's inverse (ignoring secret, which never
+// affects encoding). Number decoding tries ParseInt before ParseFloat so an
+// integer like 42 doesn't round-trip back out reformatted through a float
+// path (42.0, exponential notation, ...).
 func decodeValue(kind, value string) (any, error) {
 	switch kind {
-	case "string", "multiline", "password":
+	case "string", "multiline":
 		return value, nil
 	case "bool":
 		b, err := strconv.ParseBool(value)
@@ -105,8 +106,8 @@ func FieldsFromMap(m map[string]any, exclude map[string]bool) []FieldDTO {
 
 	fields := make([]FieldDTO, 0, len(keys))
 	for _, k := range keys {
-		kind, value := classifyValue(k, m[k])
-		fields = append(fields, FieldDTO{Key: k, Kind: kind, Value: value})
+		kind, value, secret := classifyValue(k, m[k])
+		fields = append(fields, FieldDTO{Key: k, Kind: kind, Value: value, Secret: secret})
 	}
 	return fields
 }

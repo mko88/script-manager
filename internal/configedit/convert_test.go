@@ -74,12 +74,12 @@ func TestClassifyAndDecodeValue(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			// "field" deliberately doesn't match looksLikeSecretKey, so these
 			// cases exercise classification purely by value shape.
-			kind, value := classifyValue("field", tt.in)
+			kind, value, _ := classifyValue("field", tt.in)
 			decoded, err := decodeValue(kind, value)
 			if err != nil {
 				t.Fatalf("decodeValue(%q, %q): %v", kind, value, err)
 			}
-			gotKind, gotValue := classifyValue("field", decoded)
+			gotKind, gotValue, _ := classifyValue("field", decoded)
 			if gotKind != kind || gotValue != value {
 				t.Errorf("round trip = (%q, %q), want (%q, %q)", gotKind, gotValue, kind, value)
 			}
@@ -88,29 +88,34 @@ func TestClassifyAndDecodeValue(t *testing.T) {
 }
 
 func TestClassifyValueIntStaysUndotted(t *testing.T) {
-	kind, value := classifyValue("field", 42)
+	kind, value, _ := classifyValue("field", 42)
 	if kind != "number" || value != "42" {
 		t.Errorf("classifyValue(42) = (%q, %q), want (number, 42) — not 42.0 or exponential form", kind, value)
 	}
 }
 
 func TestClassifyValueSecretKey(t *testing.T) {
+	// Secret is independent of kind — a secret-looking key still classifies
+	// by its value's shape as usual; only the secret flag differs.
 	tests := []struct {
 		key  string
-		want string
+		want bool
 	}{
-		{"apiSecret", "password"},
-		{"DB_PASSWORD", "password"},
-		{"ApiKey", "password"},
-		{"secretkey", "password"},
-		{"username", "string"},
-		{"keyboard", "string"}, // contains "key" but doesn't end with it
+		{"apiSecret", true},
+		{"DB_PASSWORD", true},
+		{"ApiKey", true},
+		{"secretkey", true},
+		{"username", false},
+		{"keyboard", false}, // contains "key" but doesn't end with it
 	}
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
-			kind, _ := classifyValue(tt.key, "some-value")
-			if kind != tt.want {
-				t.Errorf("classifyValue(%q, ...) kind = %q, want %q", tt.key, kind, tt.want)
+			kind, _, secret := classifyValue(tt.key, "some-value")
+			if kind != "string" {
+				t.Errorf("classifyValue(%q, ...) kind = %q, want %q regardless of secret", tt.key, kind, "string")
+			}
+			if secret != tt.want {
+				t.Errorf("classifyValue(%q, ...) secret = %v, want %v", tt.key, secret, tt.want)
 			}
 		})
 	}
