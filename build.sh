@@ -4,14 +4,45 @@
 # Windows host (which never runs the Linux binaries), --linux when only a
 # Linux binary is needed (e.g. Xvfb-based visual verification of the GUI
 # apps in the dev container).
+#
+# go vet, go test, and svelte-check are opt-in via --vet/--test/--check (or
+# --full for all three) — they're not part of the default run since most
+# changes don't need all of them; see CLAUDE.md's build discipline notes.
 set -e
 
 build_windows=1
 build_linux=1
-case "$1" in
-	--windows) build_linux=0 ;;
-	--linux) build_windows=0 ;;
-esac
+run_vet=0
+run_test=0
+run_check=0
+
+for arg in "$@"; do
+	case "$arg" in
+		--windows) build_linux=0 ;;
+		--linux) build_windows=0 ;;
+		--vet) run_vet=1 ;;
+		--test) run_test=1 ;;
+		--check) run_check=1 ;;
+		--full) run_vet=1; run_test=1; run_check=1 ;;
+	esac
+done
+
+if [ "$run_vet" = 1 ]; then
+	echo "Running go vet..."
+	go vet ./...
+fi
+
+if [ "$run_test" = 1 ]; then
+	echo "Running go test..."
+	go test ./...
+fi
+
+if [ "$run_check" = 1 ]; then
+	for app in script-manager-gui sm-config-edit; do
+		echo "Running svelte-check ($app)..."
+		(cd "cmd/$app/frontend" && npm run check)
+	done
+fi
 
 mkdir -p bin
 

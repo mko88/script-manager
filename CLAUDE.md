@@ -62,6 +62,11 @@ Linux binaries — always prefer this to save the ~40s the Linux Wails builds
 otherwise cost); `bash build.sh --linux` when only a Linux binary is needed,
 e.g. Xvfb-based visual verification of the GUI apps in the dev container.
 
+`go vet`, `go test`, and `npm run check` (svelte-check) are opt-in via
+`--vet` / `--test` / `--check`, or all three together via `--full`
+(`bash build.sh --full`) — not part of the default run. Combine freely with
+`--windows`/`--linux`, e.g. `bash build.sh --windows --vet`.
+
 On a Windows host with no local Go toolchain, working through a VS Code dev
 container (no host Go install; build via `docker exec` into the container),
 run `build-container.ps1` from the repo root instead of the manual
@@ -70,20 +75,39 @@ stop-process + `docker exec` dance: it stops any host-side
 cross-compile step fail with "permission denied"), finds the running dev
 container for this repo by its `devcontainer.local_folder` label (the
 container name is auto-generated and changes across recreations — don't
-hardcode one), and runs `bash build.sh` inside it. Same default-both /
-`--windows` / `--linux` split, via `-Windows`/`-Linux`:
-`.\build-container.ps1 -Windows`.
+hardcode one), and runs `bash build.sh` inside it. Same flags, via
+`-Windows`/`-Linux`/`-Vet`/`-Test`/`-Check`/`-Full`:
+`.\build-container.ps1 -Windows -Full`.
 
-### Interim checks before that final build
+### Build discipline while iterating on a feature
 
-`bash build.sh` is still always the real build step, but run only the interim
-checks the actual changes can affect — don't reflexively run all of them
-every time:
-- Go code touched (`internal/`, any `cmd/*/main.go`, …): `go build ./... && go vet ./... && go test ./...`.
-- A Svelte frontend touched (`cmd/*/frontend/`): `npm run check` (svelte-check) in that frontend's directory.
-- A pure Svelte/CSS UI change needs no Go build/vet/test — nothing Go-related
-  changed, so those commands can't catch anything the edit could have broken.
-  Go straight to `npm run check`, then `bash build.sh`.
+Default to the lightest, fewest builds that actually verify the change in
+front of you — this is not the same posture as the final build below.
+While iterating:
+- Don't run `go vet`/`go test`/`npm run check` (or `--vet`/`--test`/`--check`)
+  for every small edit. Run whichever ones the change could plausibly have
+  broken, and skip the rest — a pure Svelte/CSS tweak doesn't need `go test`;
+  a one-line Go comment change doesn't need `npm run check`.
+  Reach for `--full`/`-Full` only when you actually want everything.
+- Prefer `--windows`/`-Windows` alone unless a Linux binary specifically
+  matters (e.g. Xvfb visual verification) — skip the Linux Wails build's
+  ~40s otherwise.
+- It's fine to go several edits without invoking `build.sh` at all — a
+  `go build ./...`/`go vet ./...` cross-check is enough to catch obvious
+  breakage mid-iteration; the real build.sh pass belongs at task boundaries
+  (before verifying the change, before a commit), not after every edit.
+
+### Before committing
+
+Don't commit on the strength of interim checks alone. If this session
+hasn't run a full build (`bash build.sh --full` / `.\build-container.ps1
+-Full`, both platforms, `--vet`/`--test`/`--check` all included) since the
+last code change, say so explicitly before creating the commit — offer to
+run it rather than assuming the interim checks already covered everything.
+
+Exception: skip this when the diff is only build scripts, docs, or comments
+— no actual code logic changed, so a full build/test pass can't catch
+anything the change could have broken.
 
 ## Verifying GUI changes
 

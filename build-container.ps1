@@ -13,10 +13,15 @@
 # -Linux to build only that platform (-Windows for routine use on this
 # host, which never runs the Linux binaries; -Linux when only a Linux
 # binary is needed, e.g. Xvfb-based visual verification inside the
-# container).
+# container). -Vet/-Test/-Check/-Full pass straight through to build.sh's
+# own opt-in flags of the same name (--vet/--test/--check/--full).
 param(
     [switch]$Windows,
-    [switch]$Linux
+    [switch]$Linux,
+    [switch]$Vet,
+    [switch]$Test,
+    [switch]$Check,
+    [switch]$Full
 )
 
 $ErrorActionPreference = "Stop"
@@ -39,6 +44,13 @@ if (-not $container) {
 }
 Write-Host "Using container: $container"
 
-$buildArgs = if ($Windows) { "--windows" } elseif ($Linux) { "--linux" } else { "" }
-docker exec $container bash -c "cd /workspaces/script-manager && bash build.sh $buildArgs"
+$buildArgs = @()
+if ($Windows) { $buildArgs += "--windows" }
+if ($Linux) { $buildArgs += "--linux" }
+if ($Vet) { $buildArgs += "--vet" }
+if ($Test) { $buildArgs += "--test" }
+if ($Check) { $buildArgs += "--check" }
+if ($Full) { $buildArgs += "--full" }
+
+docker exec $container bash -c "cd /workspaces/script-manager && bash build.sh $($buildArgs -join ' ')"
 exit $LASTEXITCODE
