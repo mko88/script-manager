@@ -52,6 +52,51 @@ func TestProcessMaskSpansInvalidMarker(t *testing.T) {
 	}
 }
 
+func TestProcessMaskSpansMultiline(t *testing.T) {
+	// Mirrors the real pipeline: ExpandAllEnv (or a hand-written
+	// `{{.field}}` reference) can hand ProcessMaskSpans a code span whose
+	// real value spans multiple lines, embedded in a single-line construct
+	// (here, a bullet list) that a literal newline would otherwise break.
+	// It's treated exactly like a masked secret from here on — same
+	// copyMasked=true — just with a line-count placeholder instead of bullets.
+	cert := "-----BEGIN CERTIFICATE-----\nMIIB<dummy>\n-----END CERTIFICATE-----"
+	src := "- **A:** `plain`\n- **CERT:** `" + cert + "`\n- **B:** `other`\n"
+
+	displayMd, copyValues, copyMasked := ProcessMaskSpans(src)
+
+	if strings.Contains(displayMd, "MIIB") {
+		t.Errorf("expected the real multiline value masked, not inlined: %q", displayMd)
+	}
+	if !strings.Contains(displayMd, "`(3-line value)`") {
+		t.Errorf("expected a 3-line placeholder, got %q", displayMd)
+	}
+	// The bullets before and after the multiline entry must be untouched —
+	// confirms the replacement didn't spill past its own code span and
+	// swallow neighboring lines.
+	if !strings.Contains(displayMd, "- **A:** `plain`\n") || !strings.Contains(displayMd, "\n- **B:** `other`\n") {
+		t.Errorf("neighboring entries altered: %q", displayMd)
+	}
+	if n := strings.Count(displayMd, "\n"); n != 3 {
+		t.Errorf("displayMd spans %d lines, want 3 (one per bullet): %q", n, displayMd)
+	}
+
+	if want := []string{"plain", cert, "other"}; !reflect.DeepEqual(copyValues, want) {
+		t.Errorf("copyValues = %v, want %v", copyValues, want)
+	}
+	if want := []bool{false, true, false}; !reflect.DeepEqual(copyMasked, want) {
+		t.Errorf("copyMasked = %v, want %v", copyMasked, want)
+	}
+}
+
+func TestMaskedDisplayText(t *testing.T) {
+	if got := MaskedDisplayText("s3cret"); got != "••••••" {
+		t.Errorf("MaskedDisplayText(single-line) = %q, want bullets", got)
+	}
+	if got := MaskedDisplayText("a\nb\nc"); got != "(3-line value)" {
+		t.Errorf("MaskedDisplayText(3 lines) = %q, want %q", got, "(3-line value)")
+	}
+}
+
 func TestMarkNthCodeSpan(t *testing.T) {
 	src := "a `one` b `two` c `three`"
 

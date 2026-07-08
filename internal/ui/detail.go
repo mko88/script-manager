@@ -362,8 +362,9 @@ func (t *DescriptionTile) renderMarkdown(innerW, innerH int) ([]string, bool) {
 }
 
 // highlightSentinel swaps the sentinel for the styled copy value and reports
-// which line it landed on. Masked values display as •••••• even when
-// highlighted so the actual secret is never shown on screen.
+// which line it landed on. A masked value (a secret, or one spanning
+// multiple lines) displays as render.MaskedDisplayText even when highlighted,
+// matching displayMd, so the real value is never shown on screen.
 func (t *DescriptionTile) highlightSentinel(rendered string) (string, int) {
 	sentinelLine := -1
 	for i, line := range strings.Split(rendered, "\n") {
@@ -375,7 +376,7 @@ func (t *DescriptionTile) highlightSentinel(rendered string) (string, int) {
 
 	displayTarget := t.copyValues[t.copyIdx]
 	if t.copyIdx < len(t.copyMasked) && t.copyMasked[t.copyIdx] {
-		displayTarget = "••••••"
+		displayTarget = render.MaskedDisplayText(displayTarget)
 	}
 	return strings.Replace(rendered, hlSentinel, hlStyle.Render(displayTarget), 1), sentinelLine
 }

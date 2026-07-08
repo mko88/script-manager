@@ -220,6 +220,12 @@ details: |
 
 The Details pane shows `••••••` instead of the real value. When you enter copy mode and select that row, pressing `Enter` copies the actual secret to the clipboard — it is never displayed.
 
+#### Multi-line values
+
+A backtick span (`` `{{.field}}` ``) is a one-line construct — a literal newline inside it would break whatever line it's sitting on. If the value itself spans multiple lines (e.g. a certificate), it's automatically treated the same as a masked value: the Details pane shows a placeholder like `` `(6-line value)` `` instead of the real content, and pressing `Enter` in copy mode (or clicking it in the GUI) copies the real, full value to the clipboard. In the GUI, hovering over it also shows the real value in a tooltip — a value masked via `{{mask ...}}` never does this, since it's an actual secret rather than merely a long one.
+
+**Always wrap a field in backticks** (`` `{{.field}}` ``) if it might hold a multi-line value — this handling only applies to backtick-wrapped spans. A bare `{{.field}}` reference outside of backticks gets none of it, and a multi-line value there will break the surrounding Markdown exactly as described above.
+
 #### Printing every variable for an item
 
 Rather than listing each field by hand, `display.details` can include either of these literal placeholders (not `{{ }}` template syntax — just the bare text) to have every variable the item exports to its actions' environment rendered automatically:
@@ -236,7 +242,7 @@ details: |
 - `#ALL_ENV_LIST#` renders a Markdown bullet list: `` - **CLUSTERIP:** `10.0.0.1` ``
 - `#ALL_ENV_TABLE#` renders a two-column Markdown table (`Variable` / `Value`)
 
-Both list every merged variable under its exported (uppercase) name, sorted alphabetically — the `display`, `actions`, `actionGroups`, and `customActions` keys are skipped since they configure action filtering rather than holding data worth displaying. Any variable whose name ends in `password`, `passwd`, `pwd`, `secret`, `key`, `token`, `credential`, `credentials`, or `auth` (case-insensitive) is masked automatically, exactly like an explicit `{{mask ...}}` call — no need to name each secret field yourself.
+Both list every merged variable under its exported (uppercase) name, sorted alphabetically — the `display`, `actions`, `actionGroups`, and `customActions` keys are skipped since they configure action filtering rather than holding data worth displaying. Any variable whose name ends in `password`, `passwd`, `pwd`, `secret`, `key`, `token`, `credential`, `credentials`, or `auth` (case-insensitive) is masked automatically, exactly like an explicit `{{mask ...}}` call — no need to name each secret field yourself. A multi-line value (e.g. a certificate) gets the same placeholder-plus-copy-plus-tooltip treatment described in [Multi-line values](#multi-line-values) above.
 
 #### Showing which config file is loaded
 

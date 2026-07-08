@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	stdhtml "html"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -476,10 +477,18 @@ func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
 		inner := sub[1]
 		masked := idx < len(copyMasked) && copyMasked[idx]
 		cls := "copy-value"
+		titleAttr := ""
 		if masked {
 			cls += " copy-value-masked"
+			// A genuine secret must never surface on hover, but a value
+			// masked only because it spans multiple lines isn't sensitive —
+			// just too long to inline — so it's safe to preview in full via
+			// the native title tooltip.
+			if idx < len(copyValues) && strings.Contains(copyValues[idx], "\n") {
+				titleAttr = ` title="` + stdhtml.EscapeString(copyValues[idx]) + `"`
+			}
 		}
-		return `<code class="` + cls + `" data-copy-idx="` + strconv.Itoa(idx) + `">` + inner + `</code>`
+		return `<code class="` + cls + `"` + titleAttr + ` data-copy-idx="` + strconv.Itoa(idx) + `">` + inner + `</code>`
 	})
 
 	return DetailsDTO{Html: htmlOut, CopyValues: copyValues, CopyMasked: copyMasked, MissingFields: missing}
