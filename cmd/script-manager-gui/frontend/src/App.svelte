@@ -11,6 +11,8 @@
     CopyToClipboard,
     ReloadConfig,
     RunAction,
+    RunActionInline,
+    CancelInlineAction,
     LoadError,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
@@ -36,6 +38,10 @@
   let countDir: 'asc' | 'desc' = 'desc'
   let toast = ''
   let toastTimer: ReturnType<typeof setTimeout>
+
+  let inlineRunning = false
+  let inlineOutput = ''
+  let inlineExitCode: number | null = null
 
   // Unique groups across the current item's actions, in order of first
   // appearance — same set the TUI's [ / ] cycling walks.
@@ -148,6 +154,8 @@
     selectedActionIndex = -1
     selectedGroups = new Set()
     actionDetail = null
+    inlineOutput = ''
+    inlineExitCode = null
     actions = await GetActions(index)
     details = await GetItemDetails(index)
   }
@@ -179,6 +187,8 @@
   async function selectAction(index: number) {
     if (selectedItem < 0) return
     selectedActionIndex = index
+    inlineOutput = ''
+    inlineExitCode = null
     actionDetail = await GetActionDetail(selectedItem, index)
   }
 
@@ -222,6 +232,31 @@
       flash('Running in terminal window…')
     } catch (err) {
       flash(`Run failed: ${err}`)
+    }
+  }
+
+  async function runActionInline() {
+    if (selectedItem < 0 || selectedActionIndex < 0) return
+    inlineOutput = ''
+    inlineExitCode = null
+    inlineRunning = true
+    try {
+      const result = await RunActionInline(selectedItem, selectedActionIndex)
+      inlineExitCode = result.exitCode
+      inlineOutput = result.output
+      if (result.errMsg) flash(`Run failed: ${result.errMsg}`)
+    } catch (err) {
+      flash(`Run failed: ${err}`)
+    } finally {
+      inlineRunning = false
+    }
+  }
+
+  async function cancelInlineAction() {
+    try {
+      await CancelInlineAction()
+    } catch (err) {
+      flash(`Cancel failed: ${err}`)
     }
   }
 
@@ -563,7 +598,21 @@
             {#if actionDetail.cmd}
               <div class="cmd-actions">
                 <button class="run-cmd-btn" on:click={runAction}>Run</button>
+                <button class="run-cmd-btn" disabled={inlineRunning} on:click={runActionInline}>Run here</button>
+                {#if inlineRunning}
+                  <button class="copy-cmd-btn" on:click={cancelInlineAction}>Cancel</button>
+                {/if}
                 <button class="copy-cmd-btn" on:click={copyCmd}>Copy command</button>
+              </div>
+            {/if}
+            {#if inlineRunning || inlineOutput}
+              <div class="cmd-output">
+                <div class="cmd-output-status" class:running={inlineRunning} class:error={inlineExitCode !== null && inlineExitCode !== 0}>
+                  {inlineRunning ? 'Running…' : `Exited ${inlineExitCode}`}
+                </div>
+                {#if inlineOutput}
+                  <pre class="cmd-output-body">{inlineOutput}</pre>
+                {/if}
               </div>
             {/if}
             {#if actionDetail.description}
@@ -782,6 +831,33 @@
     margin: 0 0 8px;
     color: #a9b6c8;
     white-space: pre-wrap;
+  }
+
+  .cmd-output {
+    background: #14202f;
+    border-radius: 4px;
+    margin: 0 0 8px;
+  }
+  .cmd-output-status {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    color: #a9b6c8;
+  }
+  .cmd-output-status.running {
+    color: #7fd4ff;
+  }
+  .cmd-output-status.error {
+    color: #e0645c;
+  }
+  .cmd-output-body {
+    margin: 0;
+    padding: 0 10px 10px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.8rem;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 260px;
+    overflow-y: auto;
   }
 
   .cmd-groups {

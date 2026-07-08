@@ -68,6 +68,22 @@ export namespace gui {
 	        this.missingFields = source["missingFields"];
 	    }
 	}
+	export class InlineRunResultDTO {
+	    output: string;
+	    exitCode: number;
+	    errMsg: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new InlineRunResultDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.output = source["output"];
+	        this.exitCode = source["exitCode"];
+	        this.errMsg = source["errMsg"];
+	    }
+	}
 	export class ItemDTO {
 	    index: number;
 	    label: string;

@@ -327,7 +327,11 @@ The expanded command is written to a temporary script file (`.ps1` for PowerShel
 
 > **Note on secrets:** the temp script contains the *fully expanded* command. If a `cmd:` template interpolates a value you hide with `{{mask ...}}` in the Details pane, that value sits in plain text in the OS temp directory for the brief window before cleanup runs. Avoid putting secrets in `cmd:` templates on shared machines.
 
-There's no output streamed back into the GUI — the terminal window is independent once launched, same trade-off as the TUI's own action execution. macOS is not supported yet and gets a clear "not supported" error instead of a silent no-op.
+The **Run** button's terminal window is independent once launched — no output streams back into the GUI, same trade-off as the TUI's own action execution. macOS is not supported yet and gets a clear "not supported" error instead of a silent no-op.
+
+#### Running a command without a terminal ("Run here")
+
+For a command that isn't expected to need interactive input, the **Run here** button next to **Run** executes it directly and shows the captured output — stdout and stderr interleaved in real execution order — right in the Command pane instead of opening a terminal window. It blocks until the command finishes (no live streaming), then shows the exit code and full output together; a **Cancel** button appears while it's running, and forcibly terminates the whole process tree (not just the top-level shell). Only one inline run is allowed at a time app-wide, since the Command pane has only one output area to show it in. Like **Run**, the working directory is the GUI executable's folder, and stdin is left disconnected — a command that unexpectedly prompts for input fails fast with an immediate EOF rather than hanging with no terminal for anyone to type into.
 
 Launch it the same way as the TUI:
 

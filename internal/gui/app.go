@@ -6,6 +6,7 @@ package gui
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	stdhtml "html"
 	"os"
@@ -15,7 +16,9 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"text/template"
+	"time"
 
 	"script-manager/internal/action"
 	"script-manager/internal/config"
@@ -45,6 +48,13 @@ type App struct {
 	md      goldmark.Markdown
 	exeDir  string
 	loadErr error // from the initial load; the frontend fetches it once via LoadError
+
+	// inlineMu guards the one inline (captured-output) run allowed at a time
+	// app-wide, since the Command pane has only one output area to show it
+	// in. inlineCmd is non-nil only while a run is in progress, letting a
+	// concurrent CancelInlineAction call find and kill it.
+	inlineMu  sync.Mutex
+	inlineCmd *exec.Cmd
 }
 
 // NewApp builds the backend around a config loader, so an explicit -config
@@ -89,18 +99,34 @@ func exeDir() string {
 	return filepath.Dir(exe)
 }
 
+// cleanupTempScriptMinAge is how old a matched file must be before
+// cleanupTempScripts will remove it. NewApp spawns the sweep in the
+// background (not to slow down startup waiting on a directory scan) — with
+// no minimum age at all, that sweep can race a script this same instance is
+// about to write moments later (e.g. the window opens and the user
+// immediately clicks Run/Run here) and delete it out from under the shell
+// that's about to read it. Something orphaned by a previous, crashed run is
+// at least this old by the time a new instance starts; anything newer is
+// left for a later sweep rather than risked.
+const cleanupTempScriptMinAge = 2 * time.Second
+
 // cleanupTempScripts removes every action script left behind by previous
-// runs, regardless of age. Every script wrapScript produces deletes itself
-// once the launched shell actually starts executing it (see wrapScript); this
-// is only the fallback for whatever that missed — e.g. the terminal or shell
-// never started at all — so nothing lingers across restarts, however old it
-// is.
+// runs, regardless of how old that makes it — as long as it's older than
+// cleanupTempScriptMinAge (see there for why that floor exists). Every
+// script wrapScript produces deletes itself once the launched shell actually
+// starts executing it (see wrapScript); this is only the fallback for
+// whatever that missed — e.g. the terminal or shell never started at all —
+// so nothing lingers across restarts, however old it is.
 func cleanupTempScripts() {
 	matches, err := filepath.Glob(filepath.Join(os.TempDir(), tempScriptPattern))
 	if err != nil {
 		return
 	}
+	cutoff := time.Now().Add(-cleanupTempScriptMinAge)
 	for _, path := range matches {
+		if info, err := os.Stat(path); err == nil && info.ModTime().After(cutoff) {
+			continue
+		}
 		os.Remove(path)
 	}
 }
@@ -497,4 +523,134 @@ func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
 // CopyToClipboard writes value to the system clipboard.
 func (a *App) CopyToClipboard(value string) error {
 	return clipboard.WriteAll(value)
+}
+
+// InlineRunResultDTO is RunActionInline's result: the captured output
+// (stdout and stderr interleaved in real execution order) and exit status
+// (or -1 if the process was killed by a signal rather than exiting
+// normally).
+type InlineRunResultDTO struct {
+	Output   string `json:"output"`
+	ExitCode int    `json:"exitCode"`
+	ErrMsg   string `json:"errMsg"`
+}
+
+// RunActionInline runs the item/action pair with its output captured instead
+// of handed off to an external terminal — meant for a command that isn't
+// expected to need interactive input, so its result can be read right in the
+// Command pane rather than needing a separate terminal window. It blocks
+// until the process exits and returns the full result directly, with no
+// separate completion notification of any kind — no pushed event, no
+// separate status call to poll. Only one inline run is allowed at a time
+// app-wide, since the Command pane has only one output area to show it in.
+func (a *App) RunActionInline(itemIndex, actionIndex int) (InlineRunResultDTO, error) {
+	item := a.itemAt(itemIndex)
+	if item == nil {
+		return InlineRunResultDTO{}, fmt.Errorf("invalid item")
+	}
+	actions := config.ActionsForItem(a.cfg.Actions, item)
+	if actionIndex < 0 || actionIndex >= len(actions) {
+		return InlineRunResultDTO{}, fmt.Errorf("invalid action")
+	}
+	if len(a.cfg.Shell) == 0 {
+		return InlineRunResultDTO{}, fmt.Errorf("no shell configured")
+	}
+
+	a.inlineMu.Lock()
+	if a.inlineCmd != nil {
+		a.inlineMu.Unlock()
+		return InlineRunResultDTO{}, fmt.Errorf("a command is already running")
+	}
+	a.inlineMu.Unlock()
+
+	act := actions[actionIndex]
+	merged := a.mergedItem(item)
+
+	expandedCmd, err := action.Expand(act.Cmd, merged)
+	if err != nil {
+		return InlineRunResultDTO{}, fmt.Errorf("cmd template error: %w", err)
+	}
+	// No stayOpen epilogue: there's no interactive terminal for a "press
+	// Enter to close" prompt to wait in, and NoWait's terminal-window
+	// semantics don't apply to a run that never opens one.
+	script := wrapScript(shellBasename(a.cfg.Shell[0]), expandedCmd, false)
+	scriptPath, err := writeTempScript(a.cfg.Shell[0], script)
+	if err != nil {
+		return InlineRunResultDTO{}, fmt.Errorf("failed to write temp script: %w", err)
+	}
+	defer os.Remove(scriptPath)
+	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, false)
+
+	cmd := exec.Command(shellArgv[0], shellArgv[1:]...)
+	if a.exeDir != "" {
+		cmd.Dir = a.exeDir
+	}
+	cmd.Env = action.Env(merged)
+	// Stdin is deliberately left disconnected: an inline run is for a
+	// command that isn't expected to need input. Go gives an unset Stdin an
+	// immediate EOF rather than hanging, so a command that unexpectedly
+	// prompts fails fast instead of blocking forever with no terminal for
+	// anyone to type into.
+	//
+	// Stdout and Stderr go to a real temp file, not an in-memory io.Writer:
+	// both point at the very same file, so the child's writes to each still
+	// interleave in true OS-level chronological order, same guarantee an
+	// in-memory bytes.Buffer/io.Pipe would give — but backed by a real fd
+	// Go just hands to the child directly, no internal copying goroutine
+	// involved.
+	outFile, err := os.CreateTemp("", "script-manager-inline-*.log")
+	if err != nil {
+		return InlineRunResultDTO{}, fmt.Errorf("failed to create output file: %w", err)
+	}
+	defer os.Remove(outFile.Name())
+	defer outFile.Close()
+	cmd.Stdout = outFile
+	cmd.Stderr = outFile
+	setProcessGroup(cmd)
+
+	if err := cmd.Start(); err != nil {
+		return InlineRunResultDTO{}, err
+	}
+	a.inlineMu.Lock()
+	a.inlineCmd = cmd
+	a.inlineMu.Unlock()
+	defer func() {
+		a.inlineMu.Lock()
+		a.inlineCmd = nil
+		a.inlineMu.Unlock()
+	}()
+
+	waitErr := cmd.Wait()
+
+	exitCode := 0
+	errMsg := ""
+	if waitErr != nil {
+		errMsg = waitErr.Error()
+		var exitErr *exec.ExitError
+		if errors.As(waitErr, &exitErr) {
+			exitCode = exitErr.ExitCode()
+		} else {
+			exitCode = -1
+		}
+	}
+	output, readErr := os.ReadFile(outFile.Name())
+	if readErr != nil && errMsg == "" {
+		errMsg = fmt.Sprintf("failed to read captured output: %v", readErr)
+	}
+	return InlineRunResultDTO{Output: string(output), ExitCode: exitCode, ErrMsg: errMsg}, nil
+}
+
+// CancelInlineAction terminates the currently running inline action, if any,
+// killing its whole process tree — plain Process.Kill only signals the shell
+// directly; SIGKILL can't be caught or forwarded, so the shell would die
+// without ever killing whatever foreground command it was running, silently
+// orphaning it instead.
+func (a *App) CancelInlineAction() error {
+	a.inlineMu.Lock()
+	cmd := a.inlineCmd
+	a.inlineMu.Unlock()
+	if cmd == nil {
+		return fmt.Errorf("no command is running")
+	}
+	return killProcessTree(cmd)
 }

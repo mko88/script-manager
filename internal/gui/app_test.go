@@ -337,6 +337,121 @@ func TestWriteTempScript(t *testing.T) {
 	}
 }
 
+func inlineTestApp(action config.Action) *App {
+	return NewApp(func() (*config.Config, error) {
+		return &config.Config{
+			Shell:   []string{"bash", "-c"},
+			Items:   []map[string]any{{"name": "test"}},
+			Actions: []config.Action{action},
+		}, nil
+	})
+}
+
+func TestRunActionInline(t *testing.T) {
+	a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hello-inline"})
+
+	result, err := a.RunActionInline(0, 0)
+	if err != nil {
+		t.Fatalf("RunActionInline() error = %v", err)
+	}
+	if result.ExitCode != 0 || !strings.Contains(result.Output, "hello-inline") {
+		t.Errorf("RunActionInline() = %+v, want exit 0 and output containing %q", result, "hello-inline")
+	}
+}
+
+func TestRunActionInlineCapturesStderrAndNonZeroExit(t *testing.T) {
+	a := inlineTestApp(config.Action{Title: "Fail", Cmd: "echo oops >&2; exit 3"})
+
+	result, err := a.RunActionInline(0, 0)
+	if err != nil {
+		t.Fatalf("RunActionInline() error = %v", err)
+	}
+	if result.ExitCode != 3 || !strings.Contains(result.Output, "oops") {
+		t.Errorf("RunActionInline() = %+v, want exit 3 and output containing %q", result, "oops")
+	}
+}
+
+func TestRunActionInlineInvalidItemOrAction(t *testing.T) {
+	a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hi"})
+
+	if _, err := a.RunActionInline(5, 0); err == nil {
+		t.Error("expected an error for an out-of-range item")
+	}
+	if _, err := a.RunActionInline(0, 5); err == nil {
+		t.Error("expected an error for an out-of-range action")
+	}
+}
+
+// waitForInlineRunning blocks until a's inlineCmd is set — used by tests
+// that need RunActionInline (a single blocking call) running on a
+// background goroutine so the test's own goroutine can act concurrently
+// against it (CancelInlineAction, or a second RunActionInline expected to be
+// rejected).
+func waitForInlineRunning(t *testing.T, a *App) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		a.inlineMu.Lock()
+		running := a.inlineCmd != nil
+		a.inlineMu.Unlock()
+		if running {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("inline action never started running within the deadline")
+}
+
+func TestRunActionInlineRejectsConcurrentRuns(t *testing.T) {
+	a := inlineTestApp(config.Action{Title: "Sleep", Cmd: "sleep 2"})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if _, err := a.RunActionInline(0, 0); err != nil {
+			t.Errorf("first RunActionInline() error = %v", err)
+		}
+	}()
+	waitForInlineRunning(t, a)
+
+	if _, err := a.RunActionInline(0, 0); err == nil {
+		t.Error("expected an error running a second inline action while the first is still running")
+	}
+
+	if err := a.CancelInlineAction(); err != nil {
+		t.Fatalf("CancelInlineAction() error = %v", err)
+	}
+	<-done
+}
+
+func TestCancelInlineActionKillsProcessTree(t *testing.T) {
+	// A child process the shell spawns and waits on, so cancel only truly
+	// works if it kills the whole process group/tree — killing just the
+	// shell would silently orphan this sleep, leaving it running.
+	a := inlineTestApp(config.Action{Title: "Sleep", Cmd: "sleep 30"})
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		if _, err := a.RunActionInline(0, 0); err != nil {
+			t.Errorf("RunActionInline() error = %v", err)
+		}
+	}()
+	waitForInlineRunning(t, a)
+
+	if err := a.CancelInlineAction(); err != nil {
+		t.Fatalf("CancelInlineAction() error = %v", err)
+	}
+	<-done
+}
+
+func TestCancelInlineActionNoneRunning(t *testing.T) {
+	a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hi"})
+	if err := a.CancelInlineAction(); err == nil {
+		t.Error("expected an error when no inline action is running")
+	}
+}
+
 func TestCleanupTempScriptsIgnoresAge(t *testing.T) {
 	f, err := os.CreateTemp("", tempScriptPattern+".ps1")
 	if err != nil {
