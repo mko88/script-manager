@@ -442,21 +442,43 @@
   // addEventListener sidesteps Svelte's (mistaken) typed-attribute check
   // entirely; nothing about actual behavior changes.
   type SyncFn<T> = (e: CustomEvent<DndEvent<DndEntry<T>>>, final: boolean) => void
-  function sortableList<T extends object>(node: HTMLElement, params: { items: DndEntry<T>[]; onSync: SyncFn<T> }) {
-    const zone = dndzone(node, { items: params.items, flipDurationMs: 200 })
+  type SortableParams<T> = { items: DndEntry<T>[]; onSync: SyncFn<T>; dragDisabled: boolean }
+  function sortableList<T extends object>(node: HTMLElement, params: SortableParams<T>) {
+    const zone = dndzone(node, { items: params.items, flipDurationMs: 200, dragDisabled: params.dragDisabled })
     const considerHandler = (e: Event) => params.onSync(e as CustomEvent<DndEvent<DndEntry<T>>>, false)
     const finalizeHandler = (e: Event) => params.onSync(e as CustomEvent<DndEvent<DndEntry<T>>>, true)
     node.addEventListener('consider', considerHandler)
     node.addEventListener('finalize', finalizeHandler)
     return {
-      update(newParams: { items: DndEntry<T>[]; onSync: SyncFn<T> }) {
-        zone.update?.({ items: newParams.items, flipDurationMs: 200 })
+      update(newParams: SortableParams<T>) {
+        zone.update?.({ items: newParams.items, flipDurationMs: 200, dragDisabled: newParams.dragDisabled })
       },
       destroy() {
         node.removeEventListener('consider', considerHandler)
         node.removeEventListener('finalize', finalizeHandler)
         zone.destroy?.()
       },
+    }
+  }
+
+  // Reordering is opt-in: off by default, toggled per-visit via the
+  // reorder-mode button in each list's toolbar (not persisted — reopening
+  // a section, or the app, starts back in "reordering off"). Without this
+  // gate, a plain click-to-select on a row is only one accidental pixel
+  // of movement away from silently reordering the list.
+  let reorderMode = false
+  // Turning reorder mode on clears whatever's selected — keeping a
+  // selection alive through a reorder means tracking its index through
+  // every live-shifting consider event, which isn't worth the
+  // complication. Turning it back off deliberately does *not* try to
+  // restore the old selection; it's simply gone, same as if you'd
+  // clicked away.
+  function toggleReorderMode() {
+    reorderMode = !reorderMode
+    if (reorderMode) {
+      selectedItem = -1
+      selectedActionGroup = -1
+      selectedAction = -1
     }
   }
 
@@ -480,33 +502,25 @@
   // preview via dndzone's own flip animation); finalize fires once,
   // settled, on drop or cancel. Only finalize commits to the real cfg.*
   // data — consider only updates what's rendered, exactly the pattern
-  // svelte-dnd-action's own examples use.
+  // svelte-dnd-action's own examples use. No selection to track through
+  // the reorder here: entering reorder mode clears it and blocks
+  // reselecting until reorder mode is off again (see toggleReorderMode),
+  // so selectedX is always -1 for the whole reorder, nothing to keep in
+  // sync with a live-changing index.
   function syncItems(e: CustomEvent<DndEvent<DndEntry<configedit.ItemDTO>>>, final: boolean) {
     itemEntries = e.detail.items
     dragging = !final
-    if (!final) return
-    const prevSelectedRef = selectedItem >= 0 ? cfg.items[selectedItem] : null
-    const newList = e.detail.items.filter((w) => w.ref).map((w) => w.ref)
-    cfg.items = newList
-    if (prevSelectedRef) selectedItem = newList.indexOf(prevSelectedRef)
+    if (final) cfg.items = itemEntries.filter((w) => w.ref).map((w) => w.ref)
   }
   function syncActionGroups(e: CustomEvent<DndEvent<DndEntry<configedit.ActionGroupDTO>>>, final: boolean) {
     actionGroupEntries = e.detail.items
     dragging = !final
-    if (!final) return
-    const prevSelectedRef = selectedActionGroup >= 0 ? cfg.actionGroups[selectedActionGroup] : null
-    const newList = e.detail.items.filter((w) => w.ref).map((w) => w.ref)
-    cfg.actionGroups = newList
-    if (prevSelectedRef) selectedActionGroup = newList.indexOf(prevSelectedRef)
+    if (final) cfg.actionGroups = actionGroupEntries.filter((w) => w.ref).map((w) => w.ref)
   }
   function syncActions(e: CustomEvent<DndEvent<DndEntry<configedit.ActionDTO>>>, final: boolean) {
     actionEntries = e.detail.items
     dragging = !final
-    if (!final) return
-    const prevSelectedRef = selectedAction >= 0 ? cfg.actions[selectedAction] : null
-    const newList = e.detail.items.filter((w) => w.ref).map((w) => w.ref)
-    cfg.actions = newList
-    if (prevSelectedRef) selectedAction = newList.indexOf(prevSelectedRef)
+    if (final) cfg.actions = actionEntries.filter((w) => w.ref).map((w) => w.ref)
   }
 
   $: allActionIds = cfg.actions.map((a) => a.id).filter((id) => id)
@@ -810,14 +824,29 @@
               disabled={selectedActionGroup < 0}
               on:click={() => confirmRemoveActionGroup(selectedActionGroup)}><ListActionIcon mode="remove" /></button
             >
+            <button
+              class="btn icon-btn"
+              class:active={reorderMode}
+              type="button"
+              title={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
+              aria-label={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
+              on:click={toggleReorderMode}><ListActionIcon mode="reorder" /></button
+            >
           </div>
           <div class="master-detail">
             <div
               class="master list"
-              use:sortableList={{ items: actionGroupEntries, onSync: syncActionGroups }}
+              class:reorder-mode={reorderMode}
+              use:sortableList={{ items: actionGroupEntries, onSync: syncActionGroups, dragDisabled: !reorderMode }}
             >
               {#each actionGroupEntries as entry, i (entry.id)}
-                <button class="row" class:selected={selectedActionGroup === i} on:click={() => (selectedActionGroup = i)}>
+                <button
+                  class="row"
+                  class:selected={selectedActionGroup === i}
+                  on:click={() => {
+                    if (!reorderMode) selectedActionGroup = i
+                  }}
+                >
                   <span class="group-swatch" style="background: {entry.ref.color || 'var(--sm-border)'}"></span>
                   {entry.ref.title || entry.ref.id || '(unnamed)'}
                 </button>
@@ -877,15 +906,28 @@
               disabled={selectedAction < 0}
               on:click={() => confirmRemoveAction(selectedAction)}><ListActionIcon mode="remove" /></button
             >
+            <button
+              class="btn icon-btn"
+              class:active={reorderMode}
+              type="button"
+              title={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
+              aria-label={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
+              on:click={toggleReorderMode}><ListActionIcon mode="reorder" /></button
+            >
           </div>
           <div class="master-detail">
             <div
               class="master list"
-              use:sortableList={{ items: actionEntries, onSync: syncActions }}
+              class:reorder-mode={reorderMode}
+              use:sortableList={{ items: actionEntries, onSync: syncActions, dragDisabled: !reorderMode }}
             >
               {#each actionEntries as entry, i (entry.id)}
-                <button class="row" class:selected={selectedAction === i} on:click={() => (selectedAction = i)}
-                  >{entry.ref.title || entry.ref.id || '(untitled)'}</button
+                <button
+                  class="row"
+                  class:selected={selectedAction === i}
+                  on:click={() => {
+                    if (!reorderMode) selectedAction = i
+                  }}>{entry.ref.title || entry.ref.id || '(untitled)'}</button
                 >
               {/each}
             </div>
@@ -910,17 +952,27 @@
               disabled={selectedItem < 0}
               on:click={() => confirmRemoveItem(selectedItem)}><ListActionIcon mode="remove" /></button
             >
+            <button
+              class="btn icon-btn"
+              class:active={reorderMode}
+              type="button"
+              title={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
+              aria-label={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
+              on:click={toggleReorderMode}><ListActionIcon mode="reorder" /></button
+            >
           </div>
           <div class="master-detail">
             <div
               class="master list"
-              use:sortableList={{ items: itemEntries, onSync: syncItems }}
+              class:reorder-mode={reorderMode}
+              use:sortableList={{ items: itemEntries, onSync: syncItems, dragDisabled: !reorderMode }}
             >
               {#each itemEntries as entry, i (entry.id)}
                 <button
                   class="row"
                   class:selected={selectedItem === i}
                   on:click={() => {
+                    if (reorderMode) return
                     selectedItem = i
                     previewActionIdx = -1
                     actionPreview = null
@@ -1220,7 +1272,7 @@
     padding-right: 4px;
   }
 
-  .master .row {
+  .master.reorder-mode .row {
     cursor: grab;
   }
 
@@ -1282,7 +1334,8 @@
     margin-bottom: 8px;
   }
 
-  .view-mode-group .btn.active {
+  .view-mode-group .btn.active,
+  .list-toolbar .btn.active {
     background: var(--sm-accent-warm);
     border-color: var(--sm-accent-warm);
     color: var(--sm-bg);
