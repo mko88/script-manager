@@ -77,6 +77,10 @@
     return `${itemIndex}:${actionIndex}`
   }
 
+  function setInlineState(itemIndex: number, actionIndex: number, state: Omit<InlineState, 'itemIndex' | 'actionIndex'>) {
+    inlineStates = { ...inlineStates, [inlineKey(itemIndex, actionIndex)]: { itemIndex, actionIndex, ...state } }
+  }
+
   // What the Command pane actually displays — derived from inlineStates for
   // whatever's currently selected, defaulting to "never run" (blank, not
   // running) when there's no entry yet.
@@ -301,13 +305,9 @@
   const INLINE_POLL_INTERVAL_MS = 300
 
   async function pollInlineStatus(itemIndex: number, actionIndex: number) {
-    const key = inlineKey(itemIndex, actionIndex)
     for (;;) {
       const status = await GetInlineStatus(itemIndex, actionIndex)
-      inlineStates = {
-        ...inlineStates,
-        [key]: { itemIndex, actionIndex, output: status.output, running: status.running, exitCode: status.exitCode },
-      }
+      setInlineState(itemIndex, actionIndex, { output: status.output, running: status.running, exitCode: status.exitCode })
       if (selectedItem === itemIndex && selectedActionIndex === actionIndex) {
         scrollInlineOutputToEnd()
       }
@@ -324,14 +324,13 @@
     if (selectedItem < 0 || selectedActionIndex < 0) return
     const itemIndex = selectedItem
     const actionIndex = selectedActionIndex
-    const key = inlineKey(itemIndex, actionIndex)
-    if (inlineStates[key]?.running) return
-    inlineStates = { ...inlineStates, [key]: { itemIndex, actionIndex, output: '', running: true, exitCode: null } }
+    if (inlineStates[inlineKey(itemIndex, actionIndex)]?.running) return
+    setInlineState(itemIndex, actionIndex, { output: '', running: true, exitCode: null })
     try {
       await RunActionInline(itemIndex, actionIndex)
       pollInlineStatus(itemIndex, actionIndex)
     } catch (err) {
-      inlineStates = { ...inlineStates, [key]: { itemIndex, actionIndex, output: '', running: false, exitCode: null } }
+      setInlineState(itemIndex, actionIndex, { output: '', running: false, exitCode: null })
       flash(`Run failed: ${err}`)
     }
   }
