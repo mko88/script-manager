@@ -40,26 +40,62 @@
   let toast = ''
   let toastTimer: ReturnType<typeof setTimeout>
 
-  let inlineRunning = false
-  let inlineOutput = ''
-  let inlineExitCode: number | null = null
   let inlineOutputEl: HTMLElement | undefined
 
   // Autoscrolls the inline output box to the newest line as it streams in.
-  // Called directly from the code that appends to inlineOutput (see
-  // pollInlineStatus below), not from a `$:` reactive statement watching
-  // inlineOutput/inlineOutputEl together — that shape was tried first and
+  // Called directly from the poll loop below when it's updating the
+  // currently-viewed action, not from a `$:` reactive statement watching
+  // output/inlineOutputEl together — that shape was tried first and
   // reliably broke Wails' own bound-method delivery (and, separately, an
   // EventSource-based version of this feature) in WebKitGTK:
   // inlineOutputEl is only bound once the <pre> below actually renders
-  // (inlineOutput must already be non-empty for that), so the reactive
-  // statement's own dependency on both variables together, right as new
-  // output arrived, was the trigger. Root-caused by bisection, not fully
+  // (there must already be output for that), so the reactive statement's
+  // own dependency on both variables together, right as new output
+  // arrived, was the trigger. Root-caused by bisection, not fully
   // understood at the WebKitGTK level.
   async function scrollInlineOutputToEnd() {
     await tick()
     if (inlineOutputEl) inlineOutputEl.scrollTop = inlineOutputEl.scrollHeight
   }
+
+  // One entry per item/action pair that's ever been run inline in this
+  // session, keyed by inlineKey(itemIndex, actionIndex) — not just the
+  // single currently-viewed one, so a run started on one action keeps going
+  // (and stays pollable) after switching to a different action, and
+  // switching back shows however far it's gotten (or its finished result)
+  // instead of losing track of it.
+  type InlineState = {
+    itemIndex: number
+    actionIndex: number
+    output: string
+    running: boolean
+    exitCode: number | null
+  }
+  let inlineStates: Record<string, InlineState> = {}
+
+  function inlineKey(itemIndex: number, actionIndex: number): string {
+    return `${itemIndex}:${actionIndex}`
+  }
+
+  // What the Command pane actually displays — derived from inlineStates for
+  // whatever's currently selected, defaulting to "never run" (blank, not
+  // running) when there's no entry yet.
+  $: currentInline = selectedItem >= 0 && selectedActionIndex >= 0 ? inlineStates[inlineKey(selectedItem, selectedActionIndex)] : undefined
+  $: inlineRunning = currentInline?.running ?? false
+  $: inlineOutput = currentInline?.output ?? ''
+  $: inlineExitCode = currentInline?.exitCode ?? null
+
+  // Which items/actions to show a running indicator for — every entry
+  // still running, cross-referenced by itemIndex for the Items list and by
+  // actionIndex (within the selected item) for the Actions list. Pure data
+  // derivations, no DOM access — safe alongside the bug described above,
+  // which was specifically about a reactive statement that touched the DOM.
+  $: runningItemIndices = new Set(Object.values(inlineStates).filter((s) => s.running).map((s) => s.itemIndex))
+  $: runningActionIndicesForSelectedItem = new Set(
+    Object.values(inlineStates)
+      .filter((s) => s.running && s.itemIndex === selectedItem)
+      .map((s) => s.actionIndex),
+  )
 
   // Unique groups across the current item's actions, in order of first
   // appearance — same set the TUI's [ / ] cycling walks.
@@ -172,8 +208,6 @@
     selectedActionIndex = -1
     selectedGroups = new Set()
     actionDetail = null
-    inlineOutput = ''
-    inlineExitCode = null
     actions = await GetActions(index)
     details = await GetItemDetails(index)
   }
@@ -205,8 +239,6 @@
   async function selectAction(index: number) {
     if (selectedItem < 0) return
     selectedActionIndex = index
-    inlineOutput = ''
-    inlineExitCode = null
     actionDetail = await GetActionDetail(selectedItem, index)
   }
 
@@ -253,35 +285,36 @@
     }
   }
 
-  // Whether the click that started this run is still what's selected — a
-  // run keeps going on the backend regardless (only one is allowed
-  // app-wide, so a new one is rejected until this finishes), but once the
-  // user has navigated to a different action, this run's own output/exit
-  // code no longer belong on screen.
-  function stillSelected(itemIndex: number, actionIndex: number): boolean {
-    return selectedItem === itemIndex && selectedActionIndex === actionIndex
-  }
-
   // How the frontend gets a live-updating view of an inline run: polling
   // GetInlineStatus on a short timer, not a pushed event — this app's other
   // bound methods are all plain request/response calls, and that's the
   // shape that's held up reliably here (see scrollInlineOutputToEnd's doc
   // comment above for the actual bug that made earlier streaming attempts
   // look unreliable — it wasn't Wails or this call shape at all).
+  //
+  // A poll loop keeps going until its own run finishes, regardless of
+  // whether the user is still looking at that action — that's what makes
+  // "switch away, switch back" work: inlineStates already has whatever
+  // this loop has captured by the time the user returns, instead of the
+  // loop having given up and stopped tracking it. It only skips the
+  // scroll-into-view side effect while its action isn't the one on screen.
   const INLINE_POLL_INTERVAL_MS = 300
 
   async function pollInlineStatus(itemIndex: number, actionIndex: number) {
+    const key = inlineKey(itemIndex, actionIndex)
     for (;;) {
-      const status = await GetInlineStatus()
-      if (!stillSelected(itemIndex, actionIndex)) return
-      inlineOutput = status.output
-      scrollInlineOutputToEnd()
+      const status = await GetInlineStatus(itemIndex, actionIndex)
+      inlineStates = {
+        ...inlineStates,
+        [key]: { itemIndex, actionIndex, output: status.output, running: status.running, exitCode: status.exitCode },
+      }
+      if (selectedItem === itemIndex && selectedActionIndex === actionIndex) {
+        scrollInlineOutputToEnd()
+      }
       if (status.running) {
         await new Promise((resolve) => setTimeout(resolve, INLINE_POLL_INTERVAL_MS))
         continue
       }
-      inlineRunning = false
-      inlineExitCode = status.exitCode
       if (status.errMsg) flash(`Run failed: ${status.errMsg}`)
       return
     }
@@ -291,21 +324,22 @@
     if (selectedItem < 0 || selectedActionIndex < 0) return
     const itemIndex = selectedItem
     const actionIndex = selectedActionIndex
-    inlineOutput = ''
-    inlineExitCode = null
-    inlineRunning = true
+    const key = inlineKey(itemIndex, actionIndex)
+    if (inlineStates[key]?.running) return
+    inlineStates = { ...inlineStates, [key]: { itemIndex, actionIndex, output: '', running: true, exitCode: null } }
     try {
       await RunActionInline(itemIndex, actionIndex)
       pollInlineStatus(itemIndex, actionIndex)
     } catch (err) {
-      inlineRunning = false
+      inlineStates = { ...inlineStates, [key]: { itemIndex, actionIndex, output: '', running: false, exitCode: null } }
       flash(`Run failed: ${err}`)
     }
   }
 
   async function cancelInlineAction() {
+    if (selectedItem < 0 || selectedActionIndex < 0) return
     try {
-      await CancelInlineAction()
+      await CancelInlineAction(selectedItem, selectedActionIndex)
     } catch (err) {
       flash(`Cancel failed: ${err}`)
     }
@@ -497,7 +531,7 @@
               class="row"
               class:selected={item.index === selectedItem}
               on:click={() => selectItem(item.index)}
-            >{item.label}</button>
+            >{item.label}{#if runningItemIndices.has(item.index)}<span class="running-indicator" title="An action is running">●</span>{/if}</button>
           {/each}
           {#if items.length === 0}
             <div class="empty">No items configured</div>
@@ -574,7 +608,7 @@
               class="row"
               class:selected={action.index === selectedActionIndex}
               on:click={() => selectAction(action.index)}
-            >{action.title}</button>
+            >{action.title}{#if runningActionIndicesForSelectedItem.has(action.index)}<span class="running-indicator" title="Running">●</span>{/if}</button>
           {/each}
           {#if selectedItem >= 0 && filteredActions.length === 0}
             <div class="empty">
@@ -899,6 +933,16 @@
   }
   .cmd-output-status.error {
     color: #e0645c;
+  }
+  .running-indicator {
+    display: inline-block;
+    margin-left: 6px;
+    color: #7fd4ff;
+    animation: running-pulse 1.5s ease-in-out infinite;
+  }
+  @keyframes running-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
   }
   .cmd-output-body {
     margin: 0;

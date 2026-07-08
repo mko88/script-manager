@@ -44,6 +44,26 @@ const tempScriptPattern = "script-manager-action-*"
 // see cleanupTempScripts for their lifecycle.
 const inlineOutPattern = "script-manager-inline-*"
 
+// inlineKey identifies one item/action pair's inline (captured-output) run.
+type inlineKey struct {
+	itemIndex   int
+	actionIndex int
+}
+
+// inlineRun is one item/action pair's inline run state. cmd is non-nil only
+// while the process is actually running, letting a concurrent
+// CancelInlineAction call find and kill it; it goes nil once the process
+// exits, but the entry itself stays in App.inlineRuns (outPath/exitCode/
+// errMsg intact) so a later GetInlineStatus poll — e.g. after switching back
+// to that action in the UI — can still read the finished result, right up
+// until a new run for that same key replaces it.
+type inlineRun struct {
+	cmd      *exec.Cmd
+	outPath  string
+	exitCode int
+	errMsg   string
+}
+
 // App is the Wails-bound backend.
 type App struct {
 	ctx     context.Context
@@ -53,18 +73,12 @@ type App struct {
 	exeDir  string
 	loadErr error // from the initial load; the frontend fetches it once via LoadError
 
-	// inlineMu guards the one inline (captured-output) run allowed at a time
-	// app-wide, since the Command pane has only one output area to show it
-	// in. inlineCmd is non-nil only while a run is in progress, letting a
-	// concurrent CancelInlineAction call find and kill it. inlineOutPath
-	// names the temp file GetInlineStatus re-reads on every poll; it stays
-	// set after the run finishes so a final poll can still read the
-	// complete output, and is only cleaned up when the next run starts.
-	inlineMu       sync.Mutex
-	inlineCmd      *exec.Cmd
-	inlineOutPath  string
-	inlineExitCode int
-	inlineErrMsg   string
+	// inlineMu guards inlineRuns. Different item/action pairs may run
+	// concurrently — switching to another action in the UI doesn't stop
+	// one already running — but the same pair can't be started twice at
+	// once; see RunActionInline.
+	inlineMu   sync.Mutex
+	inlineRuns map[inlineKey]*inlineRun
 }
 
 // NewApp builds the backend around a config loader, so an explicit -config
@@ -73,10 +87,11 @@ func NewApp(load func() (*config.Config, error)) *App {
 	cfg, err := load()
 	go cleanupTempScripts()
 	return &App{
-		cfg:     cfg,
-		load:    load,
-		exeDir:  exeDir(),
-		loadErr: err,
+		cfg:        cfg,
+		load:       load,
+		exeDir:     exeDir(),
+		loadErr:    err,
+		inlineRuns: make(map[inlineKey]*inlineRun),
 		md: goldmark.New(
 			goldmark.WithExtensions(extension.GFM),
 			goldmark.WithRendererOptions(html.WithUnsafe()),
@@ -603,10 +618,12 @@ func exitCodeOf(waitErr error) (exitCode int, errMsg string) {
 	return -1, errMsg
 }
 
-// InlineStatusDTO is GetInlineStatus's snapshot of the one app-wide inline
-// run. Output is whatever has been captured so far — the full thing once
-// Running is false — and ExitCode/ErrMsg are only meaningful once Running is
-// false and a run has actually completed.
+// InlineStatusDTO is GetInlineStatus's snapshot of one item/action pair's
+// inline run. Output is whatever has been captured so far — the full thing
+// once Running is false — and ExitCode/ErrMsg are only meaningful once
+// Running is false and a run has actually completed. The zero value (all
+// fields empty/zero) means this pair has never been run, or its last run's
+// state was already overwritten by a newer one for the same pair.
 type InlineStatusDTO struct {
 	Running  bool   `json:"running"`
 	Output   string `json:"output"`
@@ -620,20 +637,23 @@ type InlineStatusDTO struct {
 // be read right in the Command pane rather than needing a separate terminal
 // window. It returns as soon as the process starts; the frontend polls
 // GetInlineStatus on a short timer to read the output captured so far and
-// learn when the process finishes. Only one inline run is allowed at a time
-// app-wide, since the Command pane has only one output area to show it in.
+// learn when the process finishes. Different item/action pairs may run
+// concurrently — switching to a different action in the UI doesn't stop one
+// already running — but the same pair can't be started twice at once.
 func (a *App) RunActionInline(itemIndex, actionIndex int) error {
+	key := inlineKey{itemIndex, actionIndex}
+
 	a.inlineMu.Lock()
-	if a.inlineCmd != nil {
-		a.inlineMu.Unlock()
-		return fmt.Errorf("a command is already running")
-	}
-	// The previous run's output file (if any) is only cleaned up here, not
-	// right when that run finished, so a final GetInlineStatus poll after
-	// completion can still read it.
-	if a.inlineOutPath != "" {
-		os.Remove(a.inlineOutPath)
-		a.inlineOutPath = ""
+	if run, ok := a.inlineRuns[key]; ok {
+		if run.cmd != nil {
+			a.inlineMu.Unlock()
+			return fmt.Errorf("this action is already running")
+		}
+		// A previous, finished run's output file for this same key is only
+		// cleaned up here, not right when that run finished, so a
+		// GetInlineStatus poll after completion (e.g. switching back to
+		// this action in the UI) can still read it up until now.
+		os.Remove(run.outPath)
 	}
 	a.inlineMu.Unlock()
 
@@ -666,10 +686,7 @@ func (a *App) RunActionInline(itemIndex, actionIndex int) error {
 	}
 
 	a.inlineMu.Lock()
-	a.inlineCmd = cmd
-	a.inlineOutPath = outFile.Name()
-	a.inlineExitCode = 0
-	a.inlineErrMsg = ""
+	a.inlineRuns[key] = &inlineRun{cmd: cmd, outPath: outFile.Name()}
 	a.inlineMu.Unlock()
 
 	go func() {
@@ -683,49 +700,48 @@ func (a *App) RunActionInline(itemIndex, actionIndex int) error {
 		exitCode, errMsg := exitCodeOf(waitErr)
 
 		a.inlineMu.Lock()
-		a.inlineExitCode = exitCode
-		a.inlineErrMsg = errMsg
-		a.inlineCmd = nil
+		a.inlineRuns[key] = &inlineRun{outPath: outFile.Name(), exitCode: exitCode, errMsg: errMsg}
 		a.inlineMu.Unlock()
 	}()
 
 	return nil
 }
 
-// GetInlineStatus reports the current state of the one app-wide inline run —
-// the frontend polls this on a short timer after calling RunActionInline to
-// get a live-updating view of the output, rather than being pushed a
-// completion event. Output is read fresh from the run's temp file on every
-// call, so it reflects whatever the process has written so far; once
-// Running is false, it's the complete output and ExitCode/ErrMsg are final.
-func (a *App) GetInlineStatus() InlineStatusDTO {
+// GetInlineStatus reports the current state of one item/action pair's
+// inline run — the frontend polls this on a short timer after calling
+// RunActionInline to get a live-updating view of the output, rather than
+// being pushed a completion event. Output is read fresh from the run's temp
+// file on every call, so it reflects whatever the process has written so
+// far; once Running is false, it's the complete output and ExitCode/ErrMsg
+// are final.
+func (a *App) GetInlineStatus(itemIndex, actionIndex int) InlineStatusDTO {
 	a.inlineMu.Lock()
-	running := a.inlineCmd != nil
-	outPath := a.inlineOutPath
-	exitCode := a.inlineExitCode
-	errMsg := a.inlineErrMsg
+	run, ok := a.inlineRuns[inlineKey{itemIndex, actionIndex}]
 	a.inlineMu.Unlock()
+	if !ok {
+		return InlineStatusDTO{}
+	}
 
 	output := ""
-	if outPath != "" {
-		if data, err := os.ReadFile(outPath); err == nil {
+	if run.outPath != "" {
+		if data, err := os.ReadFile(run.outPath); err == nil {
 			output = string(data)
 		}
 	}
-	return InlineStatusDTO{Running: running, Output: output, ExitCode: exitCode, ErrMsg: errMsg}
+	return InlineStatusDTO{Running: run.cmd != nil, Output: output, ExitCode: run.exitCode, ErrMsg: run.errMsg}
 }
 
-// CancelInlineAction terminates the currently running inline action, if any,
-// killing its whole process tree — plain Process.Kill only signals the shell
-// directly; SIGKILL can't be caught or forwarded, so the shell would die
-// without ever killing whatever foreground command it was running, silently
-// orphaning it instead.
-func (a *App) CancelInlineAction() error {
+// CancelInlineAction terminates the given item/action pair's inline run, if
+// it's currently running — killing its whole process tree, since plain
+// Process.Kill only signals the shell directly and SIGKILL can't be caught
+// or forwarded, silently orphaning whatever foreground command it was
+// running otherwise.
+func (a *App) CancelInlineAction(itemIndex, actionIndex int) error {
 	a.inlineMu.Lock()
-	cmd := a.inlineCmd
+	run, ok := a.inlineRuns[inlineKey{itemIndex, actionIndex}]
 	a.inlineMu.Unlock()
-	if cmd == nil {
+	if !ok || run.cmd == nil {
 		return fmt.Errorf("no command is running")
 	}
-	return killProcessTree(cmd)
+	return killProcessTree(run.cmd)
 }
