@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
   import Toast from '@shared/components/Toast.svelte'
   import {
     GetTitles,
@@ -13,6 +13,7 @@
     RunAction,
     RunActionInline,
     CancelInlineAction,
+    GetRunnerPort,
     LoadError,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
@@ -42,6 +43,27 @@
   let inlineRunning = false
   let inlineOutput = ''
   let inlineExitCode: number | null = null
+  let inlineOutputEl: HTMLElement | undefined
+  // 0 means the live runner is disabled or failed to start — runActionInline
+  // falls back to RunActionInline's single blocking call in that case. Set
+  // once on load, not polled — see startLiveRunner's doc comment
+  // (internal/gui/app.go) for why that distinction matters here.
+  let runnerPort = 0
+
+  // Autoscrolls the inline output box to the newest line as it streams in.
+  // Called directly from the code that appends to inlineOutput (see
+  // runActionInlineLive/runActionInline below), not from a `$:` reactive
+  // statement watching inlineOutput/inlineOutputEl together — that shape
+  // was tried first and reliably broke EventSource/fetch delivery in
+  // WebKitGTK: inlineOutputEl is only bound once the <pre> below actually
+  // renders (inlineOutput must already be non-empty for that), so the
+  // reactive statement's own dependency on both variables together, right
+  // as EventSource messages arrive, was the trigger. Root-caused by
+  // bisection, not fully understood at the WebKitGTK level.
+  async function scrollInlineOutputToEnd() {
+    await tick()
+    if (inlineOutputEl) inlineOutputEl.scrollTop = inlineOutputEl.scrollHeight
+  }
 
   // Unique groups across the current item's actions, in order of first
   // appearance — same set the TUI's [ / ] cycling walks.
@@ -146,6 +168,7 @@
     titles = await GetTitles()
     items = await GetItems()
     actionGroupCatalog = await GetActionGroups()
+    runnerPort = await GetRunnerPort()
     if (items.length > 0) selectItem(0)
   })
 
@@ -235,20 +258,72 @@
     }
   }
 
+  // Whether the click that started this run is still what's selected — a
+  // run keeps going on the backend regardless (only one is allowed
+  // app-wide, so a new one is rejected until this finishes), but once the
+  // user has navigated to a different action, this run's own output/exit
+  // code no longer belong on screen.
+  function stillSelected(itemIndex: number, actionIndex: number): boolean {
+    return selectedItem === itemIndex && selectedActionIndex === actionIndex
+  }
+
+  // Runs itemIndex/actionIndex through the live runner (see GetRunnerPort's
+  // doc comment for why this exists instead of a Wails-bound streaming
+  // call): a plain browser EventSource against the local HTTP server,
+  // appending each streamed line as it arrives instead of waiting for the
+  // whole result like the RunActionInline fallback below does.
+  function runActionInlineLive(itemIndex: number, actionIndex: number): Promise<void> {
+    return new Promise((resolve) => {
+      const es = new EventSource(`http://127.0.0.1:${runnerPort}/run?item=${itemIndex}&action=${actionIndex}`)
+      let settled = false
+      const finish = (exitCode: number | null, errMsg?: string) => {
+        if (settled) return
+        settled = true
+        es.close()
+        if (stillSelected(itemIndex, actionIndex)) {
+          inlineRunning = false
+          inlineExitCode = exitCode
+          if (errMsg) flash(`Run failed: ${errMsg}`)
+        }
+        resolve()
+      }
+      es.onmessage = (e) => {
+        if (stillSelected(itemIndex, actionIndex)) {
+          inlineOutput += (inlineOutput ? '\n' : '') + e.data
+          scrollInlineOutputToEnd()
+        }
+      }
+      es.addEventListener('done', (e: MessageEvent) => {
+        const result = JSON.parse(e.data) as gui.InlineRunResultDTO
+        finish(result.exitCode, result.errMsg)
+      })
+      es.onerror = () => finish(-1, 'connection to local runner lost')
+    })
+  }
+
   async function runActionInline() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
+    const itemIndex = selectedItem
+    const actionIndex = selectedActionIndex
     inlineOutput = ''
     inlineExitCode = null
     inlineRunning = true
+
+    if (runnerPort > 0) {
+      await runActionInlineLive(itemIndex, actionIndex)
+      return
+    }
     try {
-      const result = await RunActionInline(selectedItem, selectedActionIndex)
-      inlineExitCode = result.exitCode
-      inlineOutput = result.output
-      if (result.errMsg) flash(`Run failed: ${result.errMsg}`)
+      const result = await RunActionInline(itemIndex, actionIndex)
+      if (stillSelected(itemIndex, actionIndex)) {
+        inlineExitCode = result.exitCode
+        inlineOutput = result.output
+        if (result.errMsg) flash(`Run failed: ${result.errMsg}`)
+      }
     } catch (err) {
       flash(`Run failed: ${err}`)
     } finally {
-      inlineRunning = false
+      if (stillSelected(itemIndex, actionIndex)) inlineRunning = false
     }
   }
 
@@ -611,7 +686,7 @@
                   {inlineRunning ? 'Running…' : `Exited ${inlineExitCode}`}
                 </div>
                 {#if inlineOutput}
-                  <pre class="cmd-output-body">{inlineOutput}</pre>
+                  <pre class="cmd-output-body" bind:this={inlineOutputEl}>{inlineOutput}</pre>
                 {/if}
               </div>
             {/if}

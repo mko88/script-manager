@@ -153,6 +153,12 @@ type Config struct {
 	ActionGroups []ActionGroup    `yaml:"actionGroups,omitempty"`
 	Actions      []Action         `yaml:"actions,omitempty"`
 
+	// DisableLiveRunner turns off script-manager-gui's local HTTP server for
+	// "Run here"'s live-streamed output, falling back to a single blocking
+	// call that shows the full result only once the command finishes. Off
+	// (server enabled) by default. Irrelevant to the TUI or sm-config-edit.
+	DisableLiveRunner bool `yaml:"disableLiveRunner,omitempty"`
+
 	// SourcePath is the absolute path of the file this config was actually
 	// loaded from — not part of the YAML itself, but set by loadPaths so
 	// callers (e.g. the #CONFIG_FILE# template placeholder) can show which of

@@ -30,6 +30,10 @@ export function GetItems() {
   return window['go']['gui']['App']['GetItems']();
 }
 
+export function GetRunnerPort() {
+  return window['go']['gui']['App']['GetRunnerPort']();
+}
+
 export function GetTitles() {
   return window['go']['gui']['App']['GetTitles']();
 }

@@ -16,6 +16,8 @@ export function GetItemDetails(arg1:number):Promise<gui.DetailsDTO>;
 
 export function GetItems():Promise<Array<gui.ItemDTO>>;
 
+export function GetRunnerPort():Promise<number>;
+
 export function GetTitles():Promise<gui.TitlesDTO>;
 
 export function LoadError():Promise<string>;

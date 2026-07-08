@@ -4,11 +4,15 @@
 package gui
 
 import (
+	"bufio"
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	stdhtml "html"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,6 +59,11 @@ type App struct {
 	// concurrent CancelInlineAction call find and kill it.
 	inlineMu  sync.Mutex
 	inlineCmd *exec.Cmd
+
+	// runnerPort is the local HTTP server's port (see startLiveRunner), 0 if
+	// config.DisableLiveRunner is set or the server failed to start — either
+	// way the frontend falls back to RunActionInline's single blocking call.
+	runnerPort int
 }
 
 // NewApp builds the backend around a config loader, so an explicit -config
@@ -84,9 +93,43 @@ func (a *App) LoadError() string {
 	return a.loadErr.Error()
 }
 
+// startLiveRunner starts the local HTTP server RunActionInline's live
+// streaming depends on, on an OS-assigned free port — a.runnerPort stays 0
+// (frontend falls back to a single blocking call) if this fails.
+//
+// This exists because Wails' own JS<->Go binding round trip turned out to be
+// unreliable for exactly this shape of call: a bound method invoked
+// repeatedly in a loop (as live-updating output requires, whether pushed via
+// an event or polled) reliably failed to deliver a response back to the
+// frontend from the second call onward, even though the Go side completed
+// every call correctly — confirmed by direct tracing during development (see
+// project history). A plain browser EventSource talking to a local HTTP
+// server never touches that binding mechanism at all, and was confirmed
+// reliable across repeated live-streamed runs in the same testing.
+func (a *App) startLiveRunner() {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return
+	}
+	a.runnerPort = ln.Addr().(*net.TCPAddr).Port
+	mux := http.NewServeMux()
+	mux.HandleFunc("/run", a.handleRunHTTP)
+	go http.Serve(ln, mux)
+}
+
+// GetRunnerPort returns the live runner's port, or 0 if it's disabled or
+// failed to start. Called once by the frontend on load, not polled — see
+// startLiveRunner's doc comment for why that distinction matters here.
+func (a *App) GetRunnerPort() int {
+	return a.runnerPort
+}
+
 // Startup is wired as the Wails OnStartup callback.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	if !a.cfg.DisableLiveRunner {
+		a.startLiveRunner()
+	}
 }
 
 // exeDir returns the directory containing the running executable, or "" if
@@ -525,6 +568,72 @@ func (a *App) CopyToClipboard(value string) error {
 	return clipboard.WriteAll(value)
 }
 
+// buildInlineCmd resolves itemIndex/actionIndex into a ready-to-Start
+// *exec.Cmd for an inline (captured-output) run — shared by RunActionInline's
+// blocking fallback and handleRunHTTP's live-streamed version, so the two
+// never drift in how they build the command itself, only in how they capture
+// its output. cleanup removes the temp script file and must be called once
+// the command has actually been started (the script self-deletes as it
+// runs — see wrapScript — so this only covers whatever that missed).
+func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup func(), err error) {
+	item := a.itemAt(itemIndex)
+	if item == nil {
+		return nil, nil, fmt.Errorf("invalid item")
+	}
+	actions := config.ActionsForItem(a.cfg.Actions, item)
+	if actionIndex < 0 || actionIndex >= len(actions) {
+		return nil, nil, fmt.Errorf("invalid action")
+	}
+	if len(a.cfg.Shell) == 0 {
+		return nil, nil, fmt.Errorf("no shell configured")
+	}
+
+	act := actions[actionIndex]
+	merged := a.mergedItem(item)
+
+	expandedCmd, err := action.Expand(act.Cmd, merged)
+	if err != nil {
+		return nil, nil, fmt.Errorf("cmd template error: %w", err)
+	}
+	// No stayOpen epilogue: there's no interactive terminal for a "press
+	// Enter to close" prompt to wait in, and NoWait's terminal-window
+	// semantics don't apply to a run that never opens one.
+	script := wrapScript(shellBasename(a.cfg.Shell[0]), expandedCmd, false)
+	scriptPath, err := writeTempScript(a.cfg.Shell[0], script)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to write temp script: %w", err)
+	}
+
+	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, false)
+	cmd = exec.Command(shellArgv[0], shellArgv[1:]...)
+	if a.exeDir != "" {
+		cmd.Dir = a.exeDir
+	}
+	cmd.Env = action.Env(merged)
+	// Stdin is deliberately left disconnected: an inline run is for a
+	// command that isn't expected to need input. Go gives an unset Stdin an
+	// immediate EOF rather than hanging, so a command that unexpectedly
+	// prompts fails fast instead of blocking forever with no terminal for
+	// anyone to type into.
+	setProcessGroup(cmd)
+	return cmd, func() { os.Remove(scriptPath) }, nil
+}
+
+// exitCodeOf turns a cmd.Wait() error into an (exitCode, errMsg) pair — nil
+// means exit 0, a non-*exec.ExitError (e.g. the process was killed by a
+// signal) reports -1 since there's no real exit code to extract.
+func exitCodeOf(waitErr error) (exitCode int, errMsg string) {
+	if waitErr == nil {
+		return 0, ""
+	}
+	errMsg = waitErr.Error()
+	var exitErr *exec.ExitError
+	if errors.As(waitErr, &exitErr) {
+		return exitErr.ExitCode(), errMsg
+	}
+	return -1, errMsg
+}
+
 // InlineRunResultDTO is RunActionInline's result: the captured output
 // (stdout and stderr interleaved in real execution order) and exit status
 // (or -1 if the process was killed by a signal rather than exiting
@@ -543,19 +652,12 @@ type InlineRunResultDTO struct {
 // separate completion notification of any kind — no pushed event, no
 // separate status call to poll. Only one inline run is allowed at a time
 // app-wide, since the Command pane has only one output area to show it in.
+//
+// This is the frontend's fallback when the live runner (GetRunnerPort/
+// handleRunHTTP) is disabled or failed to start — see startLiveRunner's doc
+// comment for why a plain blocking call, not a pushed event or a polled
+// status method, is what's reliable through Wails' own JS<->Go binding.
 func (a *App) RunActionInline(itemIndex, actionIndex int) (InlineRunResultDTO, error) {
-	item := a.itemAt(itemIndex)
-	if item == nil {
-		return InlineRunResultDTO{}, fmt.Errorf("invalid item")
-	}
-	actions := config.ActionsForItem(a.cfg.Actions, item)
-	if actionIndex < 0 || actionIndex >= len(actions) {
-		return InlineRunResultDTO{}, fmt.Errorf("invalid action")
-	}
-	if len(a.cfg.Shell) == 0 {
-		return InlineRunResultDTO{}, fmt.Errorf("no shell configured")
-	}
-
 	a.inlineMu.Lock()
 	if a.inlineCmd != nil {
 		a.inlineMu.Unlock()
@@ -563,35 +665,12 @@ func (a *App) RunActionInline(itemIndex, actionIndex int) (InlineRunResultDTO, e
 	}
 	a.inlineMu.Unlock()
 
-	act := actions[actionIndex]
-	merged := a.mergedItem(item)
-
-	expandedCmd, err := action.Expand(act.Cmd, merged)
+	cmd, cleanup, err := a.buildInlineCmd(itemIndex, actionIndex)
 	if err != nil {
-		return InlineRunResultDTO{}, fmt.Errorf("cmd template error: %w", err)
+		return InlineRunResultDTO{}, err
 	}
-	// No stayOpen epilogue: there's no interactive terminal for a "press
-	// Enter to close" prompt to wait in, and NoWait's terminal-window
-	// semantics don't apply to a run that never opens one.
-	script := wrapScript(shellBasename(a.cfg.Shell[0]), expandedCmd, false)
-	scriptPath, err := writeTempScript(a.cfg.Shell[0], script)
-	if err != nil {
-		return InlineRunResultDTO{}, fmt.Errorf("failed to write temp script: %w", err)
-	}
-	defer os.Remove(scriptPath)
-	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, false)
+	defer cleanup()
 
-	cmd := exec.Command(shellArgv[0], shellArgv[1:]...)
-	if a.exeDir != "" {
-		cmd.Dir = a.exeDir
-	}
-	cmd.Env = action.Env(merged)
-	// Stdin is deliberately left disconnected: an inline run is for a
-	// command that isn't expected to need input. Go gives an unset Stdin an
-	// immediate EOF rather than hanging, so a command that unexpectedly
-	// prompts fails fast instead of blocking forever with no terminal for
-	// anyone to type into.
-	//
 	// Stdout and Stderr go to a real temp file, not an in-memory io.Writer:
 	// both point at the very same file, so the child's writes to each still
 	// interleave in true OS-level chronological order, same guarantee an
@@ -606,7 +685,6 @@ func (a *App) RunActionInline(itemIndex, actionIndex int) (InlineRunResultDTO, e
 	defer outFile.Close()
 	cmd.Stdout = outFile
 	cmd.Stderr = outFile
-	setProcessGroup(cmd)
 
 	if err := cmd.Start(); err != nil {
 		return InlineRunResultDTO{}, err
@@ -620,24 +698,106 @@ func (a *App) RunActionInline(itemIndex, actionIndex int) (InlineRunResultDTO, e
 		a.inlineMu.Unlock()
 	}()
 
-	waitErr := cmd.Wait()
-
-	exitCode := 0
-	errMsg := ""
-	if waitErr != nil {
-		errMsg = waitErr.Error()
-		var exitErr *exec.ExitError
-		if errors.As(waitErr, &exitErr) {
-			exitCode = exitErr.ExitCode()
-		} else {
-			exitCode = -1
-		}
-	}
+	exitCode, errMsg := exitCodeOf(cmd.Wait())
 	output, readErr := os.ReadFile(outFile.Name())
 	if readErr != nil && errMsg == "" {
 		errMsg = fmt.Sprintf("failed to read captured output: %v", readErr)
 	}
 	return InlineRunResultDTO{Output: string(output), ExitCode: exitCode, ErrMsg: errMsg}, nil
+}
+
+// handleRunHTTP is startLiveRunner's one endpoint: given ?item=&action=, runs
+// that item/action pair the same way RunActionInline does (via
+// buildInlineCmd) but streams output live as Server-Sent Events instead of
+// returning it all at once — one "message" event per line of output as it's
+// produced, then one final "done" event carrying the JSON-encoded
+// InlineRunResultDTO (Output always empty there; the lines already streamed
+// are the output).
+func (a *App) handleRunHTTP(w http.ResponseWriter, r *http.Request) {
+	// The webview's own origin (wails://, http://wails.localhost/, etc.) is
+	// never 127.0.0.1, so EventSource enforces CORS same as fetch would —
+	// without this, the request succeeds at the network level but the
+	// browser discards the response before frontend JS ever sees it.
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+
+	itemIndex, err1 := strconv.Atoi(r.URL.Query().Get("item"))
+	actionIndex, err2 := strconv.Atoi(r.URL.Query().Get("action"))
+	if err1 != nil || err2 != nil {
+		http.Error(w, "invalid item/action", http.StatusBadRequest)
+		return
+	}
+
+	a.inlineMu.Lock()
+	if a.inlineCmd != nil {
+		a.inlineMu.Unlock()
+		http.Error(w, "a command is already running", http.StatusConflict)
+		return
+	}
+	a.inlineMu.Unlock()
+
+	cmd, cleanup, err := a.buildInlineCmd(itemIndex, actionIndex)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer cleanup()
+
+	// Unlike RunActionInline's temp file, Stdout is a pipe here: the reading
+	// loop below needs to see each line as it's written, not just the whole
+	// file once at the end.
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	cmd.Stderr = cmd.Stdout
+
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(w, "event: done\ndata: %s\n\n", mustJSON(InlineRunResultDTO{ExitCode: -1, ErrMsg: err.Error()}))
+		flusher.Flush()
+		return
+	}
+	a.inlineMu.Lock()
+	a.inlineCmd = cmd
+	a.inlineMu.Unlock()
+	defer func() {
+		a.inlineMu.Lock()
+		a.inlineCmd = nil
+		a.inlineMu.Unlock()
+	}()
+
+	// bufio.Scanner splits on newlines, so each Text() is inherently a
+	// single line with no embedded "\n\n" — safe to send as one SSE data
+	// field without needing to escape or split it further.
+	scanner := bufio.NewScanner(stdout)
+	for scanner.Scan() {
+		fmt.Fprintf(w, "data: %s\n\n", scanner.Text())
+		flusher.Flush()
+	}
+
+	exitCode, errMsg := exitCodeOf(cmd.Wait())
+	fmt.Fprintf(w, "event: done\ndata: %s\n\n", mustJSON(InlineRunResultDTO{ExitCode: exitCode, ErrMsg: errMsg}))
+	flusher.Flush()
+}
+
+// mustJSON encodes v for an SSE data field. The DTOs passed to it here are
+// fixed, known-good shapes (an int and a string), so the only way
+// json.Marshal fails is a bug in this file, not anything data-dependent.
+func mustJSON(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
 }
 
 // CancelInlineAction terminates the currently running inline action, if any,

@@ -1,7 +1,12 @@
 package gui
 
 import (
+	"bufio"
+	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -338,13 +343,19 @@ func TestWriteTempScript(t *testing.T) {
 }
 
 func inlineTestApp(action config.Action) *App {
-	return NewApp(func() (*config.Config, error) {
+	a := NewApp(func() (*config.Config, error) {
 		return &config.Config{
 			Shell:   []string{"bash", "-c"},
 			Items:   []map[string]any{{"name": "test"}},
 			Actions: []config.Action{action},
 		}, nil
 	})
+	// startLiveRunner only runs from Startup (the Wails OnStartup callback,
+	// called after the window/webview environment is initialized — see its
+	// doc comment), which production code triggers but a bare NewApp() in a
+	// test never does.
+	a.Startup(context.Background())
+	return a
 }
 
 func TestRunActionInline(t *testing.T) {
@@ -450,6 +461,116 @@ func TestCancelInlineActionNoneRunning(t *testing.T) {
 	if err := a.CancelInlineAction(); err == nil {
 		t.Error("expected an error when no inline action is running")
 	}
+}
+
+func TestGetRunnerPort(t *testing.T) {
+	t.Run("nonzero by default", func(t *testing.T) {
+		a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hi"})
+		if a.GetRunnerPort() == 0 {
+			t.Error("GetRunnerPort() = 0, want a live runner listening by default")
+		}
+	})
+	t.Run("zero when disabled", func(t *testing.T) {
+		a := NewApp(func() (*config.Config, error) {
+			return &config.Config{
+				Shell:             []string{"bash", "-c"},
+				Items:             []map[string]any{{"name": "test"}},
+				Actions:           []config.Action{{Title: "Echo", Cmd: "echo hi"}},
+				DisableLiveRunner: true,
+			}, nil
+		})
+		a.Startup(context.Background())
+		if port := a.GetRunnerPort(); port != 0 {
+			t.Errorf("GetRunnerPort() = %d, want 0 when DisableLiveRunner is set", port)
+		}
+	})
+}
+
+// readSSE does the minimum parsing handleRunHTTP's own format needs: each
+// "data: ..." line is one streamed output line, except the one following an
+// "event: done" line, which instead carries the JSON-encoded final result.
+func readSSE(t *testing.T, resp *http.Response) (lines []string, done InlineRunResultDTO) {
+	t.Helper()
+	scanner := bufio.NewScanner(resp.Body)
+	nextIsDone := false
+	for scanner.Scan() {
+		line := scanner.Text()
+		switch {
+		case line == "event: done":
+			nextIsDone = true
+		case strings.HasPrefix(line, "data: "):
+			data := strings.TrimPrefix(line, "data: ")
+			if nextIsDone {
+				if err := json.Unmarshal([]byte(data), &done); err != nil {
+					t.Fatalf("unmarshal done event %q: %v", data, err)
+				}
+				return lines, done
+			}
+			lines = append(lines, data)
+		}
+	}
+	t.Fatal("SSE stream ended without a done event")
+	return nil, InlineRunResultDTO{}
+}
+
+func TestHandleRunHTTPStreamsOutputLiveAndReportsExit(t *testing.T) {
+	a := inlineTestApp(config.Action{Title: "Ticks", Cmd: "echo one; echo two; echo three"})
+	port := a.GetRunnerPort()
+	if port == 0 {
+		t.Fatal("live runner did not start")
+	}
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/run?item=0&action=0", port))
+	if err != nil {
+		t.Fatalf("GET /run: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	lines, done := readSSE(t, resp)
+	if !reflect.DeepEqual(lines, []string{"one", "two", "three"}) {
+		t.Errorf("streamed lines = %v, want [one two three]", lines)
+	}
+	if done.ExitCode != 0 {
+		t.Errorf("done.ExitCode = %d, want 0", done.ExitCode)
+	}
+}
+
+func TestHandleRunHTTPRejectsConcurrentRuns(t *testing.T) {
+	a := inlineTestApp(config.Action{Title: "Sleep", Cmd: "sleep 2"})
+	port := a.GetRunnerPort()
+	if port == 0 {
+		t.Fatal("live runner did not start")
+	}
+
+	firstDone := make(chan struct{})
+	go func() {
+		defer close(firstDone)
+		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/run?item=0&action=0", port))
+		if err != nil {
+			t.Errorf("first GET /run: %v", err)
+			return
+		}
+		defer resp.Body.Close()
+		readSSE(t, resp)
+	}()
+	waitForInlineRunning(t, a)
+
+	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/run?item=0&action=0", port))
+	if err != nil {
+		t.Fatalf("second GET /run: %v", err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusConflict {
+		t.Errorf("second run status = %d, want %d", resp.StatusCode, http.StatusConflict)
+	}
+
+	if err := a.CancelInlineAction(); err != nil {
+		t.Fatalf("CancelInlineAction() error = %v", err)
+	}
+	<-firstDone
 }
 
 func TestCleanupTempScriptsIgnoresAge(t *testing.T) {
