@@ -13,7 +13,7 @@
     RunAction,
     RunActionInline,
     CancelInlineAction,
-    GetRunnerPort,
+    GetInlineStatus,
     LoadError,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
@@ -44,22 +44,18 @@
   let inlineOutput = ''
   let inlineExitCode: number | null = null
   let inlineOutputEl: HTMLElement | undefined
-  // 0 means the live runner is disabled or failed to start — runActionInline
-  // falls back to RunActionInline's single blocking call in that case. Set
-  // once on load, not polled — see startLiveRunner's doc comment
-  // (internal/gui/app.go) for why that distinction matters here.
-  let runnerPort = 0
 
   // Autoscrolls the inline output box to the newest line as it streams in.
   // Called directly from the code that appends to inlineOutput (see
-  // runActionInlineLive/runActionInline below), not from a `$:` reactive
-  // statement watching inlineOutput/inlineOutputEl together — that shape
-  // was tried first and reliably broke EventSource/fetch delivery in
-  // WebKitGTK: inlineOutputEl is only bound once the <pre> below actually
-  // renders (inlineOutput must already be non-empty for that), so the
-  // reactive statement's own dependency on both variables together, right
-  // as EventSource messages arrive, was the trigger. Root-caused by
-  // bisection, not fully understood at the WebKitGTK level.
+  // pollInlineStatus below), not from a `$:` reactive statement watching
+  // inlineOutput/inlineOutputEl together — that shape was tried first and
+  // reliably broke Wails' own bound-method delivery (and, separately, an
+  // EventSource-based version of this feature) in WebKitGTK:
+  // inlineOutputEl is only bound once the <pre> below actually renders
+  // (inlineOutput must already be non-empty for that), so the reactive
+  // statement's own dependency on both variables together, right as new
+  // output arrived, was the trigger. Root-caused by bisection, not fully
+  // understood at the WebKitGTK level.
   async function scrollInlineOutputToEnd() {
     await tick()
     if (inlineOutputEl) inlineOutputEl.scrollTop = inlineOutputEl.scrollHeight
@@ -168,7 +164,6 @@
     titles = await GetTitles()
     items = await GetItems()
     actionGroupCatalog = await GetActionGroups()
-    runnerPort = await GetRunnerPort()
     if (items.length > 0) selectItem(0)
   })
 
@@ -267,38 +262,29 @@
     return selectedItem === itemIndex && selectedActionIndex === actionIndex
   }
 
-  // Runs itemIndex/actionIndex through the live runner (see GetRunnerPort's
-  // doc comment for why this exists instead of a Wails-bound streaming
-  // call): a plain browser EventSource against the local HTTP server,
-  // appending each streamed line as it arrives instead of waiting for the
-  // whole result like the RunActionInline fallback below does.
-  function runActionInlineLive(itemIndex: number, actionIndex: number): Promise<void> {
-    return new Promise((resolve) => {
-      const es = new EventSource(`http://127.0.0.1:${runnerPort}/run?item=${itemIndex}&action=${actionIndex}`)
-      let settled = false
-      const finish = (exitCode: number | null, errMsg?: string) => {
-        if (settled) return
-        settled = true
-        es.close()
-        if (stillSelected(itemIndex, actionIndex)) {
-          inlineRunning = false
-          inlineExitCode = exitCode
-          if (errMsg) flash(`Run failed: ${errMsg}`)
-        }
-        resolve()
+  // How the frontend gets a live-updating view of an inline run: polling
+  // GetInlineStatus on a short timer, not a pushed event — this app's other
+  // bound methods are all plain request/response calls, and that's the
+  // shape that's held up reliably here (see scrollInlineOutputToEnd's doc
+  // comment above for the actual bug that made earlier streaming attempts
+  // look unreliable — it wasn't Wails or this call shape at all).
+  const INLINE_POLL_INTERVAL_MS = 300
+
+  async function pollInlineStatus(itemIndex: number, actionIndex: number) {
+    for (;;) {
+      const status = await GetInlineStatus()
+      if (!stillSelected(itemIndex, actionIndex)) return
+      inlineOutput = status.output
+      scrollInlineOutputToEnd()
+      if (status.running) {
+        await new Promise((resolve) => setTimeout(resolve, INLINE_POLL_INTERVAL_MS))
+        continue
       }
-      es.onmessage = (e) => {
-        if (stillSelected(itemIndex, actionIndex)) {
-          inlineOutput += (inlineOutput ? '\n' : '') + e.data
-          scrollInlineOutputToEnd()
-        }
-      }
-      es.addEventListener('done', (e: MessageEvent) => {
-        const result = JSON.parse(e.data) as gui.InlineRunResultDTO
-        finish(result.exitCode, result.errMsg)
-      })
-      es.onerror = () => finish(-1, 'connection to local runner lost')
-    })
+      inlineRunning = false
+      inlineExitCode = status.exitCode
+      if (status.errMsg) flash(`Run failed: ${status.errMsg}`)
+      return
+    }
   }
 
   async function runActionInline() {
@@ -308,22 +294,12 @@
     inlineOutput = ''
     inlineExitCode = null
     inlineRunning = true
-
-    if (runnerPort > 0) {
-      await runActionInlineLive(itemIndex, actionIndex)
-      return
-    }
     try {
-      const result = await RunActionInline(itemIndex, actionIndex)
-      if (stillSelected(itemIndex, actionIndex)) {
-        inlineExitCode = result.exitCode
-        inlineOutput = result.output
-        if (result.errMsg) flash(`Run failed: ${result.errMsg}`)
-      }
+      await RunActionInline(itemIndex, actionIndex)
+      pollInlineStatus(itemIndex, actionIndex)
     } catch (err) {
+      inlineRunning = false
       flash(`Run failed: ${err}`)
-    } finally {
-      if (stillSelected(itemIndex, actionIndex)) inlineRunning = false
     }
   }
 

@@ -333,8 +333,6 @@ The **Run** button's terminal window is independent once launched — no output 
 
 For a command that isn't expected to need interactive input, the **Run here** button next to **Run** executes it directly and streams the captured output — stdout and stderr interleaved in real execution order — live into the Command pane as it's produced, instead of opening a terminal window. A **Cancel** button appears while it's running, and forcibly terminates the whole process tree (not just the top-level shell); once the command finishes, the exit code stays shown alongside the full output. Only one inline run is allowed at a time app-wide, since the Command pane has only one output area to show it in. Like **Run**, the working directory is the GUI executable's folder, and stdin is left disconnected — a command that unexpectedly prompts for input fails fast with an immediate EOF rather than hanging with no terminal for anyone to type into.
 
-Live streaming is implemented via a small local HTTP server (`127.0.0.1`, an OS-assigned port each launch) the GUI starts alongside itself, rather than through Wails' own Go↔JS bindings — repeated calls over that binding for this specific streaming shape turned out to be unreliable in testing. Set `disableLiveRunner: true` in `config.yaml`/`config-win.yaml` to turn the local server off entirely; **Run here** then falls back to running the command to completion and showing the full result at once instead of streaming it — **Cancel** still works the same way in either mode.
-
 Launch it the same way as the TUI:
 
 ```bash

@@ -12,11 +12,11 @@ export function GetActionGroups():Promise<Array<gui.ActionGroupDTO>>;
 
 export function GetActions(arg1:number):Promise<Array<gui.ActionDTO>>;
 
+export function GetInlineStatus():Promise<gui.InlineStatusDTO>;
+
 export function GetItemDetails(arg1:number):Promise<gui.DetailsDTO>;
 
 export function GetItems():Promise<Array<gui.ItemDTO>>;
-
-export function GetRunnerPort():Promise<number>;
 
 export function GetTitles():Promise<gui.TitlesDTO>;
 
@@ -26,4 +26,4 @@ export function ReloadConfig():Promise<string>;
 
 export function RunAction(arg1:number,arg2:number):Promise<void>;
 
-export function RunActionInline(arg1:number,arg2:number):Promise<gui.InlineRunResultDTO>;
+export function RunActionInline(arg1:number,arg2:number):Promise<void>;

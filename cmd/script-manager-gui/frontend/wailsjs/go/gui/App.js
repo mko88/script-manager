@@ -22,16 +22,16 @@ export function GetActions(arg1) {
   return window['go']['gui']['App']['GetActions'](arg1);
 }
 
+export function GetInlineStatus() {
+  return window['go']['gui']['App']['GetInlineStatus']();
+}
+
 export function GetItemDetails(arg1) {
   return window['go']['gui']['App']['GetItemDetails'](arg1);
 }
 
 export function GetItems() {
   return window['go']['gui']['App']['GetItems']();
-}
-
-export function GetRunnerPort() {
-  return window['go']['gui']['App']['GetRunnerPort']();
 }
 
 export function GetTitles() {

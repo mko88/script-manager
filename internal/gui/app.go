@@ -4,15 +4,11 @@
 package gui
 
 import (
-	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	stdhtml "html"
-	"net"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,6 +40,10 @@ const wtWindowName = "script-manager"
 // cleanupTempScripts for their lifecycle.
 const tempScriptPattern = "script-manager-action-*"
 
+// inlineOutPattern matches the temp output files RunActionInline writes;
+// see cleanupTempScripts for their lifecycle.
+const inlineOutPattern = "script-manager-inline-*"
+
 // App is the Wails-bound backend.
 type App struct {
 	ctx     context.Context
@@ -56,14 +56,15 @@ type App struct {
 	// inlineMu guards the one inline (captured-output) run allowed at a time
 	// app-wide, since the Command pane has only one output area to show it
 	// in. inlineCmd is non-nil only while a run is in progress, letting a
-	// concurrent CancelInlineAction call find and kill it.
-	inlineMu  sync.Mutex
-	inlineCmd *exec.Cmd
-
-	// runnerPort is the local HTTP server's port (see startLiveRunner), 0 if
-	// config.DisableLiveRunner is set or the server failed to start — either
-	// way the frontend falls back to RunActionInline's single blocking call.
-	runnerPort int
+	// concurrent CancelInlineAction call find and kill it. inlineOutPath
+	// names the temp file GetInlineStatus re-reads on every poll; it stays
+	// set after the run finishes so a final poll can still read the
+	// complete output, and is only cleaned up when the next run starts.
+	inlineMu       sync.Mutex
+	inlineCmd      *exec.Cmd
+	inlineOutPath  string
+	inlineExitCode int
+	inlineErrMsg   string
 }
 
 // NewApp builds the backend around a config loader, so an explicit -config
@@ -93,43 +94,9 @@ func (a *App) LoadError() string {
 	return a.loadErr.Error()
 }
 
-// startLiveRunner starts the local HTTP server RunActionInline's live
-// streaming depends on, on an OS-assigned free port — a.runnerPort stays 0
-// (frontend falls back to a single blocking call) if this fails.
-//
-// This exists because Wails' own JS<->Go binding round trip turned out to be
-// unreliable for exactly this shape of call: a bound method invoked
-// repeatedly in a loop (as live-updating output requires, whether pushed via
-// an event or polled) reliably failed to deliver a response back to the
-// frontend from the second call onward, even though the Go side completed
-// every call correctly — confirmed by direct tracing during development (see
-// project history). A plain browser EventSource talking to a local HTTP
-// server never touches that binding mechanism at all, and was confirmed
-// reliable across repeated live-streamed runs in the same testing.
-func (a *App) startLiveRunner() {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return
-	}
-	a.runnerPort = ln.Addr().(*net.TCPAddr).Port
-	mux := http.NewServeMux()
-	mux.HandleFunc("/run", a.handleRunHTTP)
-	go http.Serve(ln, mux)
-}
-
-// GetRunnerPort returns the live runner's port, or 0 if it's disabled or
-// failed to start. Called once by the frontend on load, not polled — see
-// startLiveRunner's doc comment for why that distinction matters here.
-func (a *App) GetRunnerPort() int {
-	return a.runnerPort
-}
-
 // Startup is wired as the Wails OnStartup callback.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
-	if !a.cfg.DisableLiveRunner {
-		a.startLiveRunner()
-	}
 }
 
 // exeDir returns the directory containing the running executable, or "" if
@@ -161,16 +128,18 @@ const cleanupTempScriptMinAge = 2 * time.Second
 // whatever that missed — e.g. the terminal or shell never started at all —
 // so nothing lingers across restarts, however old it is.
 func cleanupTempScripts() {
-	matches, err := filepath.Glob(filepath.Join(os.TempDir(), tempScriptPattern))
-	if err != nil {
-		return
-	}
 	cutoff := time.Now().Add(-cleanupTempScriptMinAge)
-	for _, path := range matches {
-		if info, err := os.Stat(path); err == nil && info.ModTime().After(cutoff) {
+	for _, pattern := range []string{tempScriptPattern, inlineOutPattern} {
+		matches, err := filepath.Glob(filepath.Join(os.TempDir(), pattern))
+		if err != nil {
 			continue
 		}
-		os.Remove(path)
+		for _, path := range matches {
+			if info, err := os.Stat(path); err == nil && info.ModTime().After(cutoff) {
+				continue
+			}
+			os.Remove(path)
+		}
 	}
 }
 
@@ -634,170 +603,116 @@ func exitCodeOf(waitErr error) (exitCode int, errMsg string) {
 	return -1, errMsg
 }
 
-// InlineRunResultDTO is RunActionInline's result: the captured output
-// (stdout and stderr interleaved in real execution order) and exit status
-// (or -1 if the process was killed by a signal rather than exiting
-// normally).
-type InlineRunResultDTO struct {
+// InlineStatusDTO is GetInlineStatus's snapshot of the one app-wide inline
+// run. Output is whatever has been captured so far — the full thing once
+// Running is false — and ExitCode/ErrMsg are only meaningful once Running is
+// false and a run has actually completed.
+type InlineStatusDTO struct {
+	Running  bool   `json:"running"`
 	Output   string `json:"output"`
 	ExitCode int    `json:"exitCode"`
 	ErrMsg   string `json:"errMsg"`
 }
 
-// RunActionInline runs the item/action pair with its output captured instead
-// of handed off to an external terminal — meant for a command that isn't
-// expected to need interactive input, so its result can be read right in the
-// Command pane rather than needing a separate terminal window. It blocks
-// until the process exits and returns the full result directly, with no
-// separate completion notification of any kind — no pushed event, no
-// separate status call to poll. Only one inline run is allowed at a time
+// RunActionInline starts the item/action pair running with its output
+// captured instead of handed off to an external terminal — meant for a
+// command that isn't expected to need interactive input, so its result can
+// be read right in the Command pane rather than needing a separate terminal
+// window. It returns as soon as the process starts; the frontend polls
+// GetInlineStatus on a short timer to read the output captured so far and
+// learn when the process finishes. Only one inline run is allowed at a time
 // app-wide, since the Command pane has only one output area to show it in.
-//
-// This is the frontend's fallback when the live runner (GetRunnerPort/
-// handleRunHTTP) is disabled or failed to start — see startLiveRunner's doc
-// comment for why a plain blocking call, not a pushed event or a polled
-// status method, is what's reliable through Wails' own JS<->Go binding.
-func (a *App) RunActionInline(itemIndex, actionIndex int) (InlineRunResultDTO, error) {
+func (a *App) RunActionInline(itemIndex, actionIndex int) error {
 	a.inlineMu.Lock()
 	if a.inlineCmd != nil {
 		a.inlineMu.Unlock()
-		return InlineRunResultDTO{}, fmt.Errorf("a command is already running")
+		return fmt.Errorf("a command is already running")
+	}
+	// The previous run's output file (if any) is only cleaned up here, not
+	// right when that run finished, so a final GetInlineStatus poll after
+	// completion can still read it.
+	if a.inlineOutPath != "" {
+		os.Remove(a.inlineOutPath)
+		a.inlineOutPath = ""
 	}
 	a.inlineMu.Unlock()
 
 	cmd, cleanup, err := a.buildInlineCmd(itemIndex, actionIndex)
 	if err != nil {
-		return InlineRunResultDTO{}, err
+		return err
 	}
-	defer cleanup()
 
 	// Stdout and Stderr go to a real temp file, not an in-memory io.Writer:
 	// both point at the very same file, so the child's writes to each still
 	// interleave in true OS-level chronological order, same guarantee an
-	// in-memory bytes.Buffer/io.Pipe would give — but backed by a real fd
-	// Go just hands to the child directly, no internal copying goroutine
-	// involved.
-	outFile, err := os.CreateTemp("", "script-manager-inline-*.log")
+	// in-memory bytes.Buffer/io.Pipe would give — but backed by a real fd Go
+	// just hands to the child directly, no internal copying goroutine
+	// involved. GetInlineStatus re-reads this same file on every poll to
+	// report the output captured so far, rather than the run accumulating
+	// it in memory itself.
+	outFile, err := os.CreateTemp("", inlineOutPattern+".log")
 	if err != nil {
-		return InlineRunResultDTO{}, fmt.Errorf("failed to create output file: %w", err)
+		cleanup()
+		return fmt.Errorf("failed to create output file: %w", err)
 	}
-	defer os.Remove(outFile.Name())
-	defer outFile.Close()
 	cmd.Stdout = outFile
 	cmd.Stderr = outFile
 
 	if err := cmd.Start(); err != nil {
-		return InlineRunResultDTO{}, err
+		outFile.Close()
+		os.Remove(outFile.Name())
+		cleanup()
+		return err
 	}
+
 	a.inlineMu.Lock()
 	a.inlineCmd = cmd
+	a.inlineOutPath = outFile.Name()
+	a.inlineExitCode = 0
+	a.inlineErrMsg = ""
 	a.inlineMu.Unlock()
-	defer func() {
+
+	go func() {
+		waitErr := cmd.Wait()
+		// Only safe to close once Wait returns: os/exec's own copier isn't
+		// involved here (outFile is a real fd, not a Go-managed io.Writer),
+		// but the child itself may still have the fd open until this point.
+		outFile.Close()
+		cleanup()
+
+		exitCode, errMsg := exitCodeOf(waitErr)
+
 		a.inlineMu.Lock()
+		a.inlineExitCode = exitCode
+		a.inlineErrMsg = errMsg
 		a.inlineCmd = nil
 		a.inlineMu.Unlock()
 	}()
 
-	exitCode, errMsg := exitCodeOf(cmd.Wait())
-	output, readErr := os.ReadFile(outFile.Name())
-	if readErr != nil && errMsg == "" {
-		errMsg = fmt.Sprintf("failed to read captured output: %v", readErr)
-	}
-	return InlineRunResultDTO{Output: string(output), ExitCode: exitCode, ErrMsg: errMsg}, nil
+	return nil
 }
 
-// handleRunHTTP is startLiveRunner's one endpoint: given ?item=&action=, runs
-// that item/action pair the same way RunActionInline does (via
-// buildInlineCmd) but streams output live as Server-Sent Events instead of
-// returning it all at once — one "message" event per line of output as it's
-// produced, then one final "done" event carrying the JSON-encoded
-// InlineRunResultDTO (Output always empty there; the lines already streamed
-// are the output).
-func (a *App) handleRunHTTP(w http.ResponseWriter, r *http.Request) {
-	// The webview's own origin (wails://, http://wails.localhost/, etc.) is
-	// never 127.0.0.1, so EventSource enforces CORS same as fetch would —
-	// without this, the request succeeds at the network level but the
-	// browser discards the response before frontend JS ever sees it.
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	itemIndex, err1 := strconv.Atoi(r.URL.Query().Get("item"))
-	actionIndex, err2 := strconv.Atoi(r.URL.Query().Get("action"))
-	if err1 != nil || err2 != nil {
-		http.Error(w, "invalid item/action", http.StatusBadRequest)
-		return
-	}
-
+// GetInlineStatus reports the current state of the one app-wide inline run —
+// the frontend polls this on a short timer after calling RunActionInline to
+// get a live-updating view of the output, rather than being pushed a
+// completion event. Output is read fresh from the run's temp file on every
+// call, so it reflects whatever the process has written so far; once
+// Running is false, it's the complete output and ExitCode/ErrMsg are final.
+func (a *App) GetInlineStatus() InlineStatusDTO {
 	a.inlineMu.Lock()
-	if a.inlineCmd != nil {
-		a.inlineMu.Unlock()
-		http.Error(w, "a command is already running", http.StatusConflict)
-		return
-	}
+	running := a.inlineCmd != nil
+	outPath := a.inlineOutPath
+	exitCode := a.inlineExitCode
+	errMsg := a.inlineErrMsg
 	a.inlineMu.Unlock()
 
-	cmd, cleanup, err := a.buildInlineCmd(itemIndex, actionIndex)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	output := ""
+	if outPath != "" {
+		if data, err := os.ReadFile(outPath); err == nil {
+			output = string(data)
+		}
 	}
-	defer cleanup()
-
-	// Unlike RunActionInline's temp file, Stdout is a pipe here: the reading
-	// loop below needs to see each line as it's written, not just the whole
-	// file once at the end.
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	cmd.Stderr = cmd.Stdout
-
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming unsupported", http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-
-	if err := cmd.Start(); err != nil {
-		fmt.Fprintf(w, "event: done\ndata: %s\n\n", mustJSON(InlineRunResultDTO{ExitCode: -1, ErrMsg: err.Error()}))
-		flusher.Flush()
-		return
-	}
-	a.inlineMu.Lock()
-	a.inlineCmd = cmd
-	a.inlineMu.Unlock()
-	defer func() {
-		a.inlineMu.Lock()
-		a.inlineCmd = nil
-		a.inlineMu.Unlock()
-	}()
-
-	// bufio.Scanner splits on newlines, so each Text() is inherently a
-	// single line with no embedded "\n\n" — safe to send as one SSE data
-	// field without needing to escape or split it further.
-	scanner := bufio.NewScanner(stdout)
-	for scanner.Scan() {
-		fmt.Fprintf(w, "data: %s\n\n", scanner.Text())
-		flusher.Flush()
-	}
-
-	exitCode, errMsg := exitCodeOf(cmd.Wait())
-	fmt.Fprintf(w, "event: done\ndata: %s\n\n", mustJSON(InlineRunResultDTO{ExitCode: exitCode, ErrMsg: errMsg}))
-	flusher.Flush()
-}
-
-// mustJSON encodes v for an SSE data field. The DTOs passed to it here are
-// fixed, known-good shapes (an int and a string), so the only way
-// json.Marshal fails is a bug in this file, not anything data-dependent.
-func mustJSON(v any) string {
-	b, err := json.Marshal(v)
-	if err != nil {
-		panic(err)
-	}
-	return string(b)
+	return InlineStatusDTO{Running: running, Output: output, ExitCode: exitCode, ErrMsg: errMsg}
 }
 
 // CancelInlineAction terminates the currently running inline action, if any,

@@ -1,12 +1,7 @@
 package gui
 
 import (
-	"bufio"
-	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
-	"net/http"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -343,69 +338,77 @@ func TestWriteTempScript(t *testing.T) {
 }
 
 func inlineTestApp(action config.Action) *App {
-	a := NewApp(func() (*config.Config, error) {
+	return NewApp(func() (*config.Config, error) {
 		return &config.Config{
 			Shell:   []string{"bash", "-c"},
 			Items:   []map[string]any{{"name": "test"}},
 			Actions: []config.Action{action},
 		}, nil
 	})
-	// startLiveRunner only runs from Startup (the Wails OnStartup callback,
-	// called after the window/webview environment is initialized — see its
-	// doc comment), which production code triggers but a bare NewApp() in a
-	// test never does.
-	a.Startup(context.Background())
-	return a
+}
+
+// waitForInlineDone polls GetInlineStatus until Running is false, returning
+// the final status — used by tests exercising RunActionInline, which starts
+// the process and returns immediately, with GetInlineStatus as the only way
+// to observe progress and completion.
+func waitForInlineDone(t *testing.T, a *App) InlineStatusDTO {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		status := a.GetInlineStatus()
+		if !status.Running {
+			return status
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("inline action did not finish within the deadline")
+	return InlineStatusDTO{}
 }
 
 func TestRunActionInline(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hello-inline"})
 
-	result, err := a.RunActionInline(0, 0)
-	if err != nil {
+	if err := a.RunActionInline(0, 0); err != nil {
 		t.Fatalf("RunActionInline() error = %v", err)
 	}
-	if result.ExitCode != 0 || !strings.Contains(result.Output, "hello-inline") {
-		t.Errorf("RunActionInline() = %+v, want exit 0 and output containing %q", result, "hello-inline")
+	status := waitForInlineDone(t, a)
+	if status.ExitCode != 0 || !strings.Contains(status.Output, "hello-inline") {
+		t.Errorf("final status = %+v, want exit 0 and output containing %q", status, "hello-inline")
 	}
 }
 
 func TestRunActionInlineCapturesStderrAndNonZeroExit(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Fail", Cmd: "echo oops >&2; exit 3"})
 
-	result, err := a.RunActionInline(0, 0)
-	if err != nil {
+	if err := a.RunActionInline(0, 0); err != nil {
 		t.Fatalf("RunActionInline() error = %v", err)
 	}
-	if result.ExitCode != 3 || !strings.Contains(result.Output, "oops") {
-		t.Errorf("RunActionInline() = %+v, want exit 3 and output containing %q", result, "oops")
+	status := waitForInlineDone(t, a)
+	if status.ExitCode != 3 || !strings.Contains(status.Output, "oops") {
+		t.Errorf("final status = %+v, want exit 3 and output containing %q", status, "oops")
 	}
 }
 
 func TestRunActionInlineInvalidItemOrAction(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hi"})
 
-	if _, err := a.RunActionInline(5, 0); err == nil {
+	if err := a.RunActionInline(5, 0); err == nil {
 		t.Error("expected an error for an out-of-range item")
 	}
-	if _, err := a.RunActionInline(0, 5); err == nil {
+	if err := a.RunActionInline(0, 5); err == nil {
 		t.Error("expected an error for an out-of-range action")
 	}
 }
 
-// waitForInlineRunning blocks until a's inlineCmd is set — used by tests
-// that need RunActionInline (a single blocking call) running on a
-// background goroutine so the test's own goroutine can act concurrently
-// against it (CancelInlineAction, or a second RunActionInline expected to be
-// rejected).
+// waitForInlineRunning blocks until GetInlineStatus reports Running — used
+// by tests that need RunActionInline's background process still active so
+// the test's own goroutine can act concurrently against it
+// (CancelInlineAction, or a second RunActionInline expected to be rejected).
 func waitForInlineRunning(t *testing.T, a *App) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		a.inlineMu.Lock()
-		running := a.inlineCmd != nil
-		a.inlineMu.Unlock()
-		if running {
+		if a.GetInlineStatus().Running {
 			return
 		}
 		time.Sleep(10 * time.Millisecond)
@@ -416,23 +419,51 @@ func waitForInlineRunning(t *testing.T, a *App) {
 func TestRunActionInlineRejectsConcurrentRuns(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Sleep", Cmd: "sleep 2"})
 
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		if _, err := a.RunActionInline(0, 0); err != nil {
-			t.Errorf("first RunActionInline() error = %v", err)
-		}
-	}()
+	if err := a.RunActionInline(0, 0); err != nil {
+		t.Fatalf("first RunActionInline() error = %v", err)
+	}
 	waitForInlineRunning(t, a)
 
-	if _, err := a.RunActionInline(0, 0); err == nil {
+	if err := a.RunActionInline(0, 0); err == nil {
 		t.Error("expected an error running a second inline action while the first is still running")
 	}
 
 	if err := a.CancelInlineAction(); err != nil {
 		t.Fatalf("CancelInlineAction() error = %v", err)
 	}
-	<-done
+	waitForInlineDone(t, a)
+}
+
+func TestGetInlineStatusReflectsPartialOutputWhileRunning(t *testing.T) {
+	a := inlineTestApp(config.Action{Title: "Slow", Cmd: "echo first; sleep 2; echo second"})
+
+	if err := a.RunActionInline(0, 0); err != nil {
+		t.Fatalf("RunActionInline() error = %v", err)
+	}
+	waitForInlineRunning(t, a)
+
+	deadline := time.Now().Add(3 * time.Second)
+	for time.Now().Before(deadline) {
+		status := a.GetInlineStatus()
+		if strings.Contains(status.Output, "first") {
+			if strings.Contains(status.Output, "second") {
+				t.Fatalf("saw both lines while still mid-sleep: %+v", status)
+			}
+			if !status.Running {
+				t.Fatalf("status already reports done while checking partial output: %+v", status)
+			}
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+		if time.Now().After(deadline) {
+			t.Fatal("never observed partial output (\"first\") while the process was still running")
+		}
+	}
+
+	status := waitForInlineDone(t, a)
+	if status.ExitCode != 0 || !strings.Contains(status.Output, "first") || !strings.Contains(status.Output, "second") {
+		t.Errorf("final status = %+v, want exit 0 and both lines", status)
+	}
 }
 
 func TestCancelInlineActionKillsProcessTree(t *testing.T) {
@@ -441,19 +472,15 @@ func TestCancelInlineActionKillsProcessTree(t *testing.T) {
 	// shell would silently orphan this sleep, leaving it running.
 	a := inlineTestApp(config.Action{Title: "Sleep", Cmd: "sleep 30"})
 
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		if _, err := a.RunActionInline(0, 0); err != nil {
-			t.Errorf("RunActionInline() error = %v", err)
-		}
-	}()
+	if err := a.RunActionInline(0, 0); err != nil {
+		t.Fatalf("RunActionInline() error = %v", err)
+	}
 	waitForInlineRunning(t, a)
 
 	if err := a.CancelInlineAction(); err != nil {
 		t.Fatalf("CancelInlineAction() error = %v", err)
 	}
-	<-done
+	waitForInlineDone(t, a)
 }
 
 func TestCancelInlineActionNoneRunning(t *testing.T) {
@@ -461,116 +488,6 @@ func TestCancelInlineActionNoneRunning(t *testing.T) {
 	if err := a.CancelInlineAction(); err == nil {
 		t.Error("expected an error when no inline action is running")
 	}
-}
-
-func TestGetRunnerPort(t *testing.T) {
-	t.Run("nonzero by default", func(t *testing.T) {
-		a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hi"})
-		if a.GetRunnerPort() == 0 {
-			t.Error("GetRunnerPort() = 0, want a live runner listening by default")
-		}
-	})
-	t.Run("zero when disabled", func(t *testing.T) {
-		a := NewApp(func() (*config.Config, error) {
-			return &config.Config{
-				Shell:             []string{"bash", "-c"},
-				Items:             []map[string]any{{"name": "test"}},
-				Actions:           []config.Action{{Title: "Echo", Cmd: "echo hi"}},
-				DisableLiveRunner: true,
-			}, nil
-		})
-		a.Startup(context.Background())
-		if port := a.GetRunnerPort(); port != 0 {
-			t.Errorf("GetRunnerPort() = %d, want 0 when DisableLiveRunner is set", port)
-		}
-	})
-}
-
-// readSSE does the minimum parsing handleRunHTTP's own format needs: each
-// "data: ..." line is one streamed output line, except the one following an
-// "event: done" line, which instead carries the JSON-encoded final result.
-func readSSE(t *testing.T, resp *http.Response) (lines []string, done InlineRunResultDTO) {
-	t.Helper()
-	scanner := bufio.NewScanner(resp.Body)
-	nextIsDone := false
-	for scanner.Scan() {
-		line := scanner.Text()
-		switch {
-		case line == "event: done":
-			nextIsDone = true
-		case strings.HasPrefix(line, "data: "):
-			data := strings.TrimPrefix(line, "data: ")
-			if nextIsDone {
-				if err := json.Unmarshal([]byte(data), &done); err != nil {
-					t.Fatalf("unmarshal done event %q: %v", data, err)
-				}
-				return lines, done
-			}
-			lines = append(lines, data)
-		}
-	}
-	t.Fatal("SSE stream ended without a done event")
-	return nil, InlineRunResultDTO{}
-}
-
-func TestHandleRunHTTPStreamsOutputLiveAndReportsExit(t *testing.T) {
-	a := inlineTestApp(config.Action{Title: "Ticks", Cmd: "echo one; echo two; echo three"})
-	port := a.GetRunnerPort()
-	if port == 0 {
-		t.Fatal("live runner did not start")
-	}
-
-	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/run?item=0&action=0", port))
-	if err != nil {
-		t.Fatalf("GET /run: %v", err)
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("status = %d, want 200", resp.StatusCode)
-	}
-
-	lines, done := readSSE(t, resp)
-	if !reflect.DeepEqual(lines, []string{"one", "two", "three"}) {
-		t.Errorf("streamed lines = %v, want [one two three]", lines)
-	}
-	if done.ExitCode != 0 {
-		t.Errorf("done.ExitCode = %d, want 0", done.ExitCode)
-	}
-}
-
-func TestHandleRunHTTPRejectsConcurrentRuns(t *testing.T) {
-	a := inlineTestApp(config.Action{Title: "Sleep", Cmd: "sleep 2"})
-	port := a.GetRunnerPort()
-	if port == 0 {
-		t.Fatal("live runner did not start")
-	}
-
-	firstDone := make(chan struct{})
-	go func() {
-		defer close(firstDone)
-		resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/run?item=0&action=0", port))
-		if err != nil {
-			t.Errorf("first GET /run: %v", err)
-			return
-		}
-		defer resp.Body.Close()
-		readSSE(t, resp)
-	}()
-	waitForInlineRunning(t, a)
-
-	resp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/run?item=0&action=0", port))
-	if err != nil {
-		t.Fatalf("second GET /run: %v", err)
-	}
-	resp.Body.Close()
-	if resp.StatusCode != http.StatusConflict {
-		t.Errorf("second run status = %d, want %d", resp.StatusCode, http.StatusConflict)
-	}
-
-	if err := a.CancelInlineAction(); err != nil {
-		t.Fatalf("CancelInlineAction() error = %v", err)
-	}
-	<-firstDone
 }
 
 func TestCleanupTempScriptsIgnoresAge(t *testing.T) {
