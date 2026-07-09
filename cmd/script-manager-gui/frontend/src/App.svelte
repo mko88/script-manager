@@ -753,24 +753,20 @@
                     ><Icon name="cancel" /></button
                   >
                 {/if}
-                <button class="copy-cmd-btn icon-btn" title="Copy command" aria-label="Copy command" on:click={copyCmd}
-                  ><Icon name="copy" /></button
-                >
-                {#if inlineOutput}
-                  <button
-                    class="copy-cmd-btn icon-btn"
-                    title="Copy output"
-                    aria-label="Copy output"
-                    on:click={() => copyToClipboard(inlineOutput, 'Copied output to clipboard')}
-                    ><Icon name="copy" /></button
-                  >
-                {/if}
               </div>
             {/if}
             {#if inlineRunning || inlineOutput}
               <div class="cmd-output">
                 <div class="cmd-output-status" class:running={inlineRunning} class:error={inlineExitCode !== null && inlineExitCode !== 0}>
-                  {inlineRunning ? 'Running…' : `Exited ${inlineExitCode}`}
+                  <span>{inlineRunning ? 'Running…' : `Exited ${inlineExitCode}`}</span>
+                  {#if inlineOutput}
+                    <button
+                      class="cmd-copy-btn"
+                      title="Copy output"
+                      aria-label="Copy output"
+                      on:click={() => copyToClipboard(inlineOutput, 'Copied output to clipboard')}><Icon name="copy" /></button
+                    >
+                  {/if}
                 </div>
                 {#if inlineOutput}
                   <pre class="cmd-output-body" bind:this={inlineOutputEl}>{inlineOutput}</pre>
@@ -789,6 +785,9 @@
             {/if}
             {#if actionDetail.cmd}
               <div class="cmd-line">
+                <button class="cmd-copy-btn cmd-line-copy-btn" title="Copy command" aria-label="Copy command" on:click={copyCmd}
+                  ><Icon name="copy" /></button
+                >
                 {#each actionDetail.cmd.replace(/\n+$/, '').split('\n') as line, i (i)}
                   <div class="cmd-line-row">
                     <span class="cmd-line-no">{i + 1}</span>
@@ -1034,6 +1033,9 @@
     margin: 0 0 8px;
   }
   .cmd-output-status {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     padding: 6px 10px;
     font-size: 0.85rem;
     color: #a9b6c8;
@@ -1073,6 +1075,7 @@
   }
 
   .cmd-line {
+    position: relative;
     background: #14202f;
     border-radius: 4px;
     padding: 8px 0;
@@ -1080,6 +1083,32 @@
     color: #d7dee8;
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.85rem;
+  }
+
+  /* Minimal, borderless copy button meant to sit inside a code block —
+     .cmd-line-copy-btn additionally floats it in the top-right corner,
+     the placement docs sites commonly use for a code block's copy action;
+     .cmd-output-status's copy button instead just sits at the end of that
+     flex row (space-between above), no absolute positioning needed there. */
+  .cmd-copy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 3px 5px;
+    border-radius: 4px;
+    color: #a9b6c8;
+    cursor: pointer;
+  }
+  .cmd-copy-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #d7dee8;
+  }
+  .cmd-line-copy-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
   }
 
   .cmd-line-row {

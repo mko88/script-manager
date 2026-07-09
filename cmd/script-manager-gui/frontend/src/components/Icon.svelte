@@ -71,14 +71,12 @@
     <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
   </svg>
 {:else}
+  <!-- Same "two overlapping rectangles" glyph as sm-config-edit's
+       ListActionIcon copy mode, for a consistent copy affordance across
+       both apps. -->
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-    <rect x="4.5" y="3" width="7" height="10.5" rx="1" fill="none" stroke="currentColor" stroke-width="1.1" />
-    <path
-      d="M6.3 3V1.8a.6.6 0 0 1 .6-.6h2.2a.6.6 0 0 1 .6.6V3"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.1"
-    />
+    <rect x="2" y="2" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.1" />
+    <rect x="6" y="6" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.1" />
   </svg>
 {/if}
 
