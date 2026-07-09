@@ -22,6 +22,7 @@ export namespace gui {
 	    description: string;
 	    cmd: string;
 	    noWait: boolean;
+	    interactive: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ActionDetailDTO(source);
@@ -32,6 +33,7 @@ export namespace gui {
 	        this.description = source["description"];
 	        this.cmd = source["cmd"];
 	        this.noWait = source["noWait"];
+	        this.interactive = source["interactive"];
 	    }
 	}
 	export class ActionGroupDTO {

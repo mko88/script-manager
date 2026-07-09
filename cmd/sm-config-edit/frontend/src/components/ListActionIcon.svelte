@@ -2,12 +2,17 @@
   // Small line icons for the Items/Action Groups/Actions list toolbars —
   // same style as ViewModeIcon (1px strokes, currentColor, no icon-font
   // dependency).
-  export let mode: 'add' | 'remove' | 'reorder'
+  export let mode: 'add' | 'remove' | 'reorder' | 'copy'
 </script>
 
 {#if mode === 'add'}
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
     <path d="M8 2.5v11M2.5 8h11" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+  </svg>
+{:else if mode === 'copy'}
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <rect x="2" y="2" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.1" />
+    <rect x="6" y="6" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.1" />
   </svg>
 {:else if mode === 'remove'}
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">

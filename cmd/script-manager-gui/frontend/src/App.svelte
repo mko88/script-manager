@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import Toast from '@shared/components/Toast.svelte'
+  import Icon from './components/Icon.svelte'
   import {
     GetTitles,
     GetItems,
@@ -10,6 +11,8 @@
     GetActionGroups,
     CopyToClipboard,
     ReloadConfig,
+    BrowseConfig,
+    LaunchConfigEditor,
     RunAction,
     RunActionInline,
     CancelInlineAction,
@@ -344,14 +347,11 @@
     }
   }
 
-  async function reloadConfig() {
-    let warning = ''
-    try {
-      warning = await ReloadConfig()
-    } catch (err) {
-      flash(`Reload failed: ${err}`)
-      return
-    }
+  // Shared by reloadConfig (F5 / Refresh config) and browseConfig (Load
+  // config) — both swap the backend's in-memory config out from under the
+  // frontend, so both need the same items/actions/details re-fetch and
+  // reselect-something-sane dance afterward.
+  async function refreshAfterConfigChange() {
     titles = await GetTitles()
     actionGroupCatalog = await GetActionGroups()
     const newItems = await GetItems()
@@ -364,13 +364,48 @@
     } else {
       await selectItem(Math.min(selectedItem < 0 ? 0 : selectedItem, newItems.length - 1))
     }
+  }
+
+  async function reloadConfig() {
+    let warning = ''
+    try {
+      warning = await ReloadConfig()
+    } catch (err) {
+      flash(`Reload failed: ${err}`)
+      return
+    }
+    await refreshAfterConfigChange()
     flash(warning ? `Config reloaded with a warning: ${warning}` : 'Config reloaded')
+  }
+
+  async function browseConfig() {
+    let path = ''
+    try {
+      path = await BrowseConfig()
+    } catch (err) {
+      flash(`Load failed: ${err}`)
+      return
+    }
+    if (!path) return // dialog cancelled
+    await refreshAfterConfigChange()
+    flash(`Loaded ${path}`)
+  }
+
+  async function launchConfigEditor() {
+    try {
+      await LaunchConfigEditor()
+    } catch (err) {
+      flash(`Failed to open config editor: ${err}`)
+    }
   }
 
   function onKeyDown(e: KeyboardEvent) {
     if (e.key === 'F5') {
       e.preventDefault()
       reloadConfig()
+    } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
+      e.preventDefault()
+      launchConfigEditor()
     }
   }
 
@@ -512,7 +547,27 @@
 
 <svelte:window on:keydown={onKeyDown} />
 
-<main class="app-shell" bind:this={shellEl}>
+<div class="app-root">
+  <header class="toolbar">
+    <button class="btn icon-btn" type="button" title="Load config" aria-label="Load config" on:click={browseConfig}
+      ><Icon name="load" /></button
+    >
+    <button
+      class="btn icon-btn"
+      type="button"
+      title="Refresh config (F5)"
+      aria-label="Refresh config"
+      on:click={reloadConfig}><Icon name="refresh" /></button
+    >
+    <button
+      class="btn icon-btn"
+      type="button"
+      title="Open config editor (Ctrl+E)"
+      aria-label="Open config editor"
+      on:click={launchConfigEditor}><Icon name="config-edit" /></button
+    >
+  </header>
+  <main class="app-shell" bind:this={shellEl}>
   <div class="col col-left" style="flex: 0 0 {leftWidth}px" bind:this={colLeftEl}>
     <section class="panel panel-items" style={topStyle(itemsCollapsed, actionsCollapsed, itemsHeight, true)}>
       <header class="panel-title">
@@ -681,12 +736,35 @@
           {#if actionDetail}
             {#if actionDetail.cmd}
               <div class="cmd-actions">
-                <button class="run-cmd-btn" on:click={runAction}>Run</button>
-                <button class="run-cmd-btn" disabled={inlineRunning} on:click={runActionInline}>Run here</button>
-                {#if inlineRunning}
-                  <button class="copy-cmd-btn" on:click={cancelInlineAction}>Cancel</button>
+                {#if !actionDetail.interactive}
+                  <button
+                    class="run-cmd-btn icon-btn"
+                    title="Run here"
+                    aria-label="Run here"
+                    disabled={inlineRunning}
+                    on:click={runActionInline}><Icon name="run-here" /></button
+                  >
                 {/if}
-                <button class="copy-cmd-btn" on:click={copyCmd}>Copy command</button>
+                <button class="run-cmd-btn icon-btn" title="Run" aria-label="Run" on:click={runAction}
+                  ><Icon name="run" /></button
+                >
+                {#if inlineRunning}
+                  <button class="copy-cmd-btn icon-btn" title="Cancel" aria-label="Cancel" on:click={cancelInlineAction}
+                    ><Icon name="cancel" /></button
+                  >
+                {/if}
+                <button class="copy-cmd-btn icon-btn" title="Copy command" aria-label="Copy command" on:click={copyCmd}
+                  ><Icon name="copy" /></button
+                >
+                {#if inlineOutput}
+                  <button
+                    class="copy-cmd-btn icon-btn"
+                    title="Copy output"
+                    aria-label="Copy output"
+                    on:click={() => copyToClipboard(inlineOutput, 'Copied output to clipboard')}
+                    ><Icon name="copy" /></button
+                  >
+                {/if}
               </div>
             {/if}
             {#if inlineRunning || inlineOutput}
@@ -727,14 +805,47 @@
     </section>
   </div>
 
-  <Toast message={toast} />
-</main>
+    <Toast message={toast} />
+  </main>
+</div>
 
 <style>
+  .app-root {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  .toolbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 8px;
+    background: var(--sm-panel-header);
+    border-bottom: 1px solid var(--sm-border);
+  }
+
+  /* Square padding for an icon-only .btn — theme.css's own .btn/.btn-primary
+     assume a text label; not shared since sm-config-edit scopes the same
+     rule locally rather than in theme.css. */
+  .icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 9px;
+  }
+
+  .icon-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
   .app-shell {
     display: flex;
     flex-direction: row;
-    height: 100vh;
+    flex: 1 1 auto;
+    min-height: 0;
     box-sizing: border-box;
     padding: 8px;
     text-align: left;

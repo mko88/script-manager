@@ -1,7 +1,15 @@
 <script lang="ts">
   // Shared by the global Actions section and an item's Custom Actions list —
   // both edit the same []Action-shaped data (internal/configedit.ActionDTO).
-  export let action: { id: string; title: string; description: string; cmd: string; groups: string[]; noWait: boolean }
+  export let action: {
+    id: string
+    title: string
+    description: string
+    cmd: string
+    groups: string[]
+    noWait: boolean
+    interactive: boolean
+  }
   export let showId = true
   // The Action Groups catalog's IDs — Groups is a picker against this list
   // (like Items' Actions/Action groups pickers), not free text, so an
@@ -48,6 +56,10 @@
   <label class="field-checkbox">
     <input type="checkbox" bind:checked={action.noWait} />
     <span>No wait (close the terminal immediately instead of pausing after the command finishes)</span>
+  </label>
+  <label class="field-checkbox">
+    <input type="checkbox" bind:checked={action.interactive} />
+    <span>Interactive (needs terminal input — hides "Run here" in the GUI)</span>
   </label>
 </div>
 

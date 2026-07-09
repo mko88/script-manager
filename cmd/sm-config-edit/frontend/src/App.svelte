@@ -92,6 +92,57 @@
   let displayEditHeight = 260
   let displaySplitEl: HTMLElement
 
+  // The Details template's helper toolbar (Insert env / formatting buttons)
+  // needs a real element handle for cursor/selection-based edits —
+  // setRangeText operates on the DOM element directly, not on Svelte's
+  // bound value.
+  let detailsTextareaEl: HTMLTextAreaElement | undefined
+
+  // Env var names available to insert into the Details template: global
+  // Environment fields plus the currently-selected preview item's own
+  // fields (if any), deduped — both already loaded client-side for the
+  // preview feature, so no new backend call is needed just to list them.
+  $: availableEnvKeys = Array.from(
+    new Set([
+      ...cfg.envFields.map((f) => f.key),
+      ...(previewItemForDisplay >= 0 ? (cfg.items[previewItemForDisplay]?.fields ?? []).map((f) => f.key) : []),
+    ]),
+  ).filter((k) => k)
+
+  function insertEnvVar(key: string) {
+    insertAtCursor(`{{.${key}}}`)
+  }
+
+  function onEnvSelectChange(e: Event) {
+    const select = e.currentTarget as HTMLSelectElement
+    const key = select.value
+    if (key) insertEnvVar(key)
+    select.selectedIndex = 0
+  }
+
+  function insertAtCursor(text: string) {
+    const el = detailsTextareaEl
+    if (!el) return
+    const start = el.selectionStart ?? el.value.length
+    const end = el.selectionEnd ?? el.value.length
+    el.setRangeText(text, start, end, 'end')
+    // setRangeText mutates the element directly and doesn't fire an input
+    // event Svelte's bind:value would otherwise pick up, so the bound state
+    // has to be synced back explicitly.
+    cfg.display[selectedDisplay].details = el.value
+    el.focus()
+  }
+
+  function wrapSelection(before: string, after: string = before) {
+    const el = detailsTextareaEl
+    if (!el) return
+    const start = el.selectionStart ?? 0
+    const end = el.selectionEnd ?? 0
+    el.setRangeText(before + el.value.slice(start, end) + after, start, end, 'end')
+    cfg.display[selectedDisplay].details = el.value
+    el.focus()
+  }
+
   const DISPLAY_LAYOUT_KEY = 'sm-config-edit:displayLayout'
 
   onMount(async () => {
@@ -296,7 +347,15 @@
     return { name: '', display: '', actions: [], actionGroups: [], customActions: [], fields: [] } as unknown as configedit.ItemDTO
   }
   function newAction(): configedit.ActionDTO {
-    return { id: '', title: '', description: '', cmd: '', groups: [], noWait: false } as unknown as configedit.ActionDTO
+    return {
+      id: '',
+      title: '',
+      description: '',
+      cmd: '',
+      groups: [],
+      noWait: false,
+      interactive: true,
+    } as unknown as configedit.ActionDTO
   }
   function newActionGroup(): configedit.ActionGroupDTO {
     return { id: '', title: '', color: '' } as unknown as configedit.ActionGroupDTO
@@ -377,6 +436,12 @@
 
   function addDisplay() {
     cfg.display = [...cfg.display, newDisplay()]
+    selectedDisplay = cfg.display.length - 1
+  }
+  function copyDisplay() {
+    const src = cfg.display[selectedDisplay]
+    if (!src) return
+    cfg.display = [...cfg.display, { ...src, name: `${src.name} - copy` }]
     selectedDisplay = cfg.display.length - 1
   }
   function removeDisplay(i: number) {
@@ -690,6 +755,14 @@
               <button
                 class="btn icon-btn"
                 type="button"
+                title="Copy display"
+                aria-label="Copy display"
+                disabled={selectedDisplay < 0}
+                on:click={copyDisplay}><ListActionIcon mode="copy" /></button
+              >
+              <button
+                class="btn icon-btn"
+                type="button"
                 title="Remove display"
                 aria-label="Remove display"
                 disabled={selectedDisplay < 0}
@@ -771,7 +844,26 @@
                       </label>
                       <label class="field details-template-field">
                         <span>Details template</span>
-                        <textarea bind:value={cfg.display[selectedDisplay].details}></textarea>
+                        <div class="details-helper-toolbar">
+                          <select class="env-insert-select" title="Insert env var at cursor" on:change={onEnvSelectChange}>
+                            <option value="">Insert env…</option>
+                            {#each availableEnvKeys as key (key)}<option value={key}>{key}</option>{/each}
+                          </select>
+                          <button class="btn icon-btn" type="button" title="Bold" on:click={() => wrapSelection('**')}
+                            ><strong>B</strong></button
+                          >
+                          <button class="btn icon-btn" type="button" title="Italic" on:click={() => wrapSelection('_')}
+                            ><em>I</em></button
+                          >
+                          <button
+                            class="btn icon-btn"
+                            type="button"
+                            title="Highlight (wraps in backticks)"
+                            on:click={() => wrapSelection('`')}><code>`</code></button
+                          >
+                        </div>
+                        <textarea bind:value={cfg.display[selectedDisplay].details} bind:this={detailsTextareaEl}
+                        ></textarea>
                       </label>
                     </div>
                   </div>
@@ -1402,6 +1494,24 @@
     resize: none;
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.8rem;
+  }
+
+  .details-helper-toolbar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 4px;
+  }
+
+  .details-helper-toolbar .icon-btn {
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.8rem;
+    line-height: 1;
+  }
+
+  .env-insert-select {
+    max-width: 160px;
   }
 
   .checkbox-list {

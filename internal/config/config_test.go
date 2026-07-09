@@ -104,13 +104,14 @@ func TestParseCustomActionFields(t *testing.T) {
 				"cmd":         "echo",
 				"groups":      []any{"g1"},
 				"noWait":      true,
+				"interactive": true,
 			},
 		},
 	}
 	got := ActionsForItem(nil, item)
 	want := []Action{{
 		ID: "c1", Title: "Custom", Description: "desc",
-		Cmd: "echo", Groups: []string{"g1"}, NoWait: true,
+		Cmd: "echo", Groups: []string{"g1"}, NoWait: true, Interactive: true,
 	}}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("custom action = %+v, want %+v", got, want)

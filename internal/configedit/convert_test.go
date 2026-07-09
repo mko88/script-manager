@@ -168,7 +168,7 @@ func TestItemDTORoundTrip(t *testing.T) {
 		config.KeyDisplay: "prod",
 		config.KeyActions: []interface{}{"deploy", "logs"},
 		config.KeyCustomActions: []interface{}{
-			map[string]interface{}{"id": "c1", "title": "Custom", "cmd": "echo hi", "groups": []interface{}{"g1"}, "noWait": true},
+			map[string]interface{}{"id": "c1", "title": "Custom", "cmd": "echo hi", "groups": []interface{}{"g1"}, "noWait": true, "interactive": true},
 		},
 		"sshUser":     "root",
 		"port":        22,
@@ -183,7 +183,7 @@ func TestItemDTORoundTrip(t *testing.T) {
 	if !reflect.DeepEqual(dto.Actions, []string{"deploy", "logs"}) {
 		t.Errorf("actions = %v", dto.Actions)
 	}
-	if len(dto.CustomActions) != 1 || dto.CustomActions[0].Title != "Custom" || !dto.CustomActions[0].NoWait {
+	if len(dto.CustomActions) != 1 || dto.CustomActions[0].Title != "Custom" || !dto.CustomActions[0].NoWait || !dto.CustomActions[0].Interactive {
 		t.Errorf("customActions = %+v", dto.CustomActions)
 	}
 	if len(dto.Fields) != 4 {

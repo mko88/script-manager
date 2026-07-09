@@ -32,6 +32,11 @@ type Action struct {
 	Cmd         string   `yaml:"cmd"`
 	Groups      []string `yaml:"groups,omitempty"`
 	NoWait      bool     `yaml:"noWait,omitempty"`
+	// Interactive marks an action whose command needs to read from stdin
+	// (e.g. a prompt), so it can only run in a real terminal — the GUI hides
+	// "Run here" for it and inline.go's buildInlineCmd refuses to start it,
+	// since an inline run's stdin is deliberately left disconnected.
+	Interactive bool `yaml:"interactive,omitempty"`
 }
 
 // ActionGroup is the catalog entry for a group name: Action.Groups and an
@@ -272,6 +277,9 @@ func ParseCustomActions(v any) []Action {
 		}
 		if noWait, ok := m["noWait"].(bool); ok {
 			a.NoWait = noWait
+		}
+		if interactive, ok := m["interactive"].(bool); ok {
+			a.Interactive = interactive
 		}
 		if a.Title != "" || a.Cmd != "" {
 			result = append(result, a)

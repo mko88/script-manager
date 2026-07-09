@@ -7,6 +7,7 @@ export namespace configedit {
 	    cmd: string;
 	    groups: string[];
 	    noWait: boolean;
+	    interactive: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ActionDTO(source);
@@ -20,6 +21,7 @@ export namespace configedit {
 	        this.cmd = source["cmd"];
 	        this.groups = source["groups"];
 	        this.noWait = source["noWait"];
+	        this.interactive = source["interactive"];
 	    }
 	}
 	export class ActionGroupDTO {

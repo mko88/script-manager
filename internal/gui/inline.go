@@ -54,6 +54,9 @@ func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup
 	}
 
 	act := actions[actionIndex]
+	if act.Interactive {
+		return nil, nil, fmt.Errorf("this action is interactive and needs a real terminal")
+	}
 	merged := a.mergedItem(item)
 
 	expandedCmd, err := action.Expand(act.Cmd, merged)

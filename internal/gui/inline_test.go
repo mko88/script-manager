@@ -73,6 +73,21 @@ func TestRunActionInlineInvalidItemOrAction(t *testing.T) {
 	}
 }
 
+// TestRunActionInlineRejectsInteractiveAction guards the backend half of
+// hiding "Run here" for an interactive action: even a direct call (bypassing
+// whatever the frontend hides) must not start a process whose stdin an
+// inline run leaves disconnected.
+func TestRunActionInlineRejectsInteractiveAction(t *testing.T) {
+	a := inlineTestApp(config.Action{Title: "Prompt", Cmd: "read -r x", Interactive: true})
+
+	if err := a.RunActionInline(0, 0); err == nil {
+		t.Error("expected an error for an interactive action")
+	}
+	if a.GetInlineStatus(0, 0).Running {
+		t.Error("interactive action must not end up marked as running")
+	}
+}
+
 // TestRunActionInlineClearsStaleEntryOnFailedRestart guards against a real
 // but hard-to-hit-through-the-UI gap: a key with a finished run's entry
 // still in a.inlineRuns must not keep reporting that run's exit code/output

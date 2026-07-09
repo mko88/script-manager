@@ -36,6 +36,7 @@ type ActionDTO struct {
 	Cmd         string   `json:"cmd"`
 	Groups      []string `json:"groups"`
 	NoWait      bool     `json:"noWait"`
+	Interactive bool     `json:"interactive"`
 }
 
 // ActionGroupDTO mirrors config.ActionGroup — the catalog entry. Actions and

@@ -160,6 +160,7 @@ func actionToDTO(a config.Action) ActionDTO {
 		Cmd:         a.Cmd,
 		Groups:      nonNil(append([]string(nil), a.Groups...)),
 		NoWait:      a.NoWait,
+		Interactive: a.Interactive,
 	}
 }
 
@@ -171,6 +172,7 @@ func actionFromDTO(dto ActionDTO) config.Action {
 		Cmd:         dto.Cmd,
 		Groups:      append([]string(nil), dto.Groups...),
 		NoWait:      dto.NoWait,
+		Interactive: dto.Interactive,
 	}
 }
 
@@ -198,6 +200,9 @@ func actionDTOToMap(a ActionDTO) map[string]any {
 	}
 	if a.NoWait {
 		m["noWait"] = true
+	}
+	if a.Interactive {
+		m["interactive"] = true
 	}
 	return m
 }
