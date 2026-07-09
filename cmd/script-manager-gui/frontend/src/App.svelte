@@ -255,10 +255,10 @@
     toastTimer = setTimeout(() => (toast = ''), 2000)
   }
 
-  async function copyToClipboard(value: string, successMsg: string) {
+  async function copyToClipboard(value: string) {
     try {
       await CopyToClipboard(value)
-      flash(successMsg)
+      flash('Copied to clipboard')
     } catch (err) {
       flash(`Clipboard unavailable: ${err}`)
     }
@@ -268,7 +268,7 @@
     if (!details) return
     const value = details.copyValues[idx]
     if (value === undefined) return
-    copyToClipboard(value, details.copyMasked[idx] ? 'Copied masked value to clipboard' : `Copied: ${value}`)
+    copyToClipboard(value)
   }
 
   function onDetailsClick(e: MouseEvent) {
@@ -279,7 +279,7 @@
 
   function copyCmd() {
     if (!actionDetail?.cmd) return
-    copyToClipboard(actionDetail.cmd, 'Command copied to clipboard')
+    copyToClipboard(actionDetail.cmd)
   }
 
   async function runAction() {
@@ -764,7 +764,7 @@
                       class="cmd-copy-btn"
                       title="Copy output"
                       aria-label="Copy output"
-                      on:click={() => copyToClipboard(inlineOutput, 'Copied output to clipboard')}><Icon name="copy" /></button
+                      on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></button
                     >
                   {/if}
                 </div>
