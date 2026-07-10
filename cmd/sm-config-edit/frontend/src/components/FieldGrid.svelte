@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '../messages'
+  import { looksLikeSecretKey } from '../secretKey'
 
   // Drives a []FieldDTO (Environment, or an item's non-reserved "Additional
   // Fields"): a key, a kind selector, a kind-appropriate value widget, and a
@@ -46,15 +47,10 @@
     fields[i].secret = !fields[i].secret
   }
 
-  // Mirrors internal/configedit's looksLikeSecretKey — defaults a field to
-  // secret (masked) the moment its key looks like it holds one, without
-  // waiting for a config reload to notice. Only while secret is still at
-  // its "false" default: once the user has toggled the lock themselves,
-  // further key edits shouldn't override that.
-  function looksLikeSecretKey(key: string): boolean {
-    const lower = key.toLowerCase()
-    return lower.endsWith('secret') || lower.endsWith('password') || lower.endsWith('key')
-  }
+  // Defaults a field to secret (masked) the moment its key looks like it
+  // holds one, without waiting for a config reload to notice. Only while
+  // secret is still at its "false" default: once the user has toggled the
+  // lock themselves, further key edits shouldn't override that.
   function onKeyInput(i: number) {
     if (!fields[i].secret && looksLikeSecretKey(fields[i].key)) {
       fields[i].secret = true

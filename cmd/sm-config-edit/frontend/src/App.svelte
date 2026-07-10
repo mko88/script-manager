@@ -10,6 +10,7 @@
   import ListActionIcon from './components/ListActionIcon.svelte'
   import ToolbarIcon from './components/ToolbarIcon.svelte'
   import { t } from './messages'
+  import { looksLikeSecretKey } from './secretKey'
   import {
     InitialState,
     NewBlank,
@@ -114,7 +115,11 @@
   ).filter((k) => k)
 
   function insertEnvVar(key: string) {
-    insertAtCursor(`{{.${key}}}`)
+    // A key that looks like it holds a secret (same heuristic FieldGrid uses
+    // to auto-lock a new field) is inserted already masked, not as a plain
+    // reference someone would otherwise have to remember to wrap themselves.
+    if (looksLikeSecretKey(key)) insertAtCursor('`{{mask .' + key + '}}`')
+    else insertAtCursor(`{{.${key}}}`)
   }
 
   function onEnvSelectChange(e: Event) {
@@ -152,6 +157,32 @@
     // it stays visibly highlighted and a second formatting button or typed
     // replacement acts on the content, not the markup around it.
     el.setSelectionRange(start + before.length, start + before.length + selected.length)
+  }
+
+  // Matches a bare `{{.field}}`/`{{.field.nested}}` reference — the only
+  // shape `mask` can meaningfully wrap; wrapping arbitrary literal text in
+  // `{{mask ...}}` would just produce an invalid template.
+  const FIELD_REF_RE = /^\{\{\s*(\.[\w.]+)\s*\}\}$/
+
+  // Turns a selected `{{.field}}` reference into a masked `` `{{mask .field}}` ``
+  // one — the same transform insertEnvVar applies automatically for a
+  // secret-looking key, but usable on a variable already in the template
+  // (e.g. one written by hand, or inserted before its key was recognized).
+  // No-ops with a flash if the selection isn't a bare field reference.
+  function maskSelection() {
+    const el = detailsTextareaEl
+    if (!el) return
+    const start = el.selectionStart ?? 0
+    const end = el.selectionEnd ?? 0
+    const match = el.value.slice(start, end).match(FIELD_REF_RE)
+    if (!match) {
+      flash(t('toast.maskNeedsVariable'))
+      return
+    }
+    const replacement = '`{{mask ' + match[1] + '}}`'
+    el.setRangeText(replacement, start, end, 'select')
+    cfg.display[selectedDisplay].details = el.value
+    el.focus()
   }
 
   const DISPLAY_LAYOUT_KEY = 'sm-config-edit:displayLayout'
@@ -938,6 +969,12 @@
                             type="button"
                             title={t('tooltip.highlight')}
                             on:click={() => wrapSelection('`')}><code>`</code></button
+                          >
+                          <button class="btn icon-btn" type="button" title={t('tooltip.mask')} on:click={maskSelection}
+                            ><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+                              <rect x="3.5" y="7" width="9" height="6.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3" />
+                              <path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.3" />
+                            </svg></button
                           >
                         </div>
                         <textarea bind:value={cfg.display[selectedDisplay].details} bind:this={detailsTextareaEl}

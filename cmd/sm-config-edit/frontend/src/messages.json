@@ -4,7 +4,8 @@
     "openFailed": "Open failed: {error}",
     "saved": "Saved",
     "saveFailed": "Save failed: {error}",
-    "fixBlockingErrors": "Fix blocking errors before saving"
+    "fixBlockingErrors": "Fix blocking errors before saving",
+    "maskNeedsVariable": "Select a template variable (e.g. {{.field}}) to mask it"
   },
   "confirm": {
     "discardUnsaved": "Discard unsaved changes?",
@@ -75,6 +76,7 @@
     "bold": "Bold",
     "italic": "Italic",
     "highlight": "Highlight (wraps in backticks)",
+    "mask": "Mask (hides a selected variable's value)",
     "addActionGroup": "Add action group",
     "removeActionGroup": "Remove action group",
     "addAction": "Add action",
