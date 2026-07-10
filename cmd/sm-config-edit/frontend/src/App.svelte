@@ -129,7 +129,9 @@
     if (!el) return
     const start = el.selectionStart ?? el.value.length
     const end = el.selectionEnd ?? el.value.length
-    el.setRangeText(text, start, end, 'end')
+    // 'select' (rather than 'end') leaves the just-inserted text highlighted,
+    // so it's clear what was inserted and easy to overtype/replace.
+    el.setRangeText(text, start, end, 'select')
     // setRangeText mutates the element directly and doesn't fire an input
     // event Svelte's bind:value would otherwise pick up, so the bound state
     // has to be synced back explicitly.
@@ -142,9 +144,14 @@
     if (!el) return
     const start = el.selectionStart ?? 0
     const end = el.selectionEnd ?? 0
-    el.setRangeText(before + el.value.slice(start, end) + after, start, end, 'end')
+    const selected = el.value.slice(start, end)
+    el.setRangeText(before + selected + after, start, end, 'end')
     cfg.display[selectedDisplay].details = el.value
     el.focus()
+    // Re-select just the original text (not the before/after markers), so
+    // it stays visibly highlighted and a second formatting button or typed
+    // replacement acts on the content, not the markup around it.
+    el.setSelectionRange(start + before.length, start + before.length + selected.length)
   }
 
   const DISPLAY_LAYOUT_KEY = 'sm-config-edit:displayLayout'
