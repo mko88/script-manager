@@ -20,6 +20,8 @@ export function GetItemDetails(arg1:number):Promise<gui.DetailsDTO>;
 
 export function GetItems():Promise<Array<gui.ItemDTO>>;
 
+export function GetMessages():Promise<Record<string, any>>;
+
 export function GetTitles():Promise<gui.TitlesDTO>;
 
 export function LaunchConfigEditor():Promise<void>;
@@ -31,3 +33,5 @@ export function ReloadConfig():Promise<string>;
 export function RunAction(arg1:number,arg2:number):Promise<void>;
 
 export function RunActionInline(arg1:number,arg2:number):Promise<void>;
+
+export function SetDefaultMessages(arg1:Array<number>):Promise<void>;

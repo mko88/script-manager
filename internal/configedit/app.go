@@ -22,17 +22,33 @@ type App struct {
 	// path is the file InitialState/BrowseOpen loaded from or Save last wrote
 	// to; "" means an unsaved new file.
 	path string
+	// exeDir is this executable's directory, used to resolve both this app's
+	// own and its sibling script-manager-gui's runtime messages files.
+	exeDir string
+	// defaultMessages is this app's compiled frontend/src/messages.json,
+	// embedded by cmd/sm-config-edit/main.go and handed in via
+	// SetDefaultMessages — a mutable field rather than a NewApp parameter so
+	// the many existing NewApp(cfgPath) call sites in tests don't need
+	// updating (same reasoning as internal/gui.App.defaultMessages).
+	defaultMessages []byte
 }
 
 // NewApp builds the backend around an optional explicit config path (from
 // -config); "" means auto-detect the same way script-manager-gui does.
 func NewApp(cfgPath string) *App {
-	return &App{cfgPath: cfgPath}
+	return &App{cfgPath: cfgPath, exeDir: gui.ExeDir()}
 }
 
 // Startup is wired as the Wails OnStartup callback.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+}
+
+// SetDefaultMessages provides this app's compiled message defaults for
+// GetMessages to self-seed its runtime override file from. Called once by
+// main.go right after NewApp; see the defaultMessages field doc.
+func (a *App) SetDefaultMessages(data []byte) {
+	a.defaultMessages = data
 }
 
 func (a *App) stateFor(cfg *config.Config) StateDTO {

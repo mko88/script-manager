@@ -10,6 +10,14 @@ export function BrowseSaveAs() {
   return window['go']['configedit']['App']['BrowseSaveAs']();
 }
 
+export function GetEditableMessages(arg1) {
+  return window['go']['configedit']['App']['GetEditableMessages'](arg1);
+}
+
+export function GetMessages() {
+  return window['go']['configedit']['App']['GetMessages']();
+}
+
 export function InitialState() {
   return window['go']['configedit']['App']['InitialState']();
 }
@@ -32,6 +40,14 @@ export function PreviewItem(arg1, arg2, arg3, arg4) {
 
 export function Save(arg1, arg2) {
   return window['go']['configedit']['App']['Save'](arg1, arg2);
+}
+
+export function SaveMessages(arg1, arg2) {
+  return window['go']['configedit']['App']['SaveMessages'](arg1, arg2);
+}
+
+export function SetDefaultMessages(arg1) {
+  return window['go']['configedit']['App']['SetDefaultMessages'](arg1);
 }
 
 export function ValidateConfig(arg1) {

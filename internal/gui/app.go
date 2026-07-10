@@ -48,6 +48,12 @@ type App struct {
 	exeDir  string
 	loadErr error // from the initial load; the frontend fetches it once via LoadError
 
+	// defaultMessages is this app's compiled frontend/src/messages.json,
+	// embedded by cmd/script-manager-gui/main.go and handed in via
+	// SetDefaultMessages — a mutable field rather than a NewApp parameter so
+	// the many existing NewApp(load) call sites in tests don't need updating.
+	defaultMessages []byte
+
 	// inlineMu guards inlineRuns. Different item/action pairs may run
 	// concurrently — switching to another action in the UI doesn't stop
 	// one already running — but the same pair can't be started twice at
@@ -64,7 +70,7 @@ func NewApp(load func() (*config.Config, error)) *App {
 	return &App{
 		cfg:        cfg,
 		load:       load,
-		exeDir:     exeDir(),
+		exeDir:     ExeDir(),
 		loadErr:    err,
 		inlineRuns: make(map[inlineKey]*inlineRun),
 		md: goldmark.New(
@@ -89,9 +95,17 @@ func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
-// exeDir returns the directory containing the running executable, or "" if
-// it can't be determined.
-func exeDir() string {
+// SetDefaultMessages provides this app's compiled message defaults for
+// GetMessages to self-seed its runtime override file from. Called once by
+// main.go right after NewApp; see the defaultMessages field doc.
+func (a *App) SetDefaultMessages(data []byte) {
+	a.defaultMessages = data
+}
+
+// ExeDir returns the directory containing the running executable, or "" if
+// it can't be determined. Exported so internal/configedit can resolve its
+// sibling script-manager-gui binary's directory the same way.
+func ExeDir() string {
 	exe, err := os.Executable()
 	if err != nil {
 		return ""

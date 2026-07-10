@@ -6,6 +6,10 @@ export function BrowseOpen():Promise<configedit.StateDTO>;
 
 export function BrowseSaveAs():Promise<string>;
 
+export function GetEditableMessages(arg1:string):Promise<Record<string, any>>;
+
+export function GetMessages():Promise<Record<string, any>>;
+
 export function InitialState():Promise<configedit.StateDTO>;
 
 export function KnownTerminals():Promise<Array<string>>;
@@ -17,6 +21,10 @@ export function PreviewAction(arg1:configedit.ItemDTO,arg2:Array<configedit.Fiel
 export function PreviewItem(arg1:configedit.ItemDTO,arg2:Array<configedit.FieldDTO>,arg3:Array<configedit.DisplayDTO>,arg4:string):Promise<configedit.PreviewDTO>;
 
 export function Save(arg1:configedit.ConfigDTO,arg2:string):Promise<configedit.SaveResultDTO>;
+
+export function SaveMessages(arg1:string,arg2:Record<string, any>):Promise<void>;
+
+export function SetDefaultMessages(arg1:Array<number>):Promise<void>;
 
 export function ValidateConfig(arg1:configedit.ConfigDTO):Promise<Array<configedit.ValidationIssueDTO>>;
 

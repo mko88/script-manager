@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte'
   import Toast from '@shared/components/Toast.svelte'
   import Icon from './components/Icon.svelte'
+  import { t } from './messages'
   import {
     GetTitles,
     GetItems,
@@ -21,7 +22,7 @@
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
 
-  let titles: gui.TitlesDTO = { items: 'Items', actions: 'Actions', details: 'Details', command: 'Command' }
+  let titles: gui.TitlesDTO = { items: t('panel.items'), actions: t('panel.actions'), details: t('panel.details'), command: t('panel.command') }
   let items: gui.ItemDTO[] = []
   let actions: gui.ActionDTO[] = []
   let actionGroupCatalog: gui.ActionGroupDTO[] = []
@@ -125,7 +126,7 @@
       ? actions
       : actions.filter((a) => [...selectedGroups].every((g) => (a.groups ?? []).includes(g)))
 
-  $: groupSummary = selectedGroups.size === 0 ? 'All' : actionGroups.filter((g) => selectedGroups.has(g)).join(', ')
+  $: groupSummary = selectedGroups.size === 0 ? t('text.allGroupsChip') : actionGroups.filter((g) => selectedGroups.has(g)).join(', ')
 
   // For each group, how many actions would match if that group were added to
   // the current filter (AND semantics, same rule filteredActions applies) —
@@ -157,20 +158,20 @@
   // hitting "All".
   $: visibleGroups = sortedGroups.filter((g) => selectedGroups.has(g) || (groupCounts[g] ?? 0) > 0)
 
-  $: alphaSortLabel = alphaDir === 'desc' ? 'Z-A' : 'A-Z'
+  $: alphaSortLabel = alphaDir === 'desc' ? t('sort.alphaDesc') : t('sort.alphaAsc')
   $: alphaSortTitle =
     sortMode !== 'alpha'
-      ? 'Sort by name'
+      ? t('sort.alphaTitleDefault')
       : alphaDir === 'asc'
-        ? 'Sorted A-Z — click for Z-A'
-        : 'Sorted Z-A — click for A-Z'
-  $: countSortLabel = countDir === 'desc' ? '# ↓' : '# ↑'
+        ? t('sort.alphaTitleAsc')
+        : t('sort.alphaTitleDesc')
+  $: countSortLabel = countDir === 'desc' ? t('sort.countDesc') : t('sort.countAsc')
   $: countSortTitle =
     sortMode !== 'count'
-      ? 'Sort by action count'
+      ? t('sort.countTitleDefault')
       : countDir === 'desc'
-        ? 'Sorted by action count, descending — click for ascending'
-        : 'Sorted by action count, ascending — click for descending'
+        ? t('sort.countTitleDesc')
+        : t('sort.countTitleAsc')
 
   $: missingFields = details?.missingFields ?? []
 
@@ -203,7 +204,7 @@
 
   onMount(async () => {
     const loadErr = await LoadError()
-    if (loadErr) flash(`Config load failed: ${loadErr}`)
+    if (loadErr) flash(t('toast.configLoadFailed', { error: loadErr }))
     titles = await GetTitles()
     items = await GetItems()
     actionGroupCatalog = await GetActionGroups()
@@ -258,9 +259,9 @@
   async function copyToClipboard(value: string) {
     try {
       await CopyToClipboard(value)
-      flash('Copied to clipboard')
+      flash(t('toast.copiedToClipboard'))
     } catch (err) {
-      flash(`Clipboard unavailable: ${err}`)
+      flash(t('toast.clipboardUnavailable', { error: String(err) }))
     }
   }
 
@@ -286,9 +287,9 @@
     if (selectedItem < 0 || selectedActionIndex < 0) return
     try {
       await RunAction(selectedItem, selectedActionIndex)
-      flash('Running in terminal window…')
+      flash(t('toast.runningInTerminal'))
     } catch (err) {
-      flash(`Run failed: ${err}`)
+      flash(t('toast.runFailed', { error: String(err) }))
     }
   }
 
@@ -318,7 +319,7 @@
         await new Promise((resolve) => setTimeout(resolve, INLINE_POLL_INTERVAL_MS))
         continue
       }
-      if (status.errMsg) flash(`Run failed: ${status.errMsg}`)
+      if (status.errMsg) flash(t('toast.runFailed', { error: status.errMsg }))
       return
     }
   }
@@ -334,7 +335,7 @@
       pollInlineStatus(itemIndex, actionIndex)
     } catch (err) {
       setInlineState(itemIndex, actionIndex, { output: '', running: false, exitCode: null })
-      flash(`Run failed: ${err}`)
+      flash(t('toast.runFailed', { error: String(err) }))
     }
   }
 
@@ -343,7 +344,7 @@
     try {
       await CancelInlineAction(selectedItem, selectedActionIndex)
     } catch (err) {
-      flash(`Cancel failed: ${err}`)
+      flash(t('toast.cancelFailed', { error: String(err) }))
     }
   }
 
@@ -371,11 +372,11 @@
     try {
       warning = await ReloadConfig()
     } catch (err) {
-      flash(`Reload failed: ${err}`)
+      flash(t('toast.reloadFailed', { error: String(err) }))
       return
     }
     await refreshAfterConfigChange()
-    flash(warning ? `Config reloaded with a warning: ${warning}` : 'Config reloaded')
+    flash(warning ? t('toast.configReloadedWithWarning', { warning }) : t('toast.configReloaded'))
   }
 
   async function browseConfig() {
@@ -383,19 +384,19 @@
     try {
       path = await BrowseConfig()
     } catch (err) {
-      flash(`Load failed: ${err}`)
+      flash(t('toast.loadFailed', { error: String(err) }))
       return
     }
     if (!path) return // dialog cancelled
     await refreshAfterConfigChange()
-    flash(`Loaded ${path}`)
+    flash(t('toast.loaded', { path }))
   }
 
   async function launchConfigEditor() {
     try {
       await LaunchConfigEditor()
     } catch (err) {
-      flash(`Failed to open config editor: ${err}`)
+      flash(t('toast.openConfigEditorFailed', { error: String(err) }))
     }
   }
 
@@ -549,21 +550,21 @@
 
 <div class="app-root">
   <header class="toolbar">
-    <button class="btn icon-btn" type="button" title="Load config" aria-label="Load config" on:click={browseConfig}
+    <button class="btn icon-btn" type="button" title={t('tooltip.loadConfig')} aria-label={t('tooltip.loadConfig')} on:click={browseConfig}
       ><Icon name="load" /></button
     >
     <button
       class="btn icon-btn"
       type="button"
-      title="Refresh config (F5)"
-      aria-label="Refresh config"
+      title={t('tooltip.refreshConfigTitle')}
+      aria-label={t('tooltip.refreshConfigAria')}
       on:click={reloadConfig}><Icon name="refresh" /></button
     >
     <button
       class="btn icon-btn"
       type="button"
-      title="Open config editor (Ctrl+E)"
-      aria-label="Open config editor"
+      title={t('tooltip.openConfigEditorTitle')}
+      aria-label={t('tooltip.openConfigEditorAria')}
       on:click={launchConfigEditor}><Icon name="config-edit" /></button
     >
   </header>
@@ -572,9 +573,9 @@
     <section class="panel panel-items" style={topStyle(itemsCollapsed, actionsCollapsed, itemsHeight, true)}>
       <header class="panel-title">
         <span class="panel-title-text" class:wrap={itemsCollapsed}>
-          {titles.items}{#if itemsCollapsed && selectedItemLabel}<span class="panel-title-selected"> · {selectedItemLabel}</span>{/if}
+          {titles.items}{#if itemsCollapsed && selectedItemLabel}<span class="panel-title-selected">{t('text.separator')}{selectedItemLabel}</span>{/if}
         </span>
-        <button class="collapse-btn" on:click={() => toggleCollapse('items')} title={itemsCollapsed ? 'Expand' : 'Collapse'}>
+        <button class="collapse-btn" on:click={() => toggleCollapse('items')} title={itemsCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
           {itemsCollapsed ? '▸' : '▾'}
         </button>
       </header>
@@ -585,10 +586,10 @@
               class="row"
               class:selected={item.index === selectedItem}
               on:click={() => selectItem(item.index)}
-            >{item.label}{#if runningItemIndices.has(item.index)}<span class="running-indicator" title="An action is running">●</span>{/if}</button>
+            >{item.label}{#if runningItemIndices.has(item.index)}<span class="running-indicator" title={t('tooltip.actionRunningItem')}>●</span>{/if}</button>
           {/each}
           {#if items.length === 0}
-            <div class="empty">No items configured</div>
+            <div class="empty">{t('empty.noItems')}</div>
           {/if}
         </div>
       {/if}
@@ -600,9 +601,9 @@
     <section class="panel panel-actions" style={bottomStyle(actionsCollapsed, true)}>
       <header class="panel-title">
         <span class="panel-title-text" class:wrap={actionsCollapsed}>
-          {titles.actions}{#if actionsCollapsed && selectedActionLabel}<span class="panel-title-selected"> · {selectedActionLabel}</span>{/if}
+          {titles.actions}{#if actionsCollapsed && selectedActionLabel}<span class="panel-title-selected">{t('text.separator')}{selectedActionLabel}</span>{/if}
         </span>
-        <button class="collapse-btn" on:click={() => toggleCollapse('actions')} title={actionsCollapsed ? 'Expand' : 'Collapse'}>
+        <button class="collapse-btn" on:click={() => toggleCollapse('actions')} title={actionsCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
           {actionsCollapsed ? '▸' : '▾'}
         </button>
       </header>
@@ -613,7 +614,7 @@
               <button
                 class="collapse-btn group-filter-toggle"
                 on:click={toggleGroupChips}
-                title={groupChipsCollapsed ? 'Expand group filter' : 'Collapse group filter'}
+                title={groupChipsCollapsed ? t('tooltip.expandGroupFilter') : t('tooltip.collapseGroupFilter')}
               >
                 {groupChipsCollapsed ? '▸' : '▾'}
               </button>
@@ -642,14 +643,14 @@
             </div>
             {#if !groupChipsCollapsed}
               <div class="group-chips">
-                <button class="chip" class:active={selectedGroups.size === 0} on:click={selectAllGroups}>All</button>
+                <button class="chip" class:active={selectedGroups.size === 0} on:click={selectAllGroups}>{t('text.allGroupsChip')}</button>
                 {#each visibleGroups as group (group)}
                   <button
                     class="chip"
                     class:active={selectedGroups.has(group)}
                     style={groupChipStyle(group, selectedGroups.has(group))}
                     on:click={() => toggleGroup(group)}
-                    >{group}<span class="chip-count">({groupCounts[group] ?? 0})</span></button
+                    >{group}<span class="chip-count">{t('text.groupCount', { count: groupCounts[group] ?? 0 })}</span></button
                   >
                 {/each}
               </div>
@@ -662,11 +663,13 @@
               class="row"
               class:selected={action.index === selectedActionIndex}
               on:click={() => selectAction(action.index)}
-            >{action.title}{#if runningActionIndicesForSelectedItem.has(action.index)}<span class="running-indicator" title="Running">●</span>{/if}</button>
+            >{action.title}{#if runningActionIndicesForSelectedItem.has(action.index)}<span class="running-indicator" title={t('tooltip.actionRunningAction')}>●</span>{/if}</button>
           {/each}
           {#if selectedItem >= 0 && filteredActions.length === 0}
             <div class="empty">
-              {selectedGroups.size > 0 ? `No actions in the selected group${selectedGroups.size > 1 ? 's' : ''}` : 'No actions for this item'}
+              {selectedGroups.size > 0
+                ? t('empty.noActionsForGroups', { plural: selectedGroups.size > 1 ? 's' : '' })
+                : t('empty.noActionsForItem')}
             </div>
           {/if}
         </div>
@@ -681,7 +684,7 @@
     <section class="panel panel-details" style={topStyle(detailsCollapsed, commandCollapsed, detailsHeight)}>
       <header class="panel-title">
         <span>{titles.details}</span>
-        <button class="collapse-btn" on:click={() => toggleCollapse('details')} title={detailsCollapsed ? 'Expand' : 'Collapse'}>
+        <button class="collapse-btn" on:click={() => toggleCollapse('details')} title={detailsCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
           {detailsCollapsed ? '▸' : '▾'}
         </button>
       </header>
@@ -692,12 +695,12 @@
               <button
                 class="collapse-btn warning-toggle"
                 on:click={toggleDetailsWarning}
-                title={detailsWarningCollapsed ? 'Expand missing-values warning' : 'Collapse missing-values warning'}
+                title={detailsWarningCollapsed ? t('tooltip.expandMissingWarning') : t('tooltip.collapseMissingWarning')}
               >
                 {detailsWarningCollapsed ? '▸' : '▾'}
               </button>
               <span class="warning-summary">
-                ⚠ {missingFields.length} missing value{missingFields.length > 1 ? 's' : ''} (shown as &lt;nil&gt;)
+                {t('warning.missingFields', { count: missingFields.length, plural: missingFields.length > 1 ? 's' : '' })}
               </span>
             </div>
             {#if !detailsWarningCollapsed}
@@ -715,7 +718,7 @@
           {#if details?.html}
             {@html details.html}
           {:else}
-            <div class="empty">No item selected</div>
+            <div class="empty">{t('empty.noItemSelected')}</div>
           {/if}
         </div>
       {/if}
@@ -727,7 +730,7 @@
     <section class="panel panel-command" style={bottomStyle(commandCollapsed)}>
       <header class="panel-title">
         <span>{titles.command}</span>
-        <button class="collapse-btn" on:click={() => toggleCollapse('command')} title={commandCollapsed ? 'Expand' : 'Collapse'}>
+        <button class="collapse-btn" on:click={() => toggleCollapse('command')} title={commandCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
           {commandCollapsed ? '▸' : '▾'}
         </button>
       </header>
@@ -739,17 +742,17 @@
                 {#if !actionDetail.interactive}
                   <button
                     class="run-cmd-btn icon-btn"
-                    title="Run here"
-                    aria-label="Run here"
+                    title={t('tooltip.runHere')}
+                    aria-label={t('tooltip.runHere')}
                     disabled={inlineRunning}
                     on:click={runActionInline}><Icon name="run-here" /></button
                   >
                 {/if}
-                <button class="run-cmd-btn icon-btn" title="Run" aria-label="Run" on:click={runAction}
+                <button class="run-cmd-btn icon-btn" title={t('tooltip.run')} aria-label={t('tooltip.run')} on:click={runAction}
                   ><Icon name="run" /></button
                 >
                 {#if inlineRunning}
-                  <button class="copy-cmd-btn icon-btn" title="Cancel" aria-label="Cancel" on:click={cancelInlineAction}
+                  <button class="copy-cmd-btn icon-btn" title={t('tooltip.cancel')} aria-label={t('tooltip.cancel')} on:click={cancelInlineAction}
                     ><Icon name="cancel" /></button
                   >
                 {/if}
@@ -758,12 +761,12 @@
             {#if inlineRunning || inlineOutput}
               <div class="cmd-output">
                 <div class="cmd-output-status" class:running={inlineRunning} class:error={inlineExitCode !== null && inlineExitCode !== 0}>
-                  <span>{inlineRunning ? 'Running…' : `Exited ${inlineExitCode}`}</span>
+                  <span>{inlineRunning ? t('status.running') : t('status.exited', { code: String(inlineExitCode) })}</span>
                   {#if inlineOutput}
                     <button
                       class="cmd-copy-btn"
-                      title="Copy output"
-                      aria-label="Copy output"
+                      title={t('tooltip.copyOutput')}
+                      aria-label={t('tooltip.copyOutput')}
                       on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></button
                     >
                   {/if}
@@ -785,7 +788,7 @@
             {/if}
             {#if actionDetail.cmd}
               <div class="cmd-line">
-                <button class="cmd-copy-btn cmd-line-copy-btn" title="Copy command" aria-label="Copy command" on:click={copyCmd}
+                <button class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} aria-label={t('tooltip.copyCommand')} on:click={copyCmd}
                   ><Icon name="copy" /></button
                 >
                 {#each actionDetail.cmd.replace(/\n+$/, '').split('\n') as line, i (i)}
@@ -797,7 +800,7 @@
               </div>
             {/if}
           {:else}
-            <div class="empty">Select an action to preview its command</div>
+            <div class="empty">{t('empty.selectActionToPreview')}</div>
           {/if}
         </div>
       {/if}

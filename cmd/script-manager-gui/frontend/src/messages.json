@@ -1,0 +1,73 @@
+{
+  "toast": {
+    "configLoadFailed": "Config load failed: {error}",
+    "copiedToClipboard": "Copied to clipboard",
+    "clipboardUnavailable": "Clipboard unavailable: {error}",
+    "runningInTerminal": "Running in terminal window…",
+    "runFailed": "Run failed: {error}",
+    "cancelFailed": "Cancel failed: {error}",
+    "reloadFailed": "Reload failed: {error}",
+    "configReloadedWithWarning": "Config reloaded with a warning: {warning}",
+    "configReloaded": "Config reloaded",
+    "loadFailed": "Load failed: {error}",
+    "loaded": "Loaded {path}",
+    "openConfigEditorFailed": "Failed to open config editor: {error}"
+  },
+  "panel": {
+    "items": "Items",
+    "actions": "Actions",
+    "details": "Details",
+    "command": "Command"
+  },
+  "empty": {
+    "noItems": "No items configured",
+    "noActionsForGroups": "No actions in the selected group{plural}",
+    "noActionsForItem": "No actions for this item",
+    "noItemSelected": "No item selected",
+    "selectActionToPreview": "Select an action to preview its command"
+  },
+  "status": {
+    "running": "Running…",
+    "exited": "Exited {code}"
+  },
+  "warning": {
+    "missingFields": "⚠ {count} missing value{plural} (shown as <nil>)"
+  },
+  "sort": {
+    "alphaAsc": "A-Z",
+    "alphaDesc": "Z-A",
+    "alphaTitleDefault": "Sort by name",
+    "alphaTitleAsc": "Sorted A-Z — click for Z-A",
+    "alphaTitleDesc": "Sorted Z-A — click for A-Z",
+    "countAsc": "# ↑",
+    "countDesc": "# ↓",
+    "countTitleDefault": "Sort by action count",
+    "countTitleDesc": "Sorted by action count, descending — click for ascending",
+    "countTitleAsc": "Sorted by action count, ascending — click for descending"
+  },
+  "tooltip": {
+    "loadConfig": "Load config",
+    "refreshConfigTitle": "Refresh config (F5)",
+    "refreshConfigAria": "Refresh config",
+    "openConfigEditorTitle": "Open config editor (Ctrl+E)",
+    "openConfigEditorAria": "Open config editor",
+    "expand": "Expand",
+    "collapse": "Collapse",
+    "actionRunningItem": "An action is running",
+    "actionRunningAction": "Running",
+    "expandGroupFilter": "Expand group filter",
+    "collapseGroupFilter": "Collapse group filter",
+    "expandMissingWarning": "Expand missing-values warning",
+    "collapseMissingWarning": "Collapse missing-values warning",
+    "runHere": "Run here",
+    "run": "Run",
+    "cancel": "Cancel",
+    "copyOutput": "Copy output",
+    "copyCommand": "Copy command"
+  },
+  "text": {
+    "allGroupsChip": "All",
+    "separator": " · ",
+    "groupCount": "({count})"
+  }
+}

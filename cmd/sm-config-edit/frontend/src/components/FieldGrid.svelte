@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '../messages'
+
   // Drives a []FieldDTO (Environment, or an item's non-reserved "Additional
   // Fields"): a key, a kind selector, a kind-appropriate value widget, and a
   // lock toggle — the frontend half of internal/configedit's classify/decode
@@ -14,7 +16,7 @@
   // -webkit-text-security (which masks the real value character-for-character,
   // still revealing its length), this gives away nothing until the field is
   // focused, matching the masked-field convention seen in most other forms.
-  const secretPlaceholder = '••••••••'
+  const secretPlaceholder = t('text.secretMask')
 
   let errors: Record<number, string> = {}
   let focused: Record<number, boolean> = {}
@@ -66,7 +68,7 @@
       <input
         class="field-key"
         type="text"
-        placeholder="key"
+        placeholder={t('placeholder.fieldKey')}
         bind:value={fields[i].key}
         on:input={() => onKeyInput(i)}
       />
@@ -113,7 +115,7 @@
         class="btn icon-btn"
         class:active={fields[i].secret}
         type="button"
-        title={fields[i].secret ? 'Marked as secret — click to unmark' : 'Mark as secret'}
+        title={fields[i].secret ? t('tooltip.markedSecret') : t('tooltip.markSecret')}
         on:click={() => toggleSecret(i)}
       >
         {#if fields[i].secret}
@@ -128,13 +130,13 @@
           </svg>
         {/if}
       </button>
-      <button class="btn icon-btn" type="button" title="Remove field" on:click={() => remove(i)}>✕</button>
+      <button class="btn icon-btn" type="button" title={t('tooltip.removeField')} on:click={() => remove(i)}>{t('text.removeGlyph')}</button>
     </div>
     {#if errors[i]}
       <div class="field-error">{errors[i]}</div>
     {/if}
   {/each}
-  <button class="btn" type="button" on:click={add}>+ Add field</button>
+  <button class="btn" type="button" on:click={add}>{t('button.addField')}</button>
 </div>
 
 <style>

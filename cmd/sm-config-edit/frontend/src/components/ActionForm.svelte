@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '../messages'
+
   // Shared by the global Actions section and an item's Custom Actions list —
   // both edit the same []Action-shaped data (internal/configedit.ActionDTO).
   export let action: {
@@ -24,25 +26,25 @@
 <div class="action-form">
   {#if showId}
     <label class="field">
-      <span>ID</span>
-      <input type="text" bind:value={action.id} placeholder="unique id, referenced by items' Actions list" />
+      <span>{t('field.id')}</span>
+      <input type="text" bind:value={action.id} placeholder={t('placeholder.actionId')} />
     </label>
   {/if}
   <label class="field">
-    <span>Title</span>
+    <span>{t('field.title')}</span>
     <input type="text" bind:value={action.title} />
   </label>
   <label class="field">
-    <span>Description</span>
+    <span>{t('field.description')}</span>
     <textarea rows="3" bind:value={action.description}></textarea>
   </label>
   <label class="field cmd-field">
-    <span>Command</span>
+    <span>{t('field.command')}</span>
     <textarea rows="3" bind:value={action.cmd}></textarea>
   </label>
   {#if allActionGroups.length > 0}
     <div class="field">
-      <span>Groups</span>
+      <span>{t('field.groups')}</span>
       <div class="checkbox-list">
         {#each allActionGroups as g}
           <label class="checkbox-chip">
@@ -55,11 +57,11 @@
   {/if}
   <label class="field-checkbox">
     <input type="checkbox" bind:checked={action.noWait} />
-    <span>No wait (close the terminal immediately instead of pausing after the command finishes)</span>
+    <span>{t('hint.noWaitCheckbox')}</span>
   </label>
   <label class="field-checkbox">
     <input type="checkbox" bind:checked={action.interactive} />
-    <span>Interactive (needs terminal input — hides "Run here" in the GUI)</span>
+    <span>{t('hint.interactiveCheckbox')}</span>
   </label>
 </div>
 

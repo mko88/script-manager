@@ -9,6 +9,7 @@
   import ViewModeIcon from './components/ViewModeIcon.svelte'
   import ListActionIcon from './components/ListActionIcon.svelte'
   import ToolbarIcon from './components/ToolbarIcon.svelte'
+  import { t } from './messages'
   import {
     InitialState,
     NewBlank,
@@ -20,6 +21,8 @@
     ValidateConfig,
     ValidateField,
     KnownTerminals,
+    GetEditableMessages,
+    SaveMessages,
   } from '../wailsjs/go/configedit/App.js'
   import type { configedit } from '../wailsjs/go/models'
 
@@ -44,16 +47,17 @@
   let validation: configedit.ValidationIssueDTO[] = []
   let initialized = false
 
-  type Section = 'items' | 'actionGroups' | 'actions' | 'display' | 'env' | 'shell' | 'titles' | 'terminal'
+  type Section = 'items' | 'actionGroups' | 'actions' | 'display' | 'env' | 'shell' | 'titles' | 'terminal' | 'messages'
   const sections: { key: Section; label: string }[] = [
-    { key: 'items', label: 'Items' },
-    { key: 'actionGroups', label: 'Action Groups' },
-    { key: 'actions', label: 'Actions' },
-    { key: 'display', label: 'Displays' },
-    { key: 'env', label: 'Environment' },
-    { key: 'shell', label: 'Shell' },
-    { key: 'titles', label: 'Titles' },
-    { key: 'terminal', label: 'Terminal' },
+    { key: 'items', label: t('nav.items') },
+    { key: 'actionGroups', label: t('nav.actionGroups') },
+    { key: 'actions', label: t('nav.actions') },
+    { key: 'display', label: t('nav.displays') },
+    { key: 'env', label: t('nav.environment') },
+    { key: 'shell', label: t('nav.shell') },
+    { key: 'titles', label: t('nav.titles') },
+    { key: 'terminal', label: t('nav.terminal') },
+    { key: 'messages', label: t('nav.messages') },
   ]
   let section: Section = 'items'
   $: sectionTitle = sections.find((s) => s.key === section)?.label ?? ''
@@ -218,7 +222,7 @@
     cfg = state.config
     path = state.path
     markClean()
-    if (state.warning) flash(`Config load warning: ${state.warning}`)
+    if (state.warning) flash(t('toast.configLoadWarning', { warning: state.warning }))
   }
 
   function resetSelection() {
@@ -264,7 +268,7 @@
 
   async function confirmDiscard(): Promise<boolean> {
     if (!dirty) return true
-    return confirm('Discard unsaved changes?')
+    return confirm(t('confirm.discardUnsaved'))
   }
 
   async function newConfig() {
@@ -280,7 +284,7 @@
       applyState(state)
       resetSelection()
     } catch (err) {
-      flash(`Open failed: ${err}`)
+      flash(t('toast.openFailed', { error: String(err) }))
     }
   }
 
@@ -289,15 +293,15 @@
       const result = await Save(cfg, target)
       path = result.path
       markClean()
-      flash('Saved')
+      flash(t('toast.saved'))
     } catch (err) {
-      flash(`Save failed: ${err}`)
+      flash(t('toast.saveFailed', { error: String(err) }))
     }
   }
 
   async function saveConfig() {
     if (hasBlockingError) {
-      flash('Fix blocking errors before saving')
+      flash(t('toast.fixBlockingErrors'))
       return
     }
     if (path) {
@@ -310,7 +314,7 @@
 
   async function saveAsConfig() {
     if (hasBlockingError) {
-      flash('Fix blocking errors before saving')
+      flash(t('toast.fixBlockingErrors'))
       return
     }
     const target = await BrowseSaveAs()
@@ -375,8 +379,8 @@
     else if (selectedItem > i) selectedItem -= 1
   }
   function confirmRemoveItem(i: number) {
-    const name = cfg.items[i]?.name || '(unnamed)'
-    if (confirm(`Remove item "${name}"? This can't be undone.`)) removeItem(i)
+    const name = cfg.items[i]?.name || t('fallback.unnamed')
+    if (confirm(t('confirm.removeItem', { name }))) removeItem(i)
   }
 
   function addAction() {
@@ -389,8 +393,8 @@
     else if (selectedAction > i) selectedAction -= 1
   }
   function confirmRemoveAction(i: number) {
-    const name = cfg.actions[i]?.title || cfg.actions[i]?.id || '(untitled)'
-    if (confirm(`Remove action "${name}"? This can't be undone.`)) removeAction(i)
+    const name = cfg.actions[i]?.title || cfg.actions[i]?.id || t('fallback.untitled')
+    if (confirm(t('confirm.removeAction', { name }))) removeAction(i)
   }
 
   function addActionGroup() {
@@ -428,10 +432,10 @@
   }
   function confirmRemoveActionGroup(i: number) {
     const g = cfg.actionGroups[i]
-    const name = g?.title || g?.id || '(unnamed)'
+    const name = g?.title || g?.id || t('fallback.unnamed')
     const refCount = g?.id ? actionGroupRefCount(g.id) : 0
-    const refSuffix = refCount > 0 ? ` It's referenced by ${refCount} action/item field${refCount > 1 ? 's' : ''} — those references will be removed too.` : ''
-    if (confirm(`Remove action group "${name}"? This can't be undone.${refSuffix}`)) removeActionGroup(i)
+    const refSuffix = refCount > 0 ? t('confirm.removeActionGroupRefSuffix', { count: refCount, plural: refCount > 1 ? 's' : '' }) : ''
+    if (confirm(t('confirm.removeActionGroup', { name, refSuffix }))) removeActionGroup(i)
   }
 
   function addDisplay() {
@@ -450,8 +454,8 @@
     else if (selectedDisplay > i) selectedDisplay -= 1
   }
   function confirmRemoveDisplay(i: number) {
-    const name = cfg.display[i]?.name || '(unnamed)'
-    if (confirm(`Remove display "${name}"? This can't be undone.`)) removeDisplay(i)
+    const name = cfg.display[i]?.name || t('fallback.unnamed')
+    if (confirm(t('confirm.removeDisplay', { name }))) removeDisplay(i)
   }
 
   function addCustomAction(itemIdx: number) {
@@ -638,42 +642,109 @@
       displayPreview = await PreviewItem(item, cfg.envFields, cfg.display, d.name)
     }, 250)
   }
+
+  // Messages section: edits either app's runtime message-override file
+  // (script-manager-gui.messages.json / sm-config-edit.messages.json),
+  // flattened into dotted-key rows for a simple key+text-input editor —
+  // the same dotted paths t() itself resolves. Independent of cfg's own
+  // dirty/save flow: a different file, a different Save action.
+  type MessagesTarget = 'gui' | 'configedit'
+  let messagesTarget: MessagesTarget = 'gui'
+  let messagesRows: { key: string; value: string }[] = []
+  let messagesError = ''
+
+  function flattenMessages(obj: unknown, prefix = ''): { key: string; value: string }[] {
+    if (typeof obj !== 'object' || obj === null) return []
+    const rows: { key: string; value: string }[] = []
+    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
+      const key = prefix ? `${prefix}.${k}` : k
+      if (typeof v === 'string') rows.push({ key, value: v })
+      else rows.push(...flattenMessages(v, key))
+    }
+    return rows
+  }
+
+  function unflattenMessages(rows: { key: string; value: string }[]): Record<string, unknown> {
+    const root: Record<string, unknown> = {}
+    for (const { key, value } of rows) {
+      const parts = key.split('.')
+      let node = root
+      for (let i = 0; i < parts.length - 1; i++) {
+        const part = parts[i]
+        if (typeof node[part] !== 'object' || node[part] === null) node[part] = {}
+        node = node[part] as Record<string, unknown>
+      }
+      node[parts[parts.length - 1]] = value
+    }
+    return root
+  }
+
+  $: messagesGroups = (() => {
+    const groups = new Map<string, { key: string; value: string }[]>()
+    for (const row of messagesRows) {
+      const category = row.key.split('.')[0]
+      if (!groups.has(category)) groups.set(category, [])
+      groups.get(category)!.push(row)
+    }
+    return Array.from(groups, ([category, rows]) => ({ category, rows }))
+  })()
+
+  $: if (initialized && section === 'messages') loadMessages(messagesTarget)
+
+  async function loadMessages(target: MessagesTarget) {
+    messagesError = ''
+    try {
+      messagesRows = flattenMessages(await GetEditableMessages(target))
+    } catch (err) {
+      messagesRows = []
+      messagesError = String(err)
+    }
+  }
+
+  async function saveMessagesSection() {
+    try {
+      await SaveMessages(messagesTarget, unflattenMessages(messagesRows))
+      flash(t('messagesEditor.saved'))
+    } catch (err) {
+      flash(t('messagesEditor.saveFailed', { error: String(err) }))
+    }
+  }
 </script>
 
 <svelte:window on:keydown={handleGlobalKeydown} />
 
 <main class="app-shell">
   <header class="toolbar">
-    <button class="btn icon-btn" type="button" title="New (Ctrl+N)" aria-label="New" on:click={newConfig}
+    <button class="btn icon-btn" type="button" title={t('tooltip.newTitle')} aria-label={t('tooltip.newAria')} on:click={newConfig}
       ><ToolbarIcon mode="new" /></button
     >
-    <button class="btn icon-btn" type="button" title="Open (Ctrl+O)" aria-label="Open" on:click={openConfig}
+    <button class="btn icon-btn" type="button" title={t('tooltip.openTitle')} aria-label={t('tooltip.openAria')} on:click={openConfig}
       ><ToolbarIcon mode="open" /></button
     >
     <button
       class="btn btn-primary icon-btn"
       type="button"
-      title="Save (Ctrl+S)"
-      aria-label="Save"
+      title={t('tooltip.saveTitle')}
+      aria-label={t('tooltip.saveAria')}
       disabled={hasBlockingError}
       on:click={saveConfig}><ToolbarIcon mode="save" /></button
     >
     <button
       class="btn icon-btn"
       type="button"
-      title="Save As (Ctrl+Shift+S)"
-      aria-label="Save As"
+      title={t('tooltip.saveAsTitle')}
+      aria-label={t('tooltip.saveAsAria')}
       disabled={hasBlockingError}
       on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></button
     >
-    <span class="toolbar-path">{path || '(unsaved)'}{dirty ? ' *' : ''}</span>
+    <span class="toolbar-path">{path || t('text.unsaved')}{dirty ? t('text.dirtyMarker') : ''}</span>
   </header>
 
   {#if validation.length > 0}
     <div class="validation-banner">
       {#each validation as issue}
         <div class="validation-issue" class:validation-error={issue.severity === 'error'}>
-          {issue.severity === 'error' ? '⛔' : '⚠'}
+          {issue.severity === 'error' ? t('text.errorIcon') : t('text.warningIcon')}
           {issue.message}
         </div>
       {/each}
@@ -691,80 +762,80 @@
       <header class="panel-title"><span>{sectionTitle}</span></header>
       <div
         class="panel-body"
-        class:list-body={section === 'items' || section === 'actionGroups' || section === 'actions'}
+        class:list-body={section === 'items' || section === 'actionGroups' || section === 'actions' || section === 'messages'}
       >
         {#if section === 'shell'}
-          <p class="hint">The command used to launch actions, e.g. <code>pwsh -NoLogo -Command</code>.</p>
-          <StringListEditor bind:items={cfg.shell} placeholder="e.g. pwsh" />
+          <p class="hint">{t('hint.shellCommandPrefix')}<code>pwsh -NoLogo -Command</code>.</p>
+          <StringListEditor bind:items={cfg.shell} placeholder={t('placeholder.shellCommand')} />
         {:else if section === 'titles'}
           <label class="field">
-            <span>Items pane title</span>
-            <input type="text" bind:value={cfg.titles.items} placeholder="Items" />
+            <span>{t('field.itemsPaneTitle')}</span>
+            <input type="text" bind:value={cfg.titles.items} placeholder={t('nav.items')} />
           </label>
           <label class="field">
-            <span>Actions pane title</span>
-            <input type="text" bind:value={cfg.titles.actions} placeholder="Actions" />
+            <span>{t('field.actionsPaneTitle')}</span>
+            <input type="text" bind:value={cfg.titles.actions} placeholder={t('nav.actions')} />
           </label>
           <label class="field">
-            <span>Details pane title</span>
-            <input type="text" bind:value={cfg.titles.details} placeholder="Details" />
+            <span>{t('field.detailsPaneTitle')}</span>
+            <input type="text" bind:value={cfg.titles.details} placeholder={t('placeholder.detailsPaneTitle')} />
           </label>
           <label class="field">
-            <span>Command pane title</span>
-            <input type="text" bind:value={cfg.titles.command} placeholder="Command" />
+            <span>{t('field.commandPaneTitle')}</span>
+            <input type="text" bind:value={cfg.titles.command} placeholder={t('field.command')} />
           </label>
         {:else if section === 'terminal'}
           <div class="radio-group">
-            <label><input type="radio" bind:group={cfg.terminal.mode} value="auto" /> Auto-detect</label>
-            <label><input type="radio" bind:group={cfg.terminal.mode} value="name" /> Named</label>
-            <label><input type="radio" bind:group={cfg.terminal.mode} value="argv" /> Custom command</label>
+            <label><input type="radio" bind:group={cfg.terminal.mode} value="auto" /> {t('radio.autoDetect')}</label>
+            <label><input type="radio" bind:group={cfg.terminal.mode} value="name" /> {t('radio.named')}</label>
+            <label><input type="radio" bind:group={cfg.terminal.mode} value="argv" /> {t('radio.customCommand')}</label>
           </div>
           {#if cfg.terminal.mode === 'name'}
             <label class="field">
-              <span>Terminal name</span>
-              <input type="text" list="known-terminals" bind:value={cfg.terminal.name} placeholder="e.g. wt" />
+              <span>{t('field.terminalName')}</span>
+              <input type="text" list="known-terminals" bind:value={cfg.terminal.name} placeholder={t('placeholder.terminalName')} />
               <datalist id="known-terminals">
                 {#each knownTerminals as name}<option value={name} />{/each}
               </datalist>
             </label>
           {:else if cfg.terminal.mode === 'argv'}
             <p class="hint">
-              First entry is the terminal binary; the rest are its flags. Use <code>{'{{title}}'}</code>/<code
+              {t('hint.terminalArgvPrefix')}<code>{'{{title}}'}</code>/<code
                 >{'{{dir}}'}</code
-              > as placeholders.
+              >{t('hint.terminalArgvSuffix')}
             </p>
-            <StringListEditor bind:items={cfg.terminal.argv} placeholder="e.g. --title" />
+            <StringListEditor bind:items={cfg.terminal.argv} placeholder={t('placeholder.terminalArgv')} />
           {/if}
         {:else if section === 'env'}
-          <p class="hint">Available to every item's templates and subprocess environment.</p>
+          <p class="hint">{t('hint.envGlobal')}</p>
           <FieldGrid bind:fields={cfg.envFields} validateField={ValidateField} />
         {:else if section === 'display'}
           <div class="display-section">
             <div class="display-select-row">
               <label class="field display-select-field">
-                <span>Display</span>
+                <span>{t('field.display')}</span>
                 <select bind:value={selectedDisplay}>
-                  <option value={-1}>(select a display)</option>
-                  {#each cfg.display as d, i (i)}<option value={i}>{d.name || `(unnamed display ${i + 1})`}</option
+                  <option value={-1}>{t('option.selectDisplay')}</option>
+                  {#each cfg.display as d, i (i)}<option value={i}>{d.name || t('option.unnamedDisplay', { n: i + 1 })}</option
                     >{/each}
                 </select>
               </label>
-              <button class="btn icon-btn" type="button" title="Add display" aria-label="Add display" on:click={addDisplay}
+              <button class="btn icon-btn" type="button" title={t('tooltip.addDisplay')} aria-label={t('tooltip.addDisplay')} on:click={addDisplay}
                 ><ListActionIcon mode="add" /></button
               >
               <button
                 class="btn icon-btn"
                 type="button"
-                title="Copy display"
-                aria-label="Copy display"
+                title={t('tooltip.copyDisplay')}
+                aria-label={t('tooltip.copyDisplay')}
                 disabled={selectedDisplay < 0}
                 on:click={copyDisplay}><ListActionIcon mode="copy" /></button
               >
               <button
                 class="btn icon-btn"
                 type="button"
-                title="Remove display"
-                aria-label="Remove display"
+                title={t('tooltip.removeDisplay')}
+                aria-label={t('tooltip.removeDisplay')}
                 disabled={selectedDisplay < 0}
                 on:click={() => confirmRemoveDisplay(selectedDisplay)}><ListActionIcon mode="remove" /></button
               >
@@ -772,7 +843,7 @@
 
             {#if selectedDisplay >= 0 && cfg.display[selectedDisplay]}
               <label class="field">
-                <span>Name</span>
+                <span>{t('field.name')}</span>
                 <input type="text" bind:value={cfg.display[selectedDisplay].name} />
               </label>
 
@@ -782,40 +853,40 @@
                     class="btn icon-btn"
                     class:active={displayViewMode === 'edit'}
                     type="button"
-                    title="Edit only"
-                    aria-label="Edit only"
+                    title={t('tooltip.editOnly')}
+                    aria-label={t('tooltip.editOnly')}
                     on:click={() => setDisplayViewMode('edit')}><ViewModeIcon mode="edit" /></button
                   >
                   <button
                     class="btn icon-btn"
                     class:active={displayViewMode === 'preview'}
                     type="button"
-                    title="Preview only"
-                    aria-label="Preview only"
+                    title={t('tooltip.previewOnly')}
+                    aria-label={t('tooltip.previewOnly')}
                     on:click={() => setDisplayViewMode('preview')}><ViewModeIcon mode="preview" /></button
                   >
                   <button
                     class="btn icon-btn"
                     class:active={displayViewMode === 'split-v'}
                     type="button"
-                    title="Side by side"
-                    aria-label="Side by side"
+                    title={t('tooltip.sideBySide')}
+                    aria-label={t('tooltip.sideBySide')}
                     on:click={() => setDisplayViewMode('split-v')}><ViewModeIcon mode="split-v" /></button
                   >
                   <button
                     class="btn icon-btn"
                     class:active={displayViewMode === 'split-h'}
                     type="button"
-                    title="Stacked"
-                    aria-label="Stacked"
+                    title={t('tooltip.stacked')}
+                    aria-label={t('tooltip.stacked')}
                     on:click={() => setDisplayViewMode('split-h')}><ViewModeIcon mode="split-h" /></button
                   >
                 </div>
                 <label class="field preview-item-picker">
-                  <span>Preview item</span>
+                  <span>{t('field.previewItem')}</span>
                   <select bind:value={previewItemForDisplay} on:change={scheduleDisplayPreview}>
-                    <option value={-1}>(none)</option>
-                    {#each cfg.items as it, i}<option value={i}>{it.name || `(unnamed item ${i + 1})`}</option
+                    <option value={-1}>{t('option.none')}</option>
+                    {#each cfg.items as it, i}<option value={i}>{it.name || t('option.unnamedItem', { n: i + 1 })}</option
                       >{/each}
                   </select>
                 </label>
@@ -836,29 +907,29 @@
                         ? `flex: 0 1 ${displayEditHeight}px`
                         : ''}
                   >
-                    <header class="panel-title"><span>Edit</span></header>
+                    <header class="panel-title"><span>{t('panel.edit')}</span></header>
                     <div class="panel-body edit-pane-body">
                       <label class="field list-template-field">
-                        <span>List template</span>
+                        <span>{t('field.listTemplate')}</span>
                         <input type="text" bind:value={cfg.display[selectedDisplay].list} />
                       </label>
                       <label class="field details-template-field">
-                        <span>Details template</span>
+                        <span>{t('field.detailsTemplate')}</span>
                         <div class="details-helper-toolbar">
-                          <select class="env-insert-select" title="Insert env var at cursor" on:change={onEnvSelectChange}>
-                            <option value="">Insert env…</option>
+                          <select class="env-insert-select" title={t('tooltip.insertEnvVar')} on:change={onEnvSelectChange}>
+                            <option value="">{t('option.insertEnv')}</option>
                             {#each availableEnvKeys as key (key)}<option value={key}>{key}</option>{/each}
                           </select>
-                          <button class="btn icon-btn" type="button" title="Bold" on:click={() => wrapSelection('**')}
+                          <button class="btn icon-btn" type="button" title={t('tooltip.bold')} on:click={() => wrapSelection('**')}
                             ><strong>B</strong></button
                           >
-                          <button class="btn icon-btn" type="button" title="Italic" on:click={() => wrapSelection('_')}
+                          <button class="btn icon-btn" type="button" title={t('tooltip.italic')} on:click={() => wrapSelection('_')}
                             ><em>I</em></button
                           >
                           <button
                             class="btn icon-btn"
                             type="button"
-                            title="Highlight (wraps in backticks)"
+                            title={t('tooltip.highlight')}
                             on:click={() => wrapSelection('`')}><code>`</code></button
                           >
                         </div>
@@ -877,17 +948,17 @@
                 {/if}
                 {#if displayViewMode !== 'edit'}
                   <div class="preview-pane-inline panel">
-                    <header class="panel-title"><span>Preview</span></header>
+                    <header class="panel-title"><span>{t('panel.preview')}</span></header>
                     <div class="panel-body">
                       {#if previewItemForDisplay < 0}
-                        <div class="empty">Pick an item above to preview against.</div>
+                        <div class="empty">{t('empty.pickItemToPreview')}</div>
                       {:else if displayPreview}
                         {#if displayPreview.error}
                           <div class="validation-issue validation-error">{displayPreview.error}</div>
                         {/if}
-                        <p class="preview-label">List label: <strong>{displayPreview.listLabel}</strong></p>
+                        <p class="preview-label">{t('hint.listLabel')}<strong>{displayPreview.listLabel}</strong></p>
                         {#if displayPreview.missingFields?.length}
-                          <p class="hint">⚠ missing: {displayPreview.missingFields.join(', ')}</p>
+                          <p class="hint">{t('hint.missingFields', { fields: displayPreview.missingFields.join(', ') })}</p>
                         {/if}
                         <div class="details-preview">{@html displayPreview.detailsHtml}</div>
                       {/if}
@@ -896,7 +967,7 @@
                 {/if}
               </div>
             {:else}
-              <div class="empty">Select a display, or add one.</div>
+              <div class="empty">{t('empty.selectDisplayOrAdd')}</div>
             {/if}
           </div>
         {:else if section === 'actionGroups'}
@@ -904,15 +975,15 @@
             <button
               class="btn icon-btn"
               type="button"
-              title="Add action group"
-              aria-label="Add action group"
+              title={t('tooltip.addActionGroup')}
+              aria-label={t('tooltip.addActionGroup')}
               on:click={addActionGroup}><ListActionIcon mode="add" /></button
             >
             <button
               class="btn icon-btn"
               type="button"
-              title="Remove action group"
-              aria-label="Remove action group"
+              title={t('tooltip.removeActionGroup')}
+              aria-label={t('tooltip.removeActionGroup')}
               disabled={selectedActionGroup < 0}
               on:click={() => confirmRemoveActionGroup(selectedActionGroup)}><ListActionIcon mode="remove" /></button
             >
@@ -920,8 +991,8 @@
               class="btn icon-btn"
               class:active={reorderMode}
               type="button"
-              title={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
-              aria-label={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
+              title={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
+              aria-label={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
               on:click={toggleReorderMode}><ListActionIcon mode="reorder" /></button
             >
           </div>
@@ -940,30 +1011,30 @@
                   }}
                 >
                   <span class="group-swatch" style="background: {entry.ref.color || 'var(--sm-border)'}"></span>
-                  {entry.ref.title || entry.ref.id || '(unnamed)'}
+                  {entry.ref.title || entry.ref.id || t('fallback.unnamed')}
                 </button>
               {/each}
             </div>
             <div class="detail">
               {#if selectedActionGroup >= 0 && cfg.actionGroups[selectedActionGroup]}
                 <label class="field">
-                  <span>ID</span>
+                  <span>{t('field.id')}</span>
                   <input
                     type="text"
                     bind:value={cfg.actionGroups[selectedActionGroup].id}
-                    placeholder="unique id, referenced by actions/items"
+                    placeholder={t('placeholder.actionGroupId')}
                   />
                 </label>
                 <label class="field">
-                  <span>Title</span>
+                  <span>{t('field.title')}</span>
                   <input
                     type="text"
                     bind:value={cfg.actionGroups[selectedActionGroup].title}
-                    placeholder="display name (optional)"
+                    placeholder={t('placeholder.actionGroupTitle')}
                   />
                 </label>
                 <div class="field">
-                  <span>Color</span>
+                  <span>{t('field.color')}</span>
                   <div class="color-field">
                     <input
                       type="color"
@@ -971,30 +1042,30 @@
                         ? cfg.actionGroups[selectedActionGroup].color
                         : '#7fd4ff'}
                       on:input={(e) => (cfg.actionGroups[selectedActionGroup].color = e.currentTarget.value)}
-                      title="Pick a color"
+                      title={t('tooltip.pickColor')}
                     />
                     <input
                       type="text"
                       bind:value={cfg.actionGroups[selectedActionGroup].color}
-                      placeholder="#7fd4ff or a CSS color name"
+                      placeholder={t('placeholder.actionGroupColor')}
                     />
                   </div>
                 </div>
               {:else}
-                <div class="empty">Select an action group, or add one.</div>
+                <div class="empty">{t('empty.selectActionGroupOrAdd')}</div>
               {/if}
             </div>
           </div>
         {:else if section === 'actions'}
           <div class="list-toolbar">
-            <button class="btn icon-btn" type="button" title="Add action" aria-label="Add action" on:click={addAction}
+            <button class="btn icon-btn" type="button" title={t('tooltip.addAction')} aria-label={t('tooltip.addAction')} on:click={addAction}
               ><ListActionIcon mode="add" /></button
             >
             <button
               class="btn icon-btn"
               type="button"
-              title="Remove action"
-              aria-label="Remove action"
+              title={t('tooltip.removeAction')}
+              aria-label={t('tooltip.removeAction')}
               disabled={selectedAction < 0}
               on:click={() => confirmRemoveAction(selectedAction)}><ListActionIcon mode="remove" /></button
             >
@@ -1002,8 +1073,8 @@
               class="btn icon-btn"
               class:active={reorderMode}
               type="button"
-              title={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
-              aria-label={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
+              title={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
+              aria-label={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
               on:click={toggleReorderMode}><ListActionIcon mode="reorder" /></button
             >
           </div>
@@ -1019,7 +1090,7 @@
                   class:selected={selectedAction === i}
                   on:click={() => {
                     if (!reorderMode) selectedAction = i
-                  }}>{entry.ref.title || entry.ref.id || '(untitled)'}</button
+                  }}>{entry.ref.title || entry.ref.id || t('fallback.untitled')}</button
                 >
               {/each}
             </div>
@@ -1027,20 +1098,20 @@
               {#if selectedAction >= 0 && cfg.actions[selectedAction]}
                 <ActionForm bind:action={cfg.actions[selectedAction]} {allActionGroups} />
               {:else}
-                <div class="empty">Select an action, or add one.</div>
+                <div class="empty">{t('empty.selectActionOrAdd')}</div>
               {/if}
             </div>
           </div>
         {:else if section === 'items'}
           <div class="list-toolbar">
-            <button class="btn icon-btn" type="button" title="Add item" aria-label="Add item" on:click={addItem}
+            <button class="btn icon-btn" type="button" title={t('tooltip.addItem')} aria-label={t('tooltip.addItem')} on:click={addItem}
               ><ListActionIcon mode="add" /></button
             >
             <button
               class="btn icon-btn"
               type="button"
-              title="Remove item"
-              aria-label="Remove item"
+              title={t('tooltip.removeItem')}
+              aria-label={t('tooltip.removeItem')}
               disabled={selectedItem < 0}
               on:click={() => confirmRemoveItem(selectedItem)}><ListActionIcon mode="remove" /></button
             >
@@ -1048,8 +1119,8 @@
               class="btn icon-btn"
               class:active={reorderMode}
               type="button"
-              title={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
-              aria-label={reorderMode ? 'Exit reorder mode' : 'Enter reorder mode'}
+              title={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
+              aria-label={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
               on:click={toggleReorderMode}><ListActionIcon mode="reorder" /></button
             >
           </div>
@@ -1068,27 +1139,27 @@
                     selectedItem = i
                     previewActionIdx = -1
                     actionPreview = null
-                  }}>{entry.ref.name || '(unnamed)'}</button
+                  }}>{entry.ref.name || t('fallback.unnamed')}</button
                 >
               {/each}
             </div>
             <div class="detail">
               {#if selectedItem >= 0 && cfg.items[selectedItem]}
                 <label class="field">
-                  <span>Name</span>
+                  <span>{t('field.name')}</span>
                   <input type="text" bind:value={cfg.items[selectedItem].name} />
                 </label>
                 <label class="field">
-                  <span>Display</span>
+                  <span>{t('field.display')}</span>
                   <select bind:value={cfg.items[selectedItem].display}>
-                    <option value="">(default)</option>
+                    <option value="">{t('option.defaultDisplay')}</option>
                     {#each cfg.display as d}<option value={d.name}>{d.name}</option>{/each}
                   </select>
                 </label>
 
                 {#if allActionIds.length > 0}
                   <div class="field">
-                    <span>Actions</span>
+                    <span>{t('nav.actions')}</span>
                     <div class="checkbox-list">
                       {#each allActionIds as id}
                         <label class="checkbox-chip">
@@ -1107,7 +1178,7 @@
 
                 {#if allActionGroups.length > 0}
                   <div class="field">
-                    <span>Action groups</span>
+                    <span>{t('field.itemActionGroupsList')}</span>
                     <div class="checkbox-list">
                       {#each allActionGroups as g}
                         <label class="checkbox-chip">
@@ -1128,32 +1199,32 @@
                 {/if}
 
                 <div class="field">
-                  <span>Custom actions</span>
+                  <span>{t('field.customActions')}</span>
                   {#each cfg.items[selectedItem].customActions as _, j (j)}
                     <div class="nested-action">
                       <ActionForm bind:action={cfg.items[selectedItem].customActions[j]} showId={false} {allActionGroups} />
                       <button class="btn" type="button" on:click={() => removeCustomAction(selectedItem, j)}
-                        >Remove custom action</button
+                        >{t('button.removeCustomAction')}</button
                       >
                     </div>
                   {/each}
                   <button class="btn" type="button" on:click={() => addCustomAction(selectedItem)}
-                    >+ Add custom action</button
+                    >{t('button.addCustomAction')}</button
                   >
                 </div>
 
                 <div class="field">
-                  <span>Environment</span>
-                  <p class="hint">Available to this item's templates and subprocess environment — overrides a same-named value from the global Environment section.</p>
+                  <span>{t('nav.environment')}</span>
+                  <p class="hint">{t('hint.envItem')}</p>
                   <FieldGrid bind:fields={cfg.items[selectedItem].fields} validateField={ValidateField} />
                 </div>
 
                 <div class="preview-pane panel">
-                  <header class="panel-title"><span>Preview</span></header>
+                  <header class="panel-title"><span>{t('panel.preview')}</span></header>
                   <div class="panel-body">
                     {#if cfg.display.length > 1}
                       <label class="field">
-                        <span>Preview display</span>
+                        <span>{t('field.previewDisplay')}</span>
                         <select bind:value={previewDisplayName} on:change={schedulePreview}>
                           {#each cfg.display as d}<option value={d.name}>{d.name}</option>{/each}
                         </select>
@@ -1163,18 +1234,18 @@
                       {#if preview.error}
                         <div class="validation-issue validation-error">{preview.error}</div>
                       {/if}
-                      <p class="preview-label">List label: <strong>{preview.listLabel}</strong></p>
+                      <p class="preview-label">{t('hint.listLabel')}<strong>{preview.listLabel}</strong></p>
                       {#if preview.missingFields?.length}
-                        <p class="hint">⚠ missing: {preview.missingFields.join(', ')}</p>
+                        <p class="hint">{t('hint.missingFields', { fields: preview.missingFields.join(', ') })}</p>
                       {/if}
                       <div class="details-preview">{@html preview.detailsHtml}</div>
                     {/if}
 
                     {#if cfg.actions.length > 0}
                       <label class="field">
-                        <span>Preview action</span>
+                        <span>{t('field.previewAction')}</span>
                         <select bind:value={previewActionIdx} on:change={previewSelectedAction}>
-                          <option value={-1}>(none)</option>
+                          <option value={-1}>{t('option.none')}</option>
                           {#each cfg.actions as a, i}<option value={i}>{a.title || a.id}</option>{/each}
                         </select>
                       </label>
@@ -1182,7 +1253,7 @@
                         {#if actionPreview.error}
                           <div class="validation-issue validation-error">{actionPreview.error}</div>
                         {/if}
-                        <p class="preview-label">Command:</p>
+                        <p class="preview-label">{t('hint.commandLabel')}</p>
                         <pre class="cmd-preview">{actionPreview.cmd}</pre>
                         {#if actionPreview.description}<p class="hint action-desc-preview">{actionPreview.description}</p>{/if}
                       {/if}
@@ -1190,10 +1261,48 @@
                   </div>
                 </div>
               {:else}
-                <div class="empty">Select an item, or add one.</div>
+                <div class="empty">{t('empty.selectItemOrAdd')}</div>
               {/if}
             </div>
           </div>
+        {:else if section === 'messages'}
+          <div class="messages-target-row">
+            <span class="messages-target-label">{t('messagesEditor.targetLabel')}</span>
+            <div class="view-mode-group">
+              <button
+                class="btn"
+                class:active={messagesTarget === 'gui'}
+                type="button"
+                on:click={() => (messagesTarget = 'gui')}>{t('messagesEditor.targetGui')}</button
+              >
+              <button
+                class="btn"
+                class:active={messagesTarget === 'configedit'}
+                type="button"
+                on:click={() => (messagesTarget = 'configedit')}>{t('messagesEditor.targetConfigEdit')}</button
+              >
+            </div>
+            <button class="btn btn-primary" type="button" on:click={saveMessagesSection}
+              >{t('messagesEditor.saveButton')}</button
+            >
+          </div>
+          {#if messagesError}
+            <div class="validation-issue validation-error">{messagesError}</div>
+          {:else}
+            <div class="messages-rows">
+              {#each messagesGroups as group (group.category)}
+                <div class="messages-group">
+                  <h3 class="messages-group-title">{group.category}</h3>
+                  {#each group.rows as row (row.key)}
+                    <label class="field messages-row">
+                      <span class="messages-row-key">{row.key}</span>
+                      <input type="text" bind:value={row.value} />
+                    </label>
+                  {/each}
+                </div>
+              {/each}
+            </div>
+          {/if}
         {/if}
       </div>
     </section>
@@ -1631,5 +1740,40 @@
     font-size: 0.8rem;
     white-space: pre-wrap;
     word-break: break-word;
+  }
+
+  .messages-target-row {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+  }
+
+  .messages-target-label {
+    color: var(--sm-text-muted);
+    font-size: 0.8rem;
+  }
+
+  .messages-rows {
+    flex: 1 1 auto;
+    overflow-y: auto;
+  }
+
+  .messages-group {
+    margin-bottom: 14px;
+  }
+
+  .messages-group-title {
+    margin: 0 0 6px;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--sm-text-muted);
+  }
+
+  .messages-row-key {
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.75rem;
   }
 </style>

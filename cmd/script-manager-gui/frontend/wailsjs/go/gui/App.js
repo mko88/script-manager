@@ -38,6 +38,10 @@ export function GetItems() {
   return window['go']['gui']['App']['GetItems']();
 }
 
+export function GetMessages() {
+  return window['go']['gui']['App']['GetMessages']();
+}
+
 export function GetTitles() {
   return window['go']['gui']['App']['GetTitles']();
 }
@@ -60,4 +64,8 @@ export function RunAction(arg1, arg2) {
 
 export function RunActionInline(arg1, arg2) {
   return window['go']['gui']['App']['RunActionInline'](arg1, arg2);
+}
+
+export function SetDefaultMessages(arg1) {
+  return window['go']['gui']['App']['SetDefaultMessages'](arg1);
 }

@@ -1,0 +1,157 @@
+{
+  "toast": {
+    "configLoadWarning": "Config load warning: {warning}",
+    "openFailed": "Open failed: {error}",
+    "saved": "Saved",
+    "saveFailed": "Save failed: {error}",
+    "fixBlockingErrors": "Fix blocking errors before saving"
+  },
+  "confirm": {
+    "discardUnsaved": "Discard unsaved changes?",
+    "removeItem": "Remove item \"{name}\"? This can't be undone.",
+    "removeAction": "Remove action \"{name}\"? This can't be undone.",
+    "removeActionGroup": "Remove action group \"{name}\"? This can't be undone.{refSuffix}",
+    "removeActionGroupRefSuffix": " It's referenced by {count} action/item field{plural} — those references will be removed too.",
+    "removeDisplay": "Remove display \"{name}\"? This can't be undone."
+  },
+  "nav": {
+    "items": "Items",
+    "actionGroups": "Action Groups",
+    "actions": "Actions",
+    "displays": "Displays",
+    "environment": "Environment",
+    "shell": "Shell",
+    "titles": "Titles",
+    "terminal": "Terminal",
+    "messages": "Messages"
+  },
+  "messagesEditor": {
+    "targetLabel": "Editing messages for",
+    "targetGui": "script-manager-gui",
+    "targetConfigEdit": "sm-config-edit (this app)",
+    "saveButton": "Save",
+    "saved": "Messages saved",
+    "saveFailed": "Save failed: {error}"
+  },
+  "field": {
+    "id": "ID",
+    "title": "Title",
+    "description": "Description",
+    "command": "Command",
+    "groups": "Groups",
+    "itemsPaneTitle": "Items pane title",
+    "actionsPaneTitle": "Actions pane title",
+    "detailsPaneTitle": "Details pane title",
+    "commandPaneTitle": "Command pane title",
+    "terminalName": "Terminal name",
+    "display": "Display",
+    "name": "Name",
+    "listTemplate": "List template",
+    "detailsTemplate": "Details template",
+    "previewItem": "Preview item",
+    "color": "Color",
+    "itemActionGroupsList": "Action groups",
+    "customActions": "Custom actions",
+    "previewDisplay": "Preview display",
+    "previewAction": "Preview action"
+  },
+  "tooltip": {
+    "newTitle": "New (Ctrl+N)",
+    "newAria": "New",
+    "openTitle": "Open (Ctrl+O)",
+    "openAria": "Open",
+    "saveTitle": "Save (Ctrl+S)",
+    "saveAria": "Save",
+    "saveAsTitle": "Save As (Ctrl+Shift+S)",
+    "saveAsAria": "Save As",
+    "addDisplay": "Add display",
+    "copyDisplay": "Copy display",
+    "removeDisplay": "Remove display",
+    "editOnly": "Edit only",
+    "previewOnly": "Preview only",
+    "sideBySide": "Side by side",
+    "stacked": "Stacked",
+    "insertEnvVar": "Insert env var at cursor",
+    "bold": "Bold",
+    "italic": "Italic",
+    "highlight": "Highlight (wraps in backticks)",
+    "addActionGroup": "Add action group",
+    "removeActionGroup": "Remove action group",
+    "addAction": "Add action",
+    "removeAction": "Remove action",
+    "addItem": "Add item",
+    "removeItem": "Remove item",
+    "pickColor": "Pick a color",
+    "exitReorderMode": "Exit reorder mode",
+    "enterReorderMode": "Enter reorder mode",
+    "markedSecret": "Marked as secret — click to unmark",
+    "markSecret": "Mark as secret",
+    "removeField": "Remove field",
+    "remove": "Remove"
+  },
+  "placeholder": {
+    "shellCommand": "e.g. pwsh",
+    "detailsPaneTitle": "Details",
+    "terminalName": "e.g. wt",
+    "terminalArgv": "e.g. --title",
+    "actionId": "unique id, referenced by items' Actions list",
+    "actionGroupId": "unique id, referenced by actions/items",
+    "actionGroupTitle": "display name (optional)",
+    "actionGroupColor": "#7fd4ff or a CSS color name",
+    "fieldKey": "key"
+  },
+  "option": {
+    "selectDisplay": "(select a display)",
+    "unnamedDisplay": "(unnamed display {n})",
+    "insertEnv": "Insert env…",
+    "none": "(none)",
+    "unnamedItem": "(unnamed item {n})",
+    "defaultDisplay": "(default)"
+  },
+  "radio": {
+    "autoDetect": "Auto-detect",
+    "named": "Named",
+    "customCommand": "Custom command"
+  },
+  "empty": {
+    "pickItemToPreview": "Pick an item above to preview against.",
+    "selectDisplayOrAdd": "Select a display, or add one.",
+    "selectActionGroupOrAdd": "Select an action group, or add one.",
+    "selectActionOrAdd": "Select an action, or add one.",
+    "selectItemOrAdd": "Select an item, or add one."
+  },
+  "hint": {
+    "shellCommandPrefix": "The command used to launch actions, e.g. ",
+    "terminalArgvPrefix": "First entry is the terminal binary; the rest are its flags. Use ",
+    "terminalArgvSuffix": " as placeholders.",
+    "envGlobal": "Available to every item's templates and subprocess environment.",
+    "envItem": "Available to this item's templates and subprocess environment — overrides a same-named value from the global Environment section.",
+    "missingFields": "⚠ missing: {fields}",
+    "listLabel": "List label: ",
+    "commandLabel": "Command:",
+    "noWaitCheckbox": "No wait (close the terminal immediately instead of pausing after the command finishes)",
+    "interactiveCheckbox": "Interactive (needs terminal input — hides \"Run here\" in the GUI)"
+  },
+  "fallback": {
+    "unnamed": "(unnamed)",
+    "untitled": "(untitled)"
+  },
+  "button": {
+    "removeCustomAction": "Remove custom action",
+    "addCustomAction": "+ Add custom action",
+    "addField": "+ Add field",
+    "add": "+ Add"
+  },
+  "panel": {
+    "edit": "Edit",
+    "preview": "Preview"
+  },
+  "text": {
+    "unsaved": "(unsaved)",
+    "dirtyMarker": " *",
+    "errorIcon": "⛔",
+    "warningIcon": "⚠",
+    "removeGlyph": "✕",
+    "secretMask": "••••••••"
+  }
+}

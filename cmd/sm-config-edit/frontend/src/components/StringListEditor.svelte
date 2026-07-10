@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '../messages'
+
   // A reusable ordered string-list editor: Shell, Terminal's custom-argv mode,
   // an Action's Groups, and an item's Actions/ActionGroups all edit a plain
   // string[] this way.
@@ -17,10 +19,10 @@
   {#each items as _, i (i)}
     <div class="string-list-row">
       <input type="text" bind:value={items[i]} {placeholder} />
-      <button class="btn" type="button" title="Remove" on:click={() => remove(i)}>✕</button>
+      <button class="btn" type="button" title={t('tooltip.remove')} on:click={() => remove(i)}>{t('text.removeGlyph')}</button>
     </div>
   {/each}
-  <button class="btn" type="button" on:click={add}>+ Add</button>
+  <button class="btn" type="button" on:click={add}>{t('button.add')}</button>
 </div>
 
 <style>
