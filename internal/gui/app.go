@@ -91,6 +91,7 @@ func (a *App) LoadError() string {
 // Startup is wired as the Wails OnStartup callback.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	a.watchTheme()
 }
 
 // ExeDir returns the directory containing the running executable, or "" if

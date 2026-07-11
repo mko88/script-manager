@@ -1,9 +1,10 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import Toast from '@shared/components/Toast.svelte'
-  import { getTheme, getCustomPalette, setTheme, type Theme } from '@shared/theme'
+  import { getTheme, getCustomPalette, setTheme, watchTheme, type Theme } from '@shared/theme'
   import Icon from './components/Icon.svelte'
   import { t } from './messages'
+  import { EventsOn } from '../wailsjs/runtime'
   import {
     GetItems,
     GetActions,
@@ -52,6 +53,15 @@
     // whether this persists; see internal/theme for why it's shared.
     SetTheme(theme).catch(() => {})
   }
+  // Live reload: internal/gui/themewatch.go watches sm-theme.json and
+  // pushes a Wails event whenever sm-config-edit changes it, so a theme
+  // switched or saved there shows up here without needing to relaunch.
+  onMount(() =>
+    watchTheme(EventsOn, (newTheme, hasCustom) => {
+      theme = newTheme
+      hasCustomTheme = hasCustom
+    }),
+  )
 
   let inlineOutputEl: HTMLElement | undefined
 

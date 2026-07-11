@@ -338,7 +338,9 @@ Four controls above the panes: **Load config** browses for a different YAML file
 
 #### Theme
 
-Both GUI apps default to the dark theme and share the same Dark/Light/Custom dropdown at the far right of their toolbar. The choice is applied before the UI renders on every launch, so there's no flash of the wrong theme. It's also shared between the two apps: each keeps its own `localStorage` copy for an instant first paint, but every change also persists to a small `sm-theme.json` file next to the executables, and every startup reconciles against it — so switching the theme (or saving a new custom one) in one app carries over the next time you open the other, the same "no live-reload while it's already running" boundary a config edit already has with Refresh/F5.
+Both GUI apps default to the dark theme and share the same Dark/Light/Custom dropdown at the far right of their toolbar. The choice is applied before the UI renders on every launch, so there's no flash of the wrong theme. It's also shared between the two apps: each keeps its own `localStorage` copy for an instant first paint, but every change also persists to a small `sm-theme.json` file next to the executables, and every startup reconciles against it — so switching the theme (or saving a new custom one) in one app carries over the next time you open the other.
+
+script-manager-gui goes further and watches `sm-theme.json` for changes while it's running, so a theme switched or saved in the Config Editor shows up there **live** — no relaunch needed, unlike a config edit which still needs Refresh/F5. sm-config-edit doesn't watch it back (its own changes already apply to itself immediately on Save).
 
 **Custom** is a full palette you design yourself, editable only from the Config Editor's own **Theme** section (script-manager-gui can select it once it exists, but not edit it) — see the Config Editor's own section list below.
 

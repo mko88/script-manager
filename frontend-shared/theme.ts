@@ -109,6 +109,25 @@ export function setTheme(theme: Theme, custom?: CustomPalette | null) {
   applyTheme(theme, custom ?? getCustomPalette())
 }
 
+// Applies a ThemeState fetched from the Go backend, mirroring it into the
+// local cache exactly rather than just merging into it — otherwise a
+// custom palette cached from an earlier install/session would linger
+// forever once the backend genuinely has none (e.g. its sm-theme.json was
+// deleted or never existed on this machine). Shared by syncTheme (polled
+// once at startup) and watchTheme (pushed live) so both reconcile the same
+// way.
+function applyRemoteState(remote: ThemeState): { theme: Theme; hasCustomTheme: boolean } {
+  const theme = normalizeTheme(remote.active)
+  const hasCustomTheme = !!remote.custom
+  if (remote.custom) {
+    localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(remote.custom))
+  } else {
+    localStorage.removeItem(CUSTOM_STORAGE_KEY)
+  }
+  setTheme(theme, remote.custom)
+  return { theme, hasCustomTheme }
+}
+
 // Reconciles the locally cached theme (localStorage, per-app since each is
 // its own WebView) against the value persisted by the Go backend, which is
 // shared by both apps via a file next to the executables (internal/theme) —
@@ -117,22 +136,38 @@ export function setTheme(theme: Theme, custom?: CustomPalette | null) {
 // getRemote is each app's own bound GetTheme call; the two apps bind under
 // different Wails namespaces, so this can't import a shared binding
 // directly. Best-effort: a rejected call leaves the locally cached theme
-// in place rather than throwing. Returns whether a custom palette exists
-// (for the dropdown), which the caller can't otherwise tell apart from
-// "not saved yet" without inspecting the result itself.
+// in place rather than throwing.
 export async function syncTheme(
   getRemote: () => Promise<ThemeState>,
 ): Promise<{ theme: Theme; hasCustomTheme: boolean }> {
   try {
-    const remote = await getRemote()
-    const theme = normalizeTheme(remote.active)
-    const hasCustomTheme = !!remote.custom
-    if (remote.custom) localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(remote.custom))
-    if (theme !== getTheme() || remote.custom) {
-      setTheme(theme, remote.custom)
-    }
-    return { theme, hasCustomTheme }
+    return applyRemoteState(await getRemote())
   } catch {
     return { theme: getTheme(), hasCustomTheme: !!getCustomPalette() }
   }
+}
+
+// The Wails event name internal/gui/themewatch.go emits on — must match
+// its ThemeChangedEvent constant; there's no way to share a literal across
+// the Go/JS boundary here, so keep the two in sync by hand.
+const THEME_CHANGED_EVENT = 'theme:changed'
+
+// Subscribes to the Go backend's live theme-change notification (currently
+// script-manager-gui only — it watches sm-theme.json for writes made by
+// sm-config-edit's Theme section or by switching the dropdown there) via
+// eventsOn, each app's own bound wailsjs/runtime EventsOn — passed in
+// rather than imported directly since, like GetTheme in syncTheme, the two
+// apps' generated bindings live in different files even though the API
+// shape is identical. Applies and persists the change locally the moment
+// it arrives, then reports the new theme/hasCustomTheme to onChange so the
+// caller can update its own reactive UI (e.g. the toolbar dropdown).
+// Returns the unsubscribe function EventsOn itself returns.
+export function watchTheme(
+  eventsOn: (eventName: string, callback: (...data: unknown[]) => void) => () => void,
+  onChange: (theme: Theme, hasCustomTheme: boolean) => void,
+): () => void {
+  return eventsOn(THEME_CHANGED_EVENT, (...data: unknown[]) => {
+    const { theme, hasCustomTheme } = applyRemoteState(data[0] as ThemeState)
+    onChange(theme, hasCustomTheme)
+  })
 }
