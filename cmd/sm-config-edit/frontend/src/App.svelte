@@ -828,12 +828,10 @@
   // still required afterward to persist it, same as any other edit here.
   async function restoreDefaults() {
     if (!confirm(t('messagesEditor.confirmRestoreDefaults'))) return
-    messagesError = ''
     try {
       messagesRows = flattenMessages(await GetDefaultMessages(messagesTarget))
     } catch (err) {
-      messagesRows = []
-      messagesError = String(err)
+      flash(t('messagesEditor.restoreDefaultsFailed', { error: String(err) }))
     }
   }
 </script>
@@ -1388,6 +1386,7 @@
             saveTheme={SaveTheme}
             deleteTheme={DeleteTheme}
             setActiveTheme={SetTheme}
+            {flash}
           />
         {:else if section === 'messages'}
           <div class="messages-toolbar">

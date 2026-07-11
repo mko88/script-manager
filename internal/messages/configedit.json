@@ -36,7 +36,8 @@
     "collapseAll": "Collapse all",
     "searchPlaceholder": "Search key or text…",
     "saved": "Messages saved — restart {app} to see the changes",
-    "saveFailed": "Save failed: {error}"
+    "saveFailed": "Save failed: {error}",
+    "restoreDefaultsFailed": "Restore defaults failed: {error}"
   },
   "field": {
     "id": "ID",
@@ -171,6 +172,9 @@
     "saveButton": "Save",
     "saving": "Saving…",
     "saved": "Theme saved",
+    "saveFailed": "Save failed: {error}",
+    "deleted": "Theme deleted",
+    "deleteFailed": "Delete failed: {error}",
     "pickColor": "Pick a color",
     "filterPlaceholder": "Filter fields, e.g. accent, bg-alt…",
     "previewPanelTitle": "Preview",

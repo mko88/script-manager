@@ -14,6 +14,10 @@
   export let saveTheme: (name: string, renamedFrom: string, palette: Record<string, string>) => Promise<void>
   export let deleteTheme: (name: string) => Promise<void>
   export let setActiveTheme: (active: string) => Promise<void>
+  // Shows a transient toast — the parent's own flash(), passed through so
+  // save/delete feedback here looks the same as every other action in the
+  // app instead of a locally-styled inline message.
+  export let flash: (msg: string) => void
 
   // Sentinel dropdown value for "+ New theme" — picked to never collide
   // with a real (user-chosen) theme name.
@@ -66,7 +70,6 @@
   $: activeThemeLabel = theme === 'dark' ? t('theme.dark') : theme === 'light' ? t('theme.light') : theme
 
   function onThemeSelect() {
-    saveError = ''
     if (selectedThemeName === NEW_THEME_ENTRY) {
       // Stages a local draft only — nothing is activated until Save, per
       // the confirmed design (unlike picking an existing theme below).
@@ -104,9 +107,6 @@
 
   let collapsedGroups = new Set<string>()
   let saving = false
-  let saveError = ''
-  let savedFlash = false
-  let savedFlashTimer: ReturnType<typeof setTimeout>
 
   function toggleGroup(label: string) {
     const next = new Set(collapsedGroups)
@@ -200,7 +200,6 @@
     if (!canSave) return
     const name = editedName.trim()
     saving = true
-    saveError = ''
     try {
       await saveTheme(name, selectionAtLoad, palette)
       const nextThemes: Record<string, CustomPalette> = { ...(themes ?? {}) }
@@ -212,11 +211,9 @@
       selectionAtLoad = name
       editedName = name
       setTheme(name, themes)
-      savedFlash = true
-      clearTimeout(savedFlashTimer)
-      savedFlashTimer = setTimeout(() => (savedFlash = false), 2000)
+      flash(t('themeEditor.saved'))
     } catch (err) {
-      saveError = String(err)
+      flash(t('themeEditor.saveFailed', { error: String(err) }))
     } finally {
       saving = false
     }
@@ -234,8 +231,9 @@
       selectedThemeName = 'dark'
       setTheme('dark', themes)
       loadSelection('dark')
+      flash(t('themeEditor.deleted'))
     } catch (err) {
-      saveError = String(err)
+      flash(t('themeEditor.deleteFailed', { error: String(err) }))
     }
   }
 </script>
@@ -282,12 +280,6 @@
             {saving ? t('themeEditor.saving') : t('themeEditor.saveButton')}
           </button>
         </div>
-        {#if saveError}
-          <div class="theme-editor-error">{saveError}</div>
-        {/if}
-        {#if savedFlash}
-          <div class="theme-editor-saved">{t('themeEditor.saved')}</div>
-        {/if}
       </div>
     {/if}
   </div>
@@ -476,17 +468,6 @@
     padding: 5px 7px;
     font-family: inherit;
     font-size: 0.85rem;
-  }
-
-  .theme-editor-saved {
-    color: var(--sm-accent);
-    font-size: 0.8rem;
-  }
-
-  .theme-editor-error {
-    color: var(--sm-error);
-    font-size: 0.8rem;
-    font-weight: 700;
   }
 
   .field {
