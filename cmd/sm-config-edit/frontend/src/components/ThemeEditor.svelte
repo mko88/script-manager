@@ -36,6 +36,7 @@
   // an ancestor (e.g. the selected row's own rule sets accent-warm/bg; it
   // doesn't set bg-alt, even though that's visible behind it).
   const PREVIEW_TOKEN_MAP: Record<string, string[]> = {
+    background: ['bg'],
     panelTitle: ['accent', 'panel-header', 'border'],
     selectedRow: ['accent-warm', 'bg'],
     row: ['text'],
@@ -68,6 +69,16 @@
     if (tag === 'CODE') filterFor('highlight')
     else if (tag === 'H1' || tag === 'H2' || tag === 'H3') filterFor('heading')
     else filterFor('bodyText')
+  }
+
+  // The pane itself carries --sm-bg (the page-level background the panel
+  // sits on, kept visible as a frame around it — see
+  // .theme-editor-preview-pane) — clicking that frame, rather than
+  // anything inside it, filters for it. Every click from an inner element
+  // bubbles up here too, so this only acts when the pane itself — not a
+  // descendant — was the actual click target.
+  function onBackgroundClick(e: MouseEvent) {
+    if (e.target === e.currentTarget) filterFor('background')
   }
 
   $: filterTerms = fieldFilter
@@ -167,8 +178,10 @@
     {/each}
   </div>
 
-  <div class="theme-editor-preview-pane">
-    <div class="theme-editor-preview" style={previewStyle}>
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <div class="theme-editor-preview-pane" style={previewStyle} on:click={onBackgroundClick}>
+    <div class="theme-editor-preview">
       <button type="button" class="panel-title" on:click={() => filterFor('panelTitle')}>
         <span class="panel-title-text">{t('themeEditor.previewPanelTitle')}</span>
       </button>
@@ -280,6 +293,7 @@
   }
 
   .theme-editor-filter {
+    box-sizing: border-box;
     width: 100%;
     margin-bottom: 10px;
     background: var(--sm-bg-deep);
@@ -382,10 +396,23 @@
      real components; only the toast and code styling are re-declared here
      since .toast's position:fixed and code's App.svelte-local scoping
      don't make sense reused inside a preview box. */
+  /* --sm-bg is the page-level background the whole app sits on — keeping
+     this frame around .theme-editor-preview (--sm-bg-alt, the panel
+     surface) is the only place in the preview that's visible, exactly like
+     the gap around real panels in either app's own window. */
   .theme-editor-preview-pane {
     flex: 1 1 50%;
     min-width: 0;
     overflow-y: auto;
+    background: var(--sm-bg);
+    border-radius: 6px;
+    padding: 14px;
+    cursor: pointer;
+  }
+
+  .theme-editor-preview-pane:hover {
+    outline: 1px dashed var(--sm-border);
+    outline-offset: -2px;
   }
 
   .theme-editor-preview {
