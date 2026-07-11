@@ -32,18 +32,23 @@
   // unstyled one — clicking that element fills the field-filter box below
   // with exactly these, so "what do I edit to change this?" is a click
   // away instead of a hunt through 22 fields. Only the token(s) actually
-  // set by that element's own CSS rule, not ones it merely inherits from
-  // an ancestor (e.g. the selected row's own rule sets accent-warm/bg; it
-  // doesn't set bg-alt, even though that's visible behind it).
+  // set by that element's own CSS rule (resting *and* :hover — a plain row/
+  // chip/button's hover background is a real, independently editable
+  // token, not a lighter/darker computed shade of its resting color), not
+  // ones it merely inherits from an ancestor. selectedRow/chipActive don't
+  // list a hover token: .row.selected/.chip.active both come after their
+  // own :hover rule in theme.css at equal specificity, so hovering a
+  // selected row or active chip keeps its active styling — the plain
+  // .row:hover/.chip:hover rule never actually applies to them.
   const PREVIEW_TOKEN_MAP: Record<string, string[]> = {
     background: ['bg'],
     panelTitle: ['accent', 'panel-header', 'border'],
     selectedRow: ['accent-warm', 'bg'],
-    row: ['text'],
+    row: ['text', 'hover'],
     chipActive: ['accent-warm', 'bg'],
-    chip: ['bg-deep', 'text-muted', 'border'],
-    button: ['border', 'hover', 'text'],
-    buttonPrimary: ['accent-warm', 'bg'],
+    chip: ['bg-deep', 'text-muted', 'border', 'tint-hover', 'text'],
+    button: ['border', 'hover', 'hover-strong', 'text'],
+    buttonPrimary: ['accent-warm', 'bg', 'btn-primary-hover'],
     heading: ['accent'],
     bodyText: ['text'],
     highlight: ['bg-deep', 'code'],
