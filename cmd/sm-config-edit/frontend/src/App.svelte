@@ -3,6 +3,7 @@
   import { dndzone } from 'svelte-dnd-action'
   import type { DndEvent } from 'svelte-dnd-action'
   import Toast from '@shared/components/Toast.svelte'
+  import { getTheme, setTheme, type Theme } from '@shared/theme'
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
   import ActionForm from './components/ActionForm.svelte'
@@ -44,6 +45,13 @@
   let path = ''
   let toast = ''
   let toastTimer: ReturnType<typeof setTimeout>
+
+  let theme: Theme = getTheme()
+  function toggleTheme() {
+    theme = theme === 'dark' ? 'light' : 'dark'
+    setTheme(theme)
+  }
+
   let knownTerminals: string[] = []
   let validation: configedit.ValidationIssueDTO[] = []
   let initialized = false
@@ -843,6 +851,13 @@
       on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></button
     >
     <span class="toolbar-path">{path || t('text.unsaved')}{dirty ? t('text.dirtyMarker') : ''}</span>
+    <button
+      class="btn icon-btn"
+      type="button"
+      title={theme === 'dark' ? t('tooltip.themeLight') : t('tooltip.themeDark')}
+      aria-label={theme === 'dark' ? t('tooltip.themeLight') : t('tooltip.themeDark')}
+      on:click={toggleTheme}><ToolbarIcon mode={theme === 'dark' ? 'theme-dark' : 'theme-light'} /></button
+    >
   </header>
 
   {#if validation.length > 0}
@@ -1456,6 +1471,8 @@
   }
 
   .toolbar-path {
+    flex: 1 1 auto;
+    min-width: 0;
     margin-left: 8px;
     color: var(--sm-text-muted);
     font-size: 0.85rem;
@@ -1572,6 +1589,14 @@
     background-repeat: no-repeat;
     background-position: right 10px center;
     padding-right: 28px;
+  }
+
+  /* The arrow color is baked into the SVG's URL-encoded string, so it can't
+     reference --sm-text-muted via var() — swap the whole background-image
+     for the light-theme equivalent (%2355647a = --sm-text-muted's light
+     value) instead. */
+  :global([data-theme="light"]) .field select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355647a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
   .radio-group {
@@ -1851,7 +1876,7 @@
 
   .details-preview :global(code) {
     background: var(--sm-bg-deep);
-    color: #6ee7d8;
+    color: var(--sm-code);
     padding: 1px 5px;
     border-radius: 3px;
     font-family: "SF Mono", Consolas, monospace;
@@ -1940,7 +1965,7 @@
     width: 100%;
     background: none;
     border: none;
-    border-bottom: 1px solid color-mix(in srgb, #6ee7d8 35%, var(--sm-border));
+    border-bottom: 1px solid color-mix(in srgb, var(--sm-code) 35%, var(--sm-border));
     padding: 0 0 6px;
     margin: 0 0 6px;
     cursor: pointer;
@@ -1955,7 +1980,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: #6ee7d8;
+    color: var(--sm-code);
   }
 
   .collapse-glyph {

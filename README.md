@@ -334,7 +334,11 @@ Different actions can run inline at the same time — starting another action wh
 
 #### Toolbar
 
-Three buttons above the panes: **Load config** browses for a different YAML file and switches to it (including redirecting **Refresh config**/F5 to reload *that* file from then on); **Refresh config** re-reads the current file, same as pressing F5; **Open config editor** (also **Ctrl+E**) launches `sm-config-edit` — the [Config Editor](#config-editor) below — pointed at whichever config file is currently loaded.
+Four buttons above the panes: **Load config** browses for a different YAML file and switches to it (including redirecting **Refresh config**/F5 to reload *that* file from then on); **Refresh config** re-reads the current file, same as pressing F5; **Open config editor** (also **Ctrl+E**) launches `sm-config-edit` — the [Config Editor](#config-editor) below — pointed at whichever config file is currently loaded; a sun/moon button at the far right toggles between the dark and light themes (see [Theme](#theme) below).
+
+#### Theme
+
+Both GUI apps default to the dark theme and share the same toggle button (sun icon while dark, moon while light — the icon shows the theme a click switches *to*) at the far right of their toolbar. The choice is stored in the browser's `localStorage` (independently per app, since each is its own WebView) and applied before the UI renders on every launch, so there's no flash of the wrong theme and no need to re-toggle each time.
 
 Launch it the same way as the TUI:
 
@@ -376,7 +380,7 @@ macOS is the one target that genuinely needs to be built on macOS (Apple's toolc
 
 ## Config Editor
 
-`cmd/sm-config-edit/` is a second Wails desktop app (same Go backend + Svelte frontend shape as `script-manager-gui`, and the same dark theme — both share `frontend-shared/`) for creating or editing `config.yaml` through forms instead of hand-writing YAML.
+`cmd/sm-config-edit/` is a second Wails desktop app (same Go backend + Svelte frontend shape as `script-manager-gui`, and the same theme system — both share `frontend-shared/`) for creating or editing `config.yaml` through forms instead of hand-writing YAML.
 
 - **New / Open / Save / Save As**, same auto-detect rule as the TUI/GUI: on launch it resolves `config-win.yaml`/`config.yaml` (exe dir then working directory) the same way `-config`-less TUI/GUI startup does, with a native file picker to open a different file or choose where to save a new one. Finding nothing on launch isn't treated as an error — it just starts blank, since a first-time user of this tool plausibly has no config yet.
 - **Sections**: Items, Action Groups, Actions, Displays, Environment, Shell, Terminal — one form per top-level `config.yaml` concern. Action Groups edits the `id`/`title`/`color` catalog entries (with a color picker and a swatch next to each entry in the list); an item's reserved keys (`name`, `display`, `actions`, `actionGroups`, `customActions`) get dedicated widgets (text field, a dropdown of configured displays, checkbox lists against the global actions/groups, a repeatable nested action form); anything else is a per-item "Environment" grid (overriding a same-named value from the top-level Environment section), where each value's kind drives which widget edits it: string, multiline (a plain textarea, auto-picked for any existing value with embedded newlines), number, bool, or a raw YAML snippet (auto-picked for anything more complex, like a nested list or map). A lock button next to each field's remove (✕) button marks it secret — independent of kind, so even a multi-line value can be masked — auto-picked when the key ends in "Secret", "Password", or "Key" (case-insensitive, checked live as you type a new field's key too). A secret field shows a fixed placeholder at rest and only reveals its real value (still masked character-for-character while you edit) once focused, so its length isn't given away by how many dots are shown. Kind and secret are both display hints only — the value saves as the same plain string/number/bool either way, and neither is persisted as such; both are re-derived from the value's shape and the key's name every time the field loads.

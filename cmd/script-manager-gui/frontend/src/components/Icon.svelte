@@ -4,7 +4,7 @@
   // sm-config-edit's ToolbarIcon.svelte (1px-ish strokes, currentColor), not
   // shared with it directly since the two frontends don't share a
   // components/ folder.
-  export let name: 'load' | 'refresh' | 'config-edit' | 'run' | 'run-here' | 'cancel' | 'copy'
+  export let name: 'load' | 'refresh' | 'config-edit' | 'run' | 'run-here' | 'cancel' | 'copy' | 'theme-dark' | 'theme-light'
 </script>
 
 {#if name === 'load'}
@@ -70,13 +70,30 @@
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
     <path d="M3.5 3.5l9 9M12.5 3.5l-9 9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
   </svg>
-{:else}
+{:else if name === 'copy'}
   <!-- Same "two overlapping rectangles" glyph as sm-config-edit's
        ListActionIcon copy mode, for a consistent copy affordance across
        both apps. -->
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
     <rect x="2" y="2" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.1" />
     <rect x="6" y="6" width="8" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1.1" />
+  </svg>
+{:else if name === 'theme-dark'}
+  <!-- Sun — shown while the dark theme is active; depicts the mode a click
+       switches TO, matching the toggle's usual convention. -->
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.2" />
+    <path
+      d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.3 3.3l1.1 1.1M11.6 11.6l1.1 1.1M3.3 12.7l1.1-1.1M11.6 4.4l1.1-1.1"
+      stroke="currentColor"
+      stroke-width="1.2"
+      stroke-linecap="round"
+    />
+  </svg>
+{:else}
+  <!-- Moon — shown while the light theme is active. -->
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <path d="M13 9.5A5.5 5.5 0 1 1 6.5 3a4.3 4.3 0 1 0 6.5 6.5z" fill="currentColor" />
   </svg>
 {/if}
 

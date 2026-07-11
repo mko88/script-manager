@@ -2,6 +2,9 @@ import './style.css'
 import App from './App.svelte'
 import { setMessageOverride } from './messages'
 import { GetMessages } from '../wailsjs/go/gui/App.js'
+import { initTheme } from '@shared/theme'
+
+initTheme()
 
 async function bootstrap() {
   try {

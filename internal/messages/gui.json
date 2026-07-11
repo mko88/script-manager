@@ -63,7 +63,9 @@
     "run": "Run",
     "cancel": "Cancel",
     "copyOutput": "Copy output",
-    "copyCommand": "Copy command"
+    "copyCommand": "Copy command",
+    "themeDark": "Switch to dark theme",
+    "themeLight": "Switch to light theme"
   },
   "text": {
     "allGroupsChip": "All",

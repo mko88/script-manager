@@ -88,7 +88,9 @@
     "markedSecret": "Marked as secret — click to unmark",
     "markSecret": "Mark as secret",
     "removeField": "Remove field",
-    "remove": "Remove"
+    "remove": "Remove",
+    "themeDark": "Switch to dark theme",
+    "themeLight": "Switch to light theme"
   },
   "placeholder": {
     "shellCommand": "e.g. pwsh",

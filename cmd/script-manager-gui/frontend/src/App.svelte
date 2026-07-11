@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import Toast from '@shared/components/Toast.svelte'
+  import { getTheme, setTheme, type Theme } from '@shared/theme'
   import Icon from './components/Icon.svelte'
   import { t } from './messages'
   import {
@@ -41,6 +42,12 @@
   let countDir: 'asc' | 'desc' = 'desc'
   let toast = ''
   let toastTimer: ReturnType<typeof setTimeout>
+
+  let theme: Theme = getTheme()
+  function toggleTheme() {
+    theme = theme === 'dark' ? 'light' : 'dark'
+    setTheme(theme)
+  }
 
   let inlineOutputEl: HTMLElement | undefined
 
@@ -563,6 +570,13 @@
       aria-label={t('tooltip.openConfigEditorAria')}
       on:click={launchConfigEditor}><Icon name="config-edit" /></button
     >
+    <button
+      class="btn icon-btn theme-toggle-btn"
+      type="button"
+      title={theme === 'dark' ? t('tooltip.themeLight') : t('tooltip.themeDark')}
+      aria-label={theme === 'dark' ? t('tooltip.themeLight') : t('tooltip.themeDark')}
+      on:click={toggleTheme}><Icon name={theme === 'dark' ? 'theme-dark' : 'theme-light'} /></button
+    >
   </header>
   <main class="app-shell" bind:this={shellEl}>
   <div class="col col-left" style="flex: 0 0 {leftWidth}px" bind:this={colLeftEl}>
@@ -839,6 +853,10 @@
     cursor: default;
   }
 
+  .theme-toggle-btn {
+    margin-left: auto;
+  }
+
   .app-shell {
     display: flex;
     flex-direction: row;
@@ -885,7 +903,7 @@
   }
 
   .group-summary {
-    color: #a9b6c8;
+    color: var(--sm-text-muted);
     font-size: 0.78rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -901,8 +919,8 @@
   .sort-btn {
     flex: none;
     background: none;
-    border: 1px solid #3a4a63;
-    color: #a9b6c8;
+    border: 1px solid var(--sm-border);
+    color: var(--sm-text-muted);
     border-radius: 4px;
     padding: 2px 6px;
     font-size: 0.68rem;
@@ -912,14 +930,14 @@
   }
 
   .sort-btn:hover {
-    background: #2b3b52;
-    color: #d7dee8;
+    background: var(--sm-hover);
+    color: var(--sm-text);
   }
 
   .sort-btn.active {
-    background: #e8a33d;
-    border-color: #e8a33d;
-    color: #1b2636;
+    background: var(--sm-accent-warm);
+    border-color: var(--sm-accent-warm);
+    color: var(--sm-bg);
     font-weight: 700;
   }
 
@@ -936,7 +954,7 @@
     gap: 4px;
     padding: 4px 6px;
     background: rgba(232, 163, 61, 0.1);
-    border-bottom: 1px solid #3a4a63;
+    border-bottom: 1px solid var(--sm-border);
   }
 
   .details-warning-header {
@@ -948,11 +966,11 @@
   .warning-toggle {
     flex: none;
     padding: 2px 4px;
-    color: #e8a33d;
+    color: var(--sm-accent-warm);
   }
 
   .warning-summary {
-    color: #e8a33d;
+    color: var(--sm-accent-warm);
     font-size: 0.78rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -967,8 +985,8 @@
   }
 
   .warning-chip {
-    border-color: #e8a33d;
-    color: #e8a33d;
+    border-color: var(--sm-accent-warm);
+    color: var(--sm-accent-warm);
   }
 
   .details-content {
@@ -979,7 +997,7 @@
   .details-content :global(h1),
   .details-content :global(h2),
   .details-content :global(h3) {
-    color: #7fd4ff;
+    color: var(--sm-accent);
     margin: 0.6em 0 0.3em;
   }
 
@@ -990,14 +1008,14 @@
 
   .details-content :global(td),
   .details-content :global(th) {
-    border: 1px solid #3a4a63;
+    border: 1px solid var(--sm-border);
     padding: 4px 8px;
     text-align: left;
   }
 
   .details-content :global(code) {
-    background: #14202f;
-    color: #6ee7d8;
+    background: var(--sm-bg-deep);
+    color: var(--sm-code);
     padding: 1px 5px;
     border-radius: 3px;
     font-family: "SF Mono", Consolas, monospace;
@@ -1008,12 +1026,12 @@
   }
 
   .details-content :global(code.copy-value:hover) {
-    background: #1f3346;
-    outline: 1px solid #6ee7d8;
+    background: var(--sm-tint-hover);
+    outline: 1px solid var(--sm-code);
   }
 
   .details-content :global(code.copy-value-masked) {
-    color: #b9c3d1;
+    color: var(--sm-masked);
   }
 
   .command-content {
@@ -1022,12 +1040,12 @@
 
   .cmd-desc {
     margin: 0 0 8px;
-    color: #a9b6c8;
+    color: var(--sm-text-muted);
     white-space: pre-wrap;
   }
 
   .cmd-output {
-    background: #14202f;
+    background: var(--sm-bg-deep);
     border-radius: 4px;
     margin: 0 0 8px;
   }
@@ -1037,18 +1055,18 @@
     justify-content: space-between;
     padding: 6px 10px;
     font-size: 0.85rem;
-    color: #a9b6c8;
+    color: var(--sm-text-muted);
   }
   .cmd-output-status.running {
-    color: #7fd4ff;
+    color: var(--sm-accent);
   }
   .cmd-output-status.error {
-    color: #e0645c;
+    color: var(--sm-error);
   }
   .running-indicator {
     display: inline-block;
     margin-left: 6px;
-    color: #7fd4ff;
+    color: var(--sm-accent);
     animation: running-pulse 1.5s ease-in-out infinite;
   }
   @keyframes running-pulse {
@@ -1075,11 +1093,11 @@
 
   .cmd-line {
     position: relative;
-    background: #14202f;
+    background: var(--sm-bg-deep);
     border-radius: 4px;
     padding: 8px 0;
     margin: 0 0 8px;
-    color: #d7dee8;
+    color: var(--sm-text);
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.85rem;
   }
@@ -1097,12 +1115,12 @@
     border: none;
     padding: 3px 5px;
     border-radius: 4px;
-    color: #a9b6c8;
+    color: var(--sm-text-muted);
     cursor: pointer;
   }
   .cmd-copy-btn:hover {
-    background: rgba(255, 255, 255, 0.08);
-    color: #d7dee8;
+    background: var(--sm-overlay-soft);
+    color: var(--sm-text);
   }
   .cmd-line-copy-btn {
     position: absolute;
@@ -1120,7 +1138,7 @@
     flex: none;
     width: 1.6em;
     text-align: right;
-    color: #4a5b74;
+    color: var(--sm-line-number);
     user-select: none;
   }
 
@@ -1139,8 +1157,8 @@
     gap: 8px;
     margin: -6px -6px 8px;
     padding: 6px 6px 8px;
-    background: #1f2c3d;
-    box-shadow: 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+    background: var(--sm-bg-alt);
+    box-shadow: 0 4px 6px -4px var(--sm-shadow);
   }
 
 </style>

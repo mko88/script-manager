@@ -219,4 +219,11 @@
     background-position: right 8px center;
     padding-right: 24px;
   }
+
+  /* See App.svelte's light-theme select override for why this can't just
+     be a var() — the arrow color is baked into the SVG's URL-encoded
+     string (%2355647a = --sm-text-muted's light value). */
+  :global([data-theme="light"]) select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355647a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
 </style>
