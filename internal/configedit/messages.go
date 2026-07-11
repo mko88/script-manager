@@ -2,7 +2,6 @@ package configedit
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -25,9 +24,12 @@ func (a *App) GetMessages() (map[string]interface{}, error) {
 // defaults the same way GetMessages does for its own file — but only in
 // memory: this process isn't script-manager-gui, so writing a fix to its
 // override file behind its back would be presumptuous; the reconciled view
-// only lands on disk if the user clicks Save. A script-manager-gui that
-// has never run yet (and so never wrote its own override file) surfaces a
-// clear, actionable error instead of silently producing an empty form.
+// only lands on disk if the user clicks Save. A script-manager-gui that has
+// never run yet (and so never wrote its own override file) isn't an error
+// here — this process has script-manager-gui's compiled defaults too (see
+// internal/messages), so the tab still shows real shipped text, exactly
+// like GetDefaultMessages/"Restore defaults" already can regardless of
+// whether that app has run.
 func (a *App) GetEditableMessages(target string) (map[string]interface{}, error) {
 	if target == "configedit" {
 		return a.GetMessages()
@@ -36,16 +38,18 @@ func (a *App) GetEditableMessages(target string) (map[string]interface{}, error)
 	if err != nil {
 		return nil, err
 	}
-	data, err := os.ReadFile(filepath.Join(a.exeDir, filename))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("script-manager-gui hasn't generated its message file yet — run it at least once, then reopen this section")
+	override := map[string]interface{}{}
+	data, readErr := os.ReadFile(filepath.Join(a.exeDir, filename))
+	switch {
+	case readErr == nil:
+		if err := json.Unmarshal(data, &override); err != nil {
+			return nil, err
 		}
-		return nil, err
-	}
-	var override map[string]interface{}
-	if err := json.Unmarshal(data, &override); err != nil {
-		return nil, err
+	case os.IsNotExist(readErr):
+		// No override yet — override starts empty; SyncKeys below backfills
+		// every key from defaults.
+	default:
+		return nil, readErr
 	}
 	defaultsBytes, err := messages.DefaultsFor(target)
 	if err != nil {

@@ -46,15 +46,19 @@ func TestGetEditableMessagesSelf(t *testing.T) {
 	}
 }
 
-func TestGetEditableMessagesGuiMissingFile(t *testing.T) {
+func TestGetEditableMessagesGuiFallsBackToDefaultsWhenNeverRun(t *testing.T) {
+	// script-manager-gui hasn't run, so it has no override file — this must
+	// not error, since this process has script-manager-gui's compiled
+	// defaults too (see internal/messages).
 	a := &App{exeDir: t.TempDir()}
 
-	_, err := a.GetEditableMessages("gui")
-	if err == nil {
-		t.Fatal("expected an error when script-manager-gui has never run")
+	got, err := a.GetEditableMessages("gui")
+	if err != nil {
+		t.Fatalf("GetEditableMessages(gui) error = %v, want it to fall back to defaults instead", err)
 	}
-	if !strings.Contains(err.Error(), "run it at least once") {
-		t.Errorf("error = %q, want a hint to run script-manager-gui first", err.Error())
+	panel, _ := got["panel"].(map[string]interface{})
+	if panel["items"] != "Items" {
+		t.Errorf("got = %v, want panel.items = Items (from defaults)", got)
 	}
 }
 
