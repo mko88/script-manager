@@ -10,6 +10,10 @@ export function BrowseSaveAs() {
   return window['go']['configedit']['App']['BrowseSaveAs']();
 }
 
+export function DeleteTheme(arg1) {
+  return window['go']['configedit']['App']['DeleteTheme'](arg1);
+}
+
 export function GetDefaultMessages(arg1) {
   return window['go']['configedit']['App']['GetDefaultMessages'](arg1);
 }
@@ -50,12 +54,12 @@ export function Save(arg1, arg2) {
   return window['go']['configedit']['App']['Save'](arg1, arg2);
 }
 
-export function SaveCustomTheme(arg1) {
-  return window['go']['configedit']['App']['SaveCustomTheme'](arg1);
-}
-
 export function SaveMessages(arg1, arg2) {
   return window['go']['configedit']['App']['SaveMessages'](arg1, arg2);
+}
+
+export function SaveTheme(arg1, arg2, arg3) {
+  return window['go']['configedit']['App']['SaveTheme'](arg1, arg2, arg3);
 }
 
 export function SetTheme(arg1) {

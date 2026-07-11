@@ -1,10 +1,10 @@
 <script lang="ts">
-  // Icons for the new toolbar (load/refresh/config-edit) and the Command
+  // Icons for the new toolbar (load/refresh/settings) and the Command
   // pane's action buttons (run/run-here/cancel/copy) — same style as
   // sm-config-edit's ToolbarIcon.svelte (1px-ish strokes, currentColor), not
   // shared with it directly since the two frontends don't share a
   // components/ folder.
-  export let name: 'load' | 'refresh' | 'config-edit' | 'run' | 'run-here' | 'cancel' | 'copy'
+  export let name: 'load' | 'refresh' | 'settings' | 'run' | 'run-here' | 'cancel' | 'copy'
 </script>
 
 {#if name === 'load'}
@@ -45,17 +45,19 @@
       stroke-linejoin="round"
     />
   </svg>
-{:else if name === 'config-edit'}
+{:else if name === 'settings'}
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-    <path
-      d="M10.5 2.5l3 3-8 8-3.5 1 1-3.5z"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.1"
-      stroke-linejoin="round"
-      stroke-linecap="round"
-    />
-    <path d="M9.5 3.5l3 3" stroke="currentColor" stroke-width="1.1" />
+    <circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.1" />
+    <g stroke="currentColor" stroke-width="1.1" stroke-linecap="round">
+      <line x1="11" y1="8" x2="13.3" y2="8" />
+      <line x1="10.12" y1="10.12" x2="11.75" y2="11.75" />
+      <line x1="8" y1="11" x2="8" y2="13.3" />
+      <line x1="5.88" y1="10.12" x2="4.25" y2="11.75" />
+      <line x1="5" y1="8" x2="2.7" y2="8" />
+      <line x1="5.88" y1="5.88" x2="4.25" y2="4.25" />
+      <line x1="8" y1="5" x2="8" y2="2.7" />
+      <line x1="10.12" y1="5.88" x2="11.75" y2="4.25" />
+    </g>
   </svg>
 {:else if name === 'run'}
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">

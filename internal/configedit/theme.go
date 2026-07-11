@@ -17,9 +17,30 @@ func (a *App) SetTheme(active string) error {
 	return theme.Save(a.exeDir, s)
 }
 
-// SaveCustomTheme persists palette as the shared custom theme and makes it
-// the active theme for both apps to pick up — editing a custom palette is
-// config-editor-only, unlike switching to/from one.
-func (a *App) SaveCustomTheme(palette map[string]string) error {
-	return theme.Save(a.exeDir, theme.State{Active: "custom", Custom: palette})
+// SaveTheme creates or updates a named custom theme and makes it active.
+// renamedFrom is the theme's previous name if it was renamed alongside
+// this save ("" otherwise) — the old entry is removed so a rename and a
+// color edit save as one atomic step instead of two round trips.
+func (a *App) SaveTheme(name, renamedFrom string, palette map[string]string) error {
+	s := theme.Load(a.exeDir)
+	if s.Themes == nil {
+		s.Themes = map[string]map[string]string{}
+	}
+	if renamedFrom != "" && renamedFrom != name {
+		delete(s.Themes, renamedFrom)
+	}
+	s.Themes[name] = palette
+	s.Active = name
+	return theme.Save(a.exeDir, s)
+}
+
+// DeleteTheme removes a named custom theme, falling back to "dark" if it
+// was the active one.
+func (a *App) DeleteTheme(name string) error {
+	s := theme.Load(a.exeDir)
+	delete(s.Themes, name)
+	if s.Active == name {
+		s.Active = "dark"
+	}
+	return theme.Save(a.exeDir, s)
 }

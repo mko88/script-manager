@@ -70,11 +70,5 @@
     "allGroupsChip": "All",
     "separator": " · ",
     "groupCount": "({count})"
-  },
-  "theme": {
-    "selectTitle": "Theme",
-    "dark": "Dark",
-    "light": "Light",
-    "custom": "Custom"
   }
 }

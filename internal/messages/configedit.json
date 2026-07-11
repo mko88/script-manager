@@ -158,15 +158,19 @@
   "theme": {
     "selectTitle": "Theme",
     "dark": "Dark",
-    "light": "Light",
-    "custom": "Custom"
+    "light": "Light"
   },
   "themeEditor": {
+    "currentThemeLabel": "Current theme: ",
+    "newThemeOption": "+ New theme",
+    "newThemeDefaultName": "Custom",
+    "themeNamePlaceholder": "Theme name",
+    "deleteButton": "Delete",
     "resetToDark": "Reset to Dark",
     "resetToLight": "Reset to Light",
     "saveButton": "Save",
     "saving": "Saving…",
-    "saved": "Custom theme saved",
+    "saved": "Theme saved",
     "pickColor": "Pick a color",
     "filterPlaceholder": "Filter fields, e.g. accent, bg-alt…",
     "previewPanelTitle": "Preview",

@@ -7,6 +7,8 @@ export function BrowseOpen():Promise<configedit.StateDTO>;
 
 export function BrowseSaveAs():Promise<string>;
 
+export function DeleteTheme(arg1:string):Promise<void>;
+
 export function GetDefaultMessages(arg1:string):Promise<Record<string, any>>;
 
 export function GetEditableMessages(arg1:string):Promise<Record<string, any>>;
@@ -27,9 +29,9 @@ export function PreviewItem(arg1:configedit.ItemDTO,arg2:Array<configedit.FieldD
 
 export function Save(arg1:configedit.ConfigDTO,arg2:string):Promise<configedit.SaveResultDTO>;
 
-export function SaveCustomTheme(arg1:Record<string, string>):Promise<void>;
-
 export function SaveMessages(arg1:string,arg2:Record<string, any>):Promise<void>;
+
+export function SaveTheme(arg1:string,arg2:string,arg3:Record<string, string>):Promise<void>;
 
 export function SetTheme(arg1:string):Promise<void>;
 

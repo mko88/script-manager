@@ -3,7 +3,7 @@
   import { dndzone } from 'svelte-dnd-action'
   import type { DndEvent } from 'svelte-dnd-action'
   import Toast from '@shared/components/Toast.svelte'
-  import { getTheme, getCustomPalette, setTheme, type Theme, type CustomPalette } from '@shared/theme'
+  import { getTheme, getThemes, type Theme, type CustomPalette } from '@shared/theme'
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
   import ActionForm from './components/ActionForm.svelte'
@@ -28,7 +28,8 @@
     GetDefaultMessages,
     SaveMessages,
     SetTheme,
-    SaveCustomTheme,
+    SaveTheme,
+    DeleteTheme,
   } from '../wailsjs/go/configedit/App.js'
   import type { configedit } from '../wailsjs/go/models'
 
@@ -49,15 +50,11 @@
   let toast = ''
   let toastTimer: ReturnType<typeof setTimeout>
 
+  // No toolbar switcher here anymore — theme/themes just seed ThemeEditor's
+  // picker panel and receive its two-way-bound updates as themes are
+  // switched, saved, or deleted there.
   let theme: Theme = getTheme()
-  let customPalette: CustomPalette | null = getCustomPalette()
-  let hasCustomTheme = customPalette !== null
-  function changeTheme() {
-    setTheme(theme, customPalette)
-    // Best-effort — the theme is already applied locally regardless of
-    // whether this persists; see internal/theme for why it's shared.
-    SetTheme(theme).catch(() => {})
-  }
+  let themes: Record<string, CustomPalette> | null = getThemes()
 
   let knownTerminals: string[] = []
   let validation: configedit.ValidationIssueDTO[] = []
@@ -868,11 +865,6 @@
       on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></button
     >
     <span class="toolbar-path">{path || t('text.unsaved')}{dirty ? t('text.dirtyMarker') : ''}</span>
-    <select class="theme-select" bind:value={theme} on:change={changeTheme} title={t('theme.selectTitle')}>
-      <option value="dark">{t('theme.dark')}</option>
-      <option value="light">{t('theme.light')}</option>
-      {#if hasCustomTheme}<option value="custom">{t('theme.custom')}</option>{/if}
-    </select>
   </header>
 
   {#if validation.length > 0}
@@ -1391,10 +1383,11 @@
           </div>
         {:else if section === 'theme'}
           <ThemeEditor
-            bind:initialPalette={customPalette}
             bind:theme
-            bind:hasCustomTheme
-            saveCustomTheme={SaveCustomTheme}
+            bind:themes
+            saveTheme={SaveTheme}
+            deleteTheme={DeleteTheme}
+            setActiveTheme={SetTheme}
           />
         {:else if section === 'messages'}
           <div class="messages-toolbar">
@@ -1501,31 +1494,6 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-  }
-
-  /* Same appearance:none + custom-chevron treatment as .field select (see
-     below) — a toolbar-sized variant since this sits among icon buttons,
-     not in a form. */
-  .theme-select {
-    flex: none;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-color: var(--sm-hover);
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9b6c8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 8px center;
-    color: var(--sm-text);
-    border: 1px solid var(--sm-border);
-    border-radius: 4px;
-    padding: 5px 24px 5px 8px;
-    font-family: inherit;
-    font-size: 0.8rem;
-    cursor: pointer;
-  }
-
-  :global([data-theme="light"]) .theme-select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355647a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
   .validation-banner {

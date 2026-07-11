@@ -277,6 +277,7 @@ export namespace theme {
 	
 	export class State {
 	    active: string;
+	    themes?: Record<string, any>;
 	    custom?: Record<string, string>;
 	
 	    static createFrom(source: any = {}) {
@@ -286,6 +287,7 @@ export namespace theme {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.active = source["active"];
+	        this.themes = source["themes"];
 	        this.custom = source["custom"];
 	    }
 	}
