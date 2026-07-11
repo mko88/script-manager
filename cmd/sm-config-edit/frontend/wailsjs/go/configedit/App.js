@@ -22,6 +22,10 @@ export function GetMessages() {
   return window['go']['configedit']['App']['GetMessages']();
 }
 
+export function GetTheme() {
+  return window['go']['configedit']['App']['GetTheme']();
+}
+
 export function InitialState() {
   return window['go']['configedit']['App']['InitialState']();
 }
@@ -48,6 +52,10 @@ export function Save(arg1, arg2) {
 
 export function SaveMessages(arg1, arg2) {
   return window['go']['configedit']['App']['SaveMessages'](arg1, arg2);
+}
+
+export function SetTheme(arg1) {
+  return window['go']['configedit']['App']['SetTheme'](arg1);
 }
 
 export function ValidateConfig(arg1) {

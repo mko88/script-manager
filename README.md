@@ -338,7 +338,7 @@ Four buttons above the panes: **Load config** browses for a different YAML file 
 
 #### Theme
 
-Both GUI apps default to the dark theme and share the same toggle button (sun icon while dark, moon while light — the icon shows the theme a click switches *to*) at the far right of their toolbar. The choice is stored in the browser's `localStorage` (independently per app, since each is its own WebView) and applied before the UI renders on every launch, so there's no flash of the wrong theme and no need to re-toggle each time.
+Both GUI apps default to the dark theme and share the same toggle button (sun icon while dark, moon while light — the icon shows the theme a click switches *to*) at the far right of their toolbar. The choice is applied before the UI renders on every launch, so there's no flash of the wrong theme and no need to re-toggle each time. It's also shared between the two apps: each keeps its own `localStorage` copy for an instant first paint, but every toggle also persists to a small `sm-theme.txt` file next to the executables, and every startup reconciles against it — so switching the theme in one app carries over the next time you open the other, the same "no live-reload while it's already running" boundary a config edit already has with Refresh/F5.
 
 Launch it the same way as the TUI:
 

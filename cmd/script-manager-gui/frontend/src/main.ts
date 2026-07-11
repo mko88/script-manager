@@ -1,8 +1,8 @@
 import './style.css'
 import App from './App.svelte'
 import { setMessageOverride } from './messages'
-import { GetMessages } from '../wailsjs/go/gui/App.js'
-import { initTheme } from '@shared/theme'
+import { GetMessages, GetTheme } from '../wailsjs/go/gui/App.js'
+import { initTheme, syncTheme } from '@shared/theme'
 
 initTheme()
 
@@ -12,6 +12,7 @@ async function bootstrap() {
   } catch {
     // Missing/invalid override file — t() falls back to compiled defaults.
   }
+  await syncTheme(GetTheme)
 
   return new App({
     target: document.getElementById('app')!,

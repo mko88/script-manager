@@ -42,6 +42,10 @@ export function GetMessages() {
   return window['go']['gui']['App']['GetMessages']();
 }
 
+export function GetTheme() {
+  return window['go']['gui']['App']['GetTheme']();
+}
+
 export function LaunchConfigEditor() {
   return window['go']['gui']['App']['LaunchConfigEditor']();
 }
@@ -60,4 +64,8 @@ export function RunAction(arg1, arg2) {
 
 export function RunActionInline(arg1, arg2) {
   return window['go']['gui']['App']['RunActionInline'](arg1, arg2);
+}
+
+export function SetTheme(arg1) {
+  return window['go']['gui']['App']['SetTheme'](arg1);
 }

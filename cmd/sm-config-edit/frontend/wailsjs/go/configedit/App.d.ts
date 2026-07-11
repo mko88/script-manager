@@ -12,6 +12,8 @@ export function GetEditableMessages(arg1:string):Promise<Record<string, any>>;
 
 export function GetMessages():Promise<Record<string, any>>;
 
+export function GetTheme():Promise<string>;
+
 export function InitialState():Promise<configedit.StateDTO>;
 
 export function KnownTerminals():Promise<Array<string>>;
@@ -25,6 +27,8 @@ export function PreviewItem(arg1:configedit.ItemDTO,arg2:Array<configedit.FieldD
 export function Save(arg1:configedit.ConfigDTO,arg2:string):Promise<configedit.SaveResultDTO>;
 
 export function SaveMessages(arg1:string,arg2:Record<string, any>):Promise<void>;
+
+export function SetTheme(arg1:string):Promise<void>;
 
 export function ValidateConfig(arg1:configedit.ConfigDTO):Promise<Array<configedit.ValidationIssueDTO>>;
 

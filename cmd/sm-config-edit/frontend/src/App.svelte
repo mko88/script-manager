@@ -26,6 +26,7 @@
     GetEditableMessages,
     GetDefaultMessages,
     SaveMessages,
+    SetTheme,
   } from '../wailsjs/go/configedit/App.js'
   import type { configedit } from '../wailsjs/go/models'
 
@@ -50,6 +51,9 @@
   function toggleTheme() {
     theme = theme === 'dark' ? 'light' : 'dark'
     setTheme(theme)
+    // Best-effort — the theme is already applied locally regardless of
+    // whether this persists; see internal/theme for why it's shared.
+    SetTheme(theme).catch(() => {})
   }
 
   let knownTerminals: string[] = []

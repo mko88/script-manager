@@ -22,6 +22,8 @@ export function GetItems():Promise<Array<gui.ItemDTO>>;
 
 export function GetMessages():Promise<Record<string, any>>;
 
+export function GetTheme():Promise<string>;
+
 export function LaunchConfigEditor():Promise<boolean>;
 
 export function LoadError():Promise<string>;
@@ -31,3 +33,5 @@ export function ReloadConfig():Promise<string>;
 export function RunAction(arg1:number,arg2:number):Promise<void>;
 
 export function RunActionInline(arg1:number,arg2:number):Promise<void>;
+
+export function SetTheme(arg1:string):Promise<void>;
