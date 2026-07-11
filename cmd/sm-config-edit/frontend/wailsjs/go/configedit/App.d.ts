@@ -6,6 +6,8 @@ export function BrowseOpen():Promise<configedit.StateDTO>;
 
 export function BrowseSaveAs():Promise<string>;
 
+export function GetDefaultMessages(arg1:string):Promise<Record<string, any>>;
+
 export function GetEditableMessages(arg1:string):Promise<Record<string, any>>;
 
 export function GetMessages():Promise<Record<string, any>>;

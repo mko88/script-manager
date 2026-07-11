@@ -92,3 +92,45 @@ func TestSaveMessagesUnknownTarget(t *testing.T) {
 		t.Error("expected an error for an unknown target")
 	}
 }
+
+func TestGetDefaultMessagesSelfIgnoresSavedOverride(t *testing.T) {
+	dir := t.TempDir()
+	a := &App{exeDir: dir, defaultMessages: []byte(`{"nav":{"messages":"Messages"}}`)}
+	// GetMessages (called once at self startup) seeds both the override and
+	// the defaults snapshot from a.defaultMessages.
+	if _, err := a.GetMessages(); err != nil {
+		t.Fatalf("GetMessages() error = %v", err)
+	}
+	// Simulate a saved edit to the override — GetDefaultMessages must still
+	// report the original compiled default, not this edited value.
+	if err := a.SaveMessages("configedit", map[string]interface{}{"nav": map[string]interface{}{"messages": "Edited"}}); err != nil {
+		t.Fatalf("SaveMessages() error = %v", err)
+	}
+
+	got, err := a.GetDefaultMessages("configedit")
+	if err != nil {
+		t.Fatalf("GetDefaultMessages(configedit) error = %v", err)
+	}
+	nav, _ := got["nav"].(map[string]interface{})
+	if nav["messages"] != "Messages" {
+		t.Errorf("got = %v, want the original default (Messages), not the saved edit", got)
+	}
+}
+
+func TestGetDefaultMessagesGuiMissingFile(t *testing.T) {
+	a := &App{exeDir: t.TempDir()}
+	_, err := a.GetDefaultMessages("gui")
+	if err == nil {
+		t.Fatal("expected an error when script-manager-gui has never run")
+	}
+	if !strings.Contains(err.Error(), "run it at least once") {
+		t.Errorf("error = %q, want a hint to run script-manager-gui first", err.Error())
+	}
+}
+
+func TestGetDefaultMessagesUnknownTarget(t *testing.T) {
+	a := &App{exeDir: t.TempDir()}
+	if _, err := a.GetDefaultMessages("bogus"); err == nil {
+		t.Error("expected an error for an unknown target")
+	}
+}

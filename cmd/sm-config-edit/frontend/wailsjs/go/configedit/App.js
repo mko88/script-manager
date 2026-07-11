@@ -10,6 +10,10 @@ export function BrowseSaveAs() {
   return window['go']['configedit']['App']['BrowseSaveAs']();
 }
 
+export function GetDefaultMessages(arg1) {
+  return window['go']['configedit']['App']['GetDefaultMessages'](arg1);
+}
+
 export function GetEditableMessages(arg1) {
   return window['go']['configedit']['App']['GetEditableMessages'](arg1);
 }

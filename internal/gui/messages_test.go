@@ -70,3 +70,24 @@ func TestGetMessagesUsesExeDirAndDefaults(t *testing.T) {
 		t.Errorf("expected %s to be seeded in %s: %v", GUIMessagesFilename, dir, err)
 	}
 }
+
+func TestGetMessagesRefreshesDefaultsSnapshot(t *testing.T) {
+	dir := t.TempDir()
+	defaultsPath := filepath.Join(dir, GUIMessagesDefaultsFilename)
+	if err := os.WriteFile(defaultsPath, []byte(`{"stale":"yes"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a := &App{exeDir: dir, defaultMessages: []byte(`{"nav":{"items":"Items"}}`)}
+
+	if _, err := a.GetMessages(); err != nil {
+		t.Fatalf("GetMessages() error = %v", err)
+	}
+
+	got, err := os.ReadFile(defaultsPath)
+	if err != nil {
+		t.Fatalf("expected defaults snapshot to still exist: %v", err)
+	}
+	if string(got) != string(a.defaultMessages) {
+		t.Errorf("defaults snapshot = %q, want it refreshed to %q", got, a.defaultMessages)
+	}
+}

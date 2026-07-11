@@ -1,7 +1,7 @@
 <script lang="ts">
   // Icons for the top toolbar's New/Open/Save/Save As — same style as
   // ViewModeIcon/ListActionIcon (1px strokes, currentColor).
-  export let mode: 'new' | 'open' | 'save' | 'save-as'
+  export let mode: 'new' | 'open' | 'save' | 'save-as' | 'restore'
 </script>
 
 {#if mode === 'new'}
@@ -45,7 +45,7 @@
     <path d="M5 2.5v3.3h4.6V2.5" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" />
     <rect x="4.6" y="9" width="6.3" height="4" fill="none" stroke="currentColor" stroke-width="1.2" />
   </svg>
-{:else}
+{:else if mode === 'save-as'}
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
     <path
       d="M2.5 2h6l2.2 2.2V11a.5.5 0 0 1-.5.5H2.5A.5.5 0 0 1 2 11V2.5a.5.5 0 0 1 .5-.5z"
@@ -64,6 +64,11 @@
       stroke-linecap="round"
       stroke-linejoin="round"
     />
+  </svg>
+{:else}
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <path d="M3 8a5 5 0 1 0 1.6-3.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
+    <path d="M4.9 1.9v2.8H2.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" />
   </svg>
 {/if}
 

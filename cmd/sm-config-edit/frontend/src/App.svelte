@@ -23,6 +23,7 @@
     ValidateField,
     KnownTerminals,
     GetEditableMessages,
+    GetDefaultMessages,
     SaveMessages,
   } from '../wailsjs/go/configedit/App.js'
   import type { configedit } from '../wailsjs/go/models'
@@ -725,6 +726,17 @@
   let messagesTarget: MessagesTarget = 'gui'
   let messagesRows: { key: string; value: string }[] = []
   let messagesError = ''
+  // Which category groups are collapsed, by name — not reset on target
+  // switch, so a layout you've arranged (e.g. collapsing categories you
+  // don't care about) carries over between script-manager-gui/sm-config-edit.
+  let collapsedMessageGroups = new Set<string>()
+
+  function toggleMessageGroup(category: string) {
+    const next = new Set(collapsedMessageGroups)
+    if (next.has(category)) next.delete(category)
+    else next.add(category)
+    collapsedMessageGroups = next
+  }
 
   function flattenMessages(obj: unknown, prefix = ''): { key: string; value: string }[] {
     if (typeof obj !== 'object' || obj === null) return []
@@ -777,9 +789,22 @@
   async function saveMessagesSection() {
     try {
       await SaveMessages(messagesTarget, unflattenMessages(messagesRows))
-      flash(t('messagesEditor.saved'))
+      const app = messagesTarget === 'gui' ? t('messagesEditor.targetGui') : t('messagesEditor.targetConfigEdit')
+      flash(t('messagesEditor.saved', { app }))
     } catch (err) {
       flash(t('messagesEditor.saveFailed', { error: String(err) }))
+    }
+  }
+
+  // Resets the in-memory form to the target's compiled defaults — Save is
+  // still required afterward to persist it, same as any other edit here.
+  async function restoreDefaults() {
+    messagesError = ''
+    try {
+      messagesRows = flattenMessages(await GetDefaultMessages(messagesTarget))
+    } catch (err) {
+      messagesRows = []
+      messagesError = String(err)
     }
   }
 </script>
@@ -1345,25 +1370,35 @@
             </div>
           </div>
         {:else if section === 'messages'}
-          <div class="messages-target-row">
-            <span class="messages-target-label">{t('messagesEditor.targetLabel')}</span>
-            <div class="view-mode-group">
+          <div class="messages-toolbar">
+            <div class="messages-tabs">
               <button
-                class="btn"
+                class="messages-tab"
                 class:active={messagesTarget === 'gui'}
                 type="button"
                 on:click={() => (messagesTarget = 'gui')}>{t('messagesEditor.targetGui')}</button
               >
               <button
-                class="btn"
+                class="messages-tab"
                 class:active={messagesTarget === 'configedit'}
                 type="button"
                 on:click={() => (messagesTarget = 'configedit')}>{t('messagesEditor.targetConfigEdit')}</button
               >
             </div>
-            <button class="btn btn-primary" type="button" on:click={saveMessagesSection}
-              >{t('messagesEditor.saveButton')}</button
-            >
+            <div class="messages-actions">
+              <button
+                class="btn icon-btn"
+                type="button"
+                title={t('messagesEditor.restoreDefaults')}
+                on:click={restoreDefaults}><ToolbarIcon mode="restore" /></button
+              >
+              <button
+                class="btn btn-primary icon-btn"
+                type="button"
+                title={t('messagesEditor.saveButton')}
+                on:click={saveMessagesSection}><ToolbarIcon mode="save" /></button
+              >
+            </div>
           </div>
           {#if messagesError}
             <div class="validation-issue validation-error">{messagesError}</div>
@@ -1371,13 +1406,22 @@
             <div class="messages-rows">
               {#each messagesGroups as group (group.category)}
                 <div class="messages-group">
-                  <h3 class="messages-group-title">{group.category}</h3>
-                  {#each group.rows as row (row.key)}
-                    <label class="field messages-row">
-                      <span class="messages-row-key">{row.key}</span>
-                      <input type="text" bind:value={row.value} />
-                    </label>
-                  {/each}
+                  <button
+                    class="messages-group-header"
+                    type="button"
+                    on:click={() => toggleMessageGroup(group.category)}
+                  >
+                    <span class="messages-group-title">{group.category}</span>
+                    <span class="collapse-glyph">{collapsedMessageGroups.has(group.category) ? '▸' : '▾'}</span>
+                  </button>
+                  {#if !collapsedMessageGroups.has(group.category)}
+                    {#each group.rows as row (row.key)}
+                      <label class="field messages-row">
+                        <span class="messages-row-key">{row.key}</span>
+                        <input type="text" bind:value={row.value} />
+                      </label>
+                    {/each}
+                  {/if}
                 </div>
               {/each}
             </div>
@@ -1821,17 +1865,48 @@
     word-break: break-word;
   }
 
-  .messages-target-row {
+  .messages-toolbar {
     flex: none;
     display: flex;
-    align-items: center;
+    align-items: flex-end;
+    justify-content: space-between;
     gap: 8px;
     margin-bottom: 10px;
+    border-bottom: 1px solid var(--sm-border);
   }
 
-  .messages-target-label {
+  .messages-tabs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .messages-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 6px 4px 8px;
+    margin-bottom: -1px;
     color: var(--sm-text-muted);
-    font-size: 0.8rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .messages-tab:hover {
+    color: var(--sm-text);
+  }
+
+  .messages-tab.active {
+    color: var(--sm-accent-warm);
+    border-bottom-color: var(--sm-accent-warm);
+    font-weight: 700;
+  }
+
+  .messages-actions {
+    flex: none;
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
   }
 
   .messages-rows {
@@ -1843,11 +1918,27 @@
     margin-bottom: 14px;
   }
 
-  .messages-group-title {
+  .messages-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 0;
     margin: 0 0 6px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+
+  .messages-group-title {
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    color: var(--sm-text-muted);
+  }
+
+  .collapse-glyph {
     color: var(--sm-text-muted);
   }
 
