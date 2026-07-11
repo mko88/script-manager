@@ -64,13 +64,17 @@
     "run": "Run",
     "cancel": "Cancel",
     "copyOutput": "Copy output",
-    "copyCommand": "Copy command",
-    "themeDark": "Switch to dark theme",
-    "themeLight": "Switch to light theme"
+    "copyCommand": "Copy command"
   },
   "text": {
     "allGroupsChip": "All",
     "separator": " · ",
     "groupCount": "({count})"
+  },
+  "theme": {
+    "selectTitle": "Theme",
+    "dark": "Dark",
+    "light": "Light",
+    "custom": "Custom"
   }
 }

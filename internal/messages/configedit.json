@@ -23,6 +23,7 @@
     "environment": "Environment",
     "shell": "Shell",
     "terminal": "Terminal",
+    "theme": "Theme",
     "messages": "Messages"
   },
   "messagesEditor": {
@@ -88,9 +89,7 @@
     "markedSecret": "Marked as secret — click to unmark",
     "markSecret": "Mark as secret",
     "removeField": "Remove field",
-    "remove": "Remove",
-    "themeDark": "Switch to dark theme",
-    "themeLight": "Switch to light theme"
+    "remove": "Remove"
   },
   "placeholder": {
     "shellCommand": "e.g. pwsh",
@@ -155,5 +154,31 @@
     "warningIcon": "⚠",
     "removeGlyph": "✕",
     "secretMask": "••••••••"
+  },
+  "theme": {
+    "selectTitle": "Theme",
+    "dark": "Dark",
+    "light": "Light",
+    "custom": "Custom"
+  },
+  "themeEditor": {
+    "resetToDark": "Reset to Dark",
+    "resetToLight": "Reset to Light",
+    "saveButton": "Save",
+    "saving": "Saving…",
+    "saved": "Custom theme saved",
+    "pickColor": "Pick a color",
+    "previewPanelTitle": "Preview",
+    "previewSelectedRow": "Selected row",
+    "previewRow": "Another row",
+    "previewChipActive": "Active chip",
+    "previewChip": "Chip",
+    "previewButton": "Button",
+    "previewButtonPrimary": "Primary",
+    "previewBodyText": "Body text with a",
+    "previewCode": "code span",
+    "previewError": "Error text",
+    "previewMasked": "•••• masked value",
+    "previewToast": "Toast notification"
   }
 }

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import Toast from '@shared/components/Toast.svelte'
-  import { getTheme, setTheme, type Theme } from '@shared/theme'
+  import { getTheme, getCustomPalette, setTheme, type Theme } from '@shared/theme'
   import Icon from './components/Icon.svelte'
   import { t } from './messages'
   import {
@@ -45,8 +45,8 @@
   let toastTimer: ReturnType<typeof setTimeout>
 
   let theme: Theme = getTheme()
-  function toggleTheme() {
-    theme = theme === 'dark' ? 'light' : 'dark'
+  let hasCustomTheme = getCustomPalette() !== null
+  function changeTheme() {
     setTheme(theme)
     // Best-effort — the theme is already applied locally regardless of
     // whether this persists; see internal/theme for why it's shared.
@@ -577,13 +577,11 @@
       aria-label={t('tooltip.openConfigEditorAria')}
       on:click={launchConfigEditor}><Icon name="config-edit" /></button
     >
-    <button
-      class="btn icon-btn theme-toggle-btn"
-      type="button"
-      title={theme === 'dark' ? t('tooltip.themeLight') : t('tooltip.themeDark')}
-      aria-label={theme === 'dark' ? t('tooltip.themeLight') : t('tooltip.themeDark')}
-      on:click={toggleTheme}><Icon name={theme === 'dark' ? 'theme-dark' : 'theme-light'} /></button
-    >
+    <select class="theme-select" bind:value={theme} on:change={changeTheme} title={t('theme.selectTitle')}>
+      <option value="dark">{t('theme.dark')}</option>
+      <option value="light">{t('theme.light')}</option>
+      {#if hasCustomTheme}<option value="custom">{t('theme.custom')}</option>{/if}
+    </select>
   </header>
   <main class="app-shell" bind:this={shellEl}>
   <div class="col col-left" style="flex: 0 0 {leftWidth}px" bind:this={colLeftEl}>
@@ -860,8 +858,29 @@
     cursor: default;
   }
 
-  .theme-toggle-btn {
+  /* Same appearance:none + custom-chevron treatment sm-config-edit's form
+     <select>s use — see its App.svelte for why the arrow color has to be
+     baked into a literal data-URI SVG rather than referencing a var(). */
+  .theme-select {
     margin-left: auto;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: var(--sm-hover);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9b6c8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    color: var(--sm-text);
+    border: 1px solid var(--sm-border);
+    border-radius: 4px;
+    padding: 5px 24px 5px 8px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  :global([data-theme="light"]) .theme-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355647a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
   .app-shell {

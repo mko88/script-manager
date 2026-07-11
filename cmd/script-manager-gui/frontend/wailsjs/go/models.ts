@@ -105,3 +105,22 @@ export namespace gui {
 
 }
 
+export namespace theme {
+	
+	export class State {
+	    active: string;
+	    custom?: Record<string, string>;
+	
+	    static createFrom(source: any = {}) {
+	        return new State(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.active = source["active"];
+	        this.custom = source["custom"];
+	    }
+	}
+
+}
+

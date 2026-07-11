@@ -3,10 +3,11 @@
   import { dndzone } from 'svelte-dnd-action'
   import type { DndEvent } from 'svelte-dnd-action'
   import Toast from '@shared/components/Toast.svelte'
-  import { getTheme, setTheme, type Theme } from '@shared/theme'
+  import { getTheme, getCustomPalette, setTheme, type Theme, type CustomPalette } from '@shared/theme'
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
   import ActionForm from './components/ActionForm.svelte'
+  import ThemeEditor from './components/ThemeEditor.svelte'
   import ViewModeIcon from './components/ViewModeIcon.svelte'
   import ListActionIcon from './components/ListActionIcon.svelte'
   import ToolbarIcon from './components/ToolbarIcon.svelte'
@@ -27,6 +28,7 @@
     GetDefaultMessages,
     SaveMessages,
     SetTheme,
+    SaveCustomTheme,
   } from '../wailsjs/go/configedit/App.js'
   import type { configedit } from '../wailsjs/go/models'
 
@@ -48,9 +50,10 @@
   let toastTimer: ReturnType<typeof setTimeout>
 
   let theme: Theme = getTheme()
-  function toggleTheme() {
-    theme = theme === 'dark' ? 'light' : 'dark'
-    setTheme(theme)
+  let customPalette: CustomPalette | null = getCustomPalette()
+  let hasCustomTheme = customPalette !== null
+  function changeTheme() {
+    setTheme(theme, customPalette)
     // Best-effort — the theme is already applied locally regardless of
     // whether this persists; see internal/theme for why it's shared.
     SetTheme(theme).catch(() => {})
@@ -60,7 +63,16 @@
   let validation: configedit.ValidationIssueDTO[] = []
   let initialized = false
 
-  type Section = 'items' | 'actionGroups' | 'actions' | 'display' | 'env' | 'shell' | 'terminal' | 'messages'
+  type Section =
+    | 'items'
+    | 'actionGroups'
+    | 'actions'
+    | 'display'
+    | 'env'
+    | 'shell'
+    | 'terminal'
+    | 'theme'
+    | 'messages'
   const sections: { key: Section; label: string }[] = [
     { key: 'items', label: t('nav.items') },
     { key: 'actionGroups', label: t('nav.actionGroups') },
@@ -69,6 +81,7 @@
     { key: 'env', label: t('nav.environment') },
     { key: 'shell', label: t('nav.shell') },
     { key: 'terminal', label: t('nav.terminal') },
+    { key: 'theme', label: t('nav.theme') },
     { key: 'messages', label: t('nav.messages') },
   ]
   let section: Section = 'items'
@@ -855,13 +868,11 @@
       on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></button
     >
     <span class="toolbar-path">{path || t('text.unsaved')}{dirty ? t('text.dirtyMarker') : ''}</span>
-    <button
-      class="btn icon-btn"
-      type="button"
-      title={theme === 'dark' ? t('tooltip.themeLight') : t('tooltip.themeDark')}
-      aria-label={theme === 'dark' ? t('tooltip.themeLight') : t('tooltip.themeDark')}
-      on:click={toggleTheme}><ToolbarIcon mode={theme === 'dark' ? 'theme-dark' : 'theme-light'} /></button
-    >
+    <select class="theme-select" bind:value={theme} on:change={changeTheme} title={t('theme.selectTitle')}>
+      <option value="dark">{t('theme.dark')}</option>
+      <option value="light">{t('theme.light')}</option>
+      {#if hasCustomTheme}<option value="custom">{t('theme.custom')}</option>{/if}
+    </select>
   </header>
 
   {#if validation.length > 0}
@@ -886,7 +897,7 @@
       <header class="panel-title"><span>{sectionTitle}</span></header>
       <div
         class="panel-body"
-        class:list-body={section === 'items' || section === 'actionGroups' || section === 'actions' || section === 'messages'}
+        class:list-body={section === 'items' || section === 'actionGroups' || section === 'actions' || section === 'theme' || section === 'messages'}
       >
         {#if section === 'shell'}
           <p class="hint">{t('hint.shellCommandPrefix')}<code>pwsh -NoLogo -Command</code>.</p>
@@ -1378,6 +1389,13 @@
               {/if}
             </div>
           </div>
+        {:else if section === 'theme'}
+          <ThemeEditor
+            bind:initialPalette={customPalette}
+            bind:theme
+            bind:hasCustomTheme
+            saveCustomTheme={SaveCustomTheme}
+          />
         {:else if section === 'messages'}
           <div class="messages-toolbar">
             <div class="messages-tabs">
@@ -1483,6 +1501,31 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* Same appearance:none + custom-chevron treatment as .field select (see
+     below) — a toolbar-sized variant since this sits among icon buttons,
+     not in a form. */
+  .theme-select {
+    flex: none;
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    background-color: var(--sm-hover);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9b6c8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 8px center;
+    color: var(--sm-text);
+    border: 1px solid var(--sm-border);
+    border-radius: 4px;
+    padding: 5px 24px 5px 8px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+  }
+
+  :global([data-theme="light"]) .theme-select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355647a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 
   .validation-banner {

@@ -1,7 +1,7 @@
 <script lang="ts">
   // Icons for the top toolbar's New/Open/Save/Save As — same style as
   // ViewModeIcon/ListActionIcon (1px strokes, currentColor).
-  export let mode: 'new' | 'open' | 'save' | 'save-as' | 'restore' | 'expand-all' | 'collapse-all' | 'theme-dark' | 'theme-light'
+  export let mode: 'new' | 'open' | 'save' | 'save-as' | 'restore' | 'expand-all' | 'collapse-all'
 </script>
 
 {#if mode === 'new'}
@@ -75,27 +75,10 @@
     <path d="M3 5l5 4 5-4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
     <path d="M3 10l5 4 5-4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
   </svg>
-{:else if mode === 'collapse-all'}
+{:else}
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
     <path d="M3 6l5-4 5 4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
     <path d="M3 11l5-4 5 4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
-  </svg>
-{:else if mode === 'theme-dark'}
-  <!-- Sun — shown while the dark theme is active; depicts the mode a click
-       switches TO, matching the toggle's usual convention. -->
-  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-    <circle cx="8" cy="8" r="3" fill="none" stroke="currentColor" stroke-width="1.2" />
-    <path
-      d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.3 3.3l1.1 1.1M11.6 11.6l1.1 1.1M3.3 12.7l1.1-1.1M11.6 4.4l1.1-1.1"
-      stroke="currentColor"
-      stroke-width="1.2"
-      stroke-linecap="round"
-    />
-  </svg>
-{:else}
-  <!-- Moon — shown while the light theme is active. -->
-  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
-    <path d="M13 9.5A5.5 5.5 0 1 1 6.5 3a4.3 4.3 0 1 0 6.5 6.5z" fill="currentColor" />
   </svg>
 {/if}
 
