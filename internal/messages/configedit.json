@@ -168,6 +168,7 @@
     "saving": "Saving…",
     "saved": "Custom theme saved",
     "pickColor": "Pick a color",
+    "filterPlaceholder": "Filter fields, e.g. accent, bg-alt…",
     "previewPanelTitle": "Preview",
     "previewSelectedRow": "Selected row",
     "previewRow": "Another row",

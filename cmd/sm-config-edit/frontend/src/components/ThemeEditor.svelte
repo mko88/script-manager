@@ -28,6 +28,60 @@
     collapsedGroups = next
   }
 
+  // Which tokens visibly distinguish each preview element from a plain,
+  // unstyled one — clicking that element fills the field-filter box below
+  // with exactly these, so "what do I edit to change this?" is a click
+  // away instead of a hunt through 22 fields. Only the token(s) actually
+  // set by that element's own CSS rule, not ones it merely inherits from
+  // an ancestor (e.g. the selected row's own rule sets accent-warm/bg; it
+  // doesn't set bg-alt, even though that's visible behind it).
+  const PREVIEW_TOKEN_MAP: Record<string, string[]> = {
+    panelTitle: ['accent', 'panel-header', 'border'],
+    selectedRow: ['accent-warm', 'bg'],
+    row: ['text'],
+    chipActive: ['accent-warm', 'bg'],
+    chip: ['bg-deep', 'text-muted', 'border'],
+    button: ['border', 'hover', 'text'],
+    buttonPrimary: ['accent-warm', 'bg'],
+    iconButton: ['border', 'hover', 'text'],
+    heading: ['accent'],
+    bodyText: ['text'],
+    highlight: ['bg-deep', 'code'],
+    command: ['bg-deep', 'text', 'line-number'],
+    outputStatus: ['accent'],
+    outputBody: ['bg-deep', 'text-muted'],
+    errorText: ['error'],
+    maskedText: ['masked'],
+    toast: ['panel-header', 'text', 'border', 'shadow'],
+  }
+
+  let fieldFilter = ''
+  function filterFor(key: keyof typeof PREVIEW_TOKEN_MAP) {
+    fieldFilter = PREVIEW_TOKEN_MAP[key].join(', ')
+  }
+  // The rendered example markdown comes from one {@html} block, so its
+  // three clickable pieces (heading/body text/highlight) are told apart by
+  // delegating from a single listener rather than per-element on:click —
+  // Svelte can't attach handlers inside raw HTML it didn't render itself.
+  function onMarkdownClick(e: MouseEvent) {
+    const tag = (e.target as HTMLElement).tagName
+    if (tag === 'CODE') filterFor('highlight')
+    else if (tag === 'H1' || tag === 'H2' || tag === 'H3') filterFor('heading')
+    else filterFor('bodyText')
+  }
+
+  $: filterTerms = fieldFilter
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+  // Exact match, not substring — "bg" from a clicked preview element should
+  // show only --sm-bg, not also sweep in --sm-bg-alt/--sm-bg-deep just
+  // because they share that prefix.
+  $: visibleGroups = TOKEN_GROUPS.map((group) => ({
+    label: group.label,
+    tokens: filterTerms.length === 0 ? group.tokens : group.tokens.filter((name) => filterTerms.includes(name.toLowerCase())),
+  })).filter((group) => group.tokens.length > 0)
+
   function resetFrom(base: 'dark' | 'light') {
     palette = readPaletteFor(base)
   }
@@ -75,19 +129,25 @@
         {saving ? t('themeEditor.saving') : t('themeEditor.saveButton')}
       </button>
     </div>
+    <input
+      type="text"
+      class="theme-editor-filter"
+      placeholder={t('themeEditor.filterPlaceholder')}
+      bind:value={fieldFilter}
+    />
     {#if saveError}
       <div class="theme-editor-error">{saveError}</div>
     {/if}
     {#if savedFlash}
       <div class="theme-editor-saved">{t('themeEditor.saved')}</div>
     {/if}
-    {#each TOKEN_GROUPS as group (group.label)}
+    {#each visibleGroups as group (group.label)}
       <div class="messages-group">
         <button class="messages-group-header" type="button" on:click={() => toggleGroup(group.label)}>
           <span class="messages-group-title">{group.label}</span>
           <span class="collapse-glyph">{collapsedGroups.has(group.label) ? '▸' : '▾'}</span>
         </button>
-        {#if !collapsedGroups.has(group.label)}
+        {#if filterTerms.length > 0 || !collapsedGroups.has(group.label)}
           {#each group.tokens as name (name)}
             <label class="field">
               <span class="token-name">--sm-{name}</span>
@@ -109,27 +169,48 @@
 
   <div class="theme-editor-preview-pane">
     <div class="theme-editor-preview" style={previewStyle}>
-      <header class="panel-title">
+      <button type="button" class="panel-title" on:click={() => filterFor('panelTitle')}>
         <span class="panel-title-text">{t('themeEditor.previewPanelTitle')}</span>
-      </header>
+      </button>
       <div class="theme-editor-preview-body">
         <div class="list">
-          <div class="row selected">{t('themeEditor.previewSelectedRow')}</div>
-          <div class="row">{t('themeEditor.previewRow')}</div>
+          <button type="button" class="row selected" on:click={() => filterFor('selectedRow')}
+            >{t('themeEditor.previewSelectedRow')}</button
+          >
+          <button type="button" class="row" on:click={() => filterFor('row')}>{t('themeEditor.previewRow')}</button>
         </div>
         <div class="theme-editor-preview-chips">
-          <span class="chip active">{t('themeEditor.previewChipActive')}</span>
-          <span class="chip">{t('themeEditor.previewChip')}</span>
+          <button type="button" class="chip active" on:click={() => filterFor('chipActive')}
+            >{t('themeEditor.previewChipActive')}</button
+          >
+          <button type="button" class="chip" on:click={() => filterFor('chip')}>{t('themeEditor.previewChip')}</button
+          >
         </div>
         <div class="theme-editor-preview-buttons">
-          <span class="btn">{t('themeEditor.previewButton')}</span>
-          <span class="btn btn-primary">{t('themeEditor.previewButtonPrimary')}</span>
-          <span class="btn theme-editor-preview-icon-btn" title={t('themeEditor.previewIconButton')}>
+          <button type="button" class="btn" on:click={() => filterFor('button')}>{t('themeEditor.previewButton')}</button
+          >
+          <button type="button" class="btn btn-primary" on:click={() => filterFor('buttonPrimary')}
+            >{t('themeEditor.previewButtonPrimary')}</button
+          >
+          <button
+            type="button"
+            class="btn theme-editor-preview-icon-btn"
+            title={t('themeEditor.previewIconButton')}
+            on:click={() => filterFor('iconButton')}
+          >
             <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor" /></svg>
-          </span>
+          </button>
         </div>
-        <div class="theme-editor-preview-markdown">{@html t('themeEditor.previewMarkdownHtml')}</div>
-        <div class="theme-editor-preview-cmd">
+        <button
+          type="button"
+          class="theme-editor-preview-markdown theme-editor-preview-hotspot"
+          on:click={onMarkdownClick}>{@html t('themeEditor.previewMarkdownHtml')}</button
+        >
+        <button
+          type="button"
+          class="theme-editor-preview-cmd theme-editor-preview-hotspot"
+          on:click={() => filterFor('command')}
+        >
           <div class="theme-editor-preview-cmd-line">
             <span class="theme-editor-preview-cmd-no">1</span>
             <span>{t('themeEditor.previewCommandLine1')}</span>
@@ -138,14 +219,34 @@
             <span class="theme-editor-preview-cmd-no">2</span>
             <span>{t('themeEditor.previewCommandLine2')}</span>
           </div>
-        </div>
+        </button>
         <div class="theme-editor-preview-output">
-          <div class="theme-editor-preview-output-status">{t('themeEditor.previewOutputStatus')}</div>
-          <pre class="theme-editor-preview-output-body">{t('themeEditor.previewOutputLine')}</pre>
+          <button
+            type="button"
+            class="theme-editor-preview-output-status theme-editor-preview-hotspot"
+            on:click={() => filterFor('outputStatus')}>{t('themeEditor.previewOutputStatus')}</button
+          >
+          <button
+            type="button"
+            class="theme-editor-preview-output-body theme-editor-preview-hotspot"
+            on:click={() => filterFor('outputBody')}>{t('themeEditor.previewOutputLine')}</button
+          >
         </div>
-        <p class="theme-editor-preview-error">{t('themeEditor.previewError')}</p>
-        <p class="theme-editor-preview-masked">{t('themeEditor.previewMasked')}</p>
-        <div class="theme-editor-preview-toast">{t('themeEditor.previewToast')}</div>
+        <button
+          type="button"
+          class="theme-editor-preview-error theme-editor-preview-hotspot"
+          on:click={() => filterFor('errorText')}>{t('themeEditor.previewError')}</button
+        >
+        <button
+          type="button"
+          class="theme-editor-preview-masked theme-editor-preview-hotspot"
+          on:click={() => filterFor('maskedText')}>{t('themeEditor.previewMasked')}</button
+        >
+        <button
+          type="button"
+          class="theme-editor-preview-toast theme-editor-preview-hotspot"
+          on:click={() => filterFor('toast')}>{t('themeEditor.previewToast')}</button
+        >
       </div>
     </div>
   </div>
@@ -176,6 +277,18 @@
   .theme-editor-reset {
     display: flex;
     gap: 6px;
+  }
+
+  .theme-editor-filter {
+    width: 100%;
+    margin-bottom: 10px;
+    background: var(--sm-bg-deep);
+    color: var(--sm-text);
+    border: 1px solid var(--sm-border);
+    border-radius: 4px;
+    padding: 5px 7px;
+    font-family: inherit;
+    font-size: 0.85rem;
   }
 
   .theme-editor-saved {
@@ -289,6 +402,45 @@
     gap: 10px;
   }
 
+  /* Every preview element is a real <button> — not just for the ones that
+     already look like one (.row, .chip, .btn, all originally designed as
+     buttons, so they need no reset at all) but also plain text/block ones
+     (markdown, command, output, error, masked, toast) that need their
+     native button chrome neutralized. Only the display-affecting/font/
+     alignment properties are reset here — each element's own class still
+     owns its padding/margin/color/background, so this can't clobber them
+     regardless of stylesheet order. */
+  .theme-editor-preview-hotspot {
+    display: block;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .theme-editor-preview-hotspot:hover {
+    outline: 1px dashed var(--sm-border);
+    outline-offset: 2px;
+  }
+
+  /* .panel-title is already display:flex (global, theme.css) and already
+     fills its flex parent's width — only the native <button> chrome needs
+     resetting here, and specifically not display, or it'd break the
+     panel-title-text/right-side layout .panel-title relies on. */
+  button.panel-title {
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
+    cursor: pointer;
+    border-top: none;
+    border-left: none;
+    border-right: none;
+  }
+
   .list {
     display: flex;
     flex-direction: column;
@@ -394,6 +546,7 @@
 
   .theme-editor-preview-toast {
     align-self: flex-start;
+    width: auto;
     background: var(--sm-panel-header);
     color: var(--sm-text);
     border: 1px solid var(--sm-border);
