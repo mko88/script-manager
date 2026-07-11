@@ -176,7 +176,6 @@
     "previewChip": "Chip",
     "previewButton": "Button",
     "previewButtonPrimary": "Primary",
-    "previewIconButton": "Run",
     "previewMarkdownHtml": "<h3>Example heading</h3><p>This is <strong>bold</strong>, this is <em>italic</em>, and <code>this is highlighted</code>.</p>",
     "previewCommandLine1": "echo \"Deploying...\"",
     "previewCommandLine2": "./deploy.sh --env prod",

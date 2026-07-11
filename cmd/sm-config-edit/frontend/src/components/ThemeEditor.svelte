@@ -44,7 +44,6 @@
     chip: ['bg-deep', 'text-muted', 'border'],
     button: ['border', 'hover', 'text'],
     buttonPrimary: ['accent-warm', 'bg'],
-    iconButton: ['border', 'hover', 'text'],
     heading: ['accent'],
     bodyText: ['text'],
     highlight: ['bg-deep', 'code'],
@@ -205,14 +204,6 @@
           <button type="button" class="btn btn-primary" on:click={() => filterFor('buttonPrimary')}
             >{t('themeEditor.previewButtonPrimary')}</button
           >
-          <button
-            type="button"
-            class="btn theme-editor-preview-icon-btn"
-            title={t('themeEditor.previewIconButton')}
-            on:click={() => filterFor('iconButton')}
-          >
-            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor" /></svg>
-          </button>
         </div>
         <button
           type="button"
@@ -478,13 +469,6 @@
   .theme-editor-preview-buttons {
     display: flex;
     gap: 6px;
-  }
-
-  .theme-editor-preview-icon-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 9px;
   }
 
   /* {@html}-inserted content isn't scoped by Svelte, so styling anything
