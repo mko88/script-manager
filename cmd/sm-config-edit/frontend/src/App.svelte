@@ -129,19 +129,38 @@
     select.selectedIndex = 0
   }
 
+  // Replaces [start, end) in the textarea with text via execCommand, which —
+  // unlike setRangeText — participates in the browser's native undo/redo, so
+  // Ctrl+Z/Ctrl+Y still work after a helper-button edit, the same as they
+  // would after ordinary typing. execCommand acts on the element's current
+  // selection, so it has to be focused with that range selected first.
+  // Falls back to setRangeText (functionally identical, just without undo
+  // support) if execCommand is ever unavailable.
+  function replaceRange(el: HTMLTextAreaElement, start: number, end: number, text: string) {
+    el.focus()
+    el.setSelectionRange(start, end)
+    let handled = false
+    try {
+      handled = document.execCommand('insertText', false, text)
+    } catch {
+      handled = false
+    }
+    if (!handled) el.setRangeText(text, start, end, 'end')
+    // Either path mutates the element directly without firing an input event
+    // Svelte's bind:value would otherwise pick up, so the bound state has to
+    // be synced back explicitly.
+    cfg.display[selectedDisplay].details = el.value
+  }
+
   function insertAtCursor(text: string) {
     const el = detailsTextareaEl
     if (!el) return
     const start = el.selectionStart ?? el.value.length
     const end = el.selectionEnd ?? el.value.length
-    // 'select' (rather than 'end') leaves the just-inserted text highlighted,
-    // so it's clear what was inserted and easy to overtype/replace.
-    el.setRangeText(text, start, end, 'select')
-    // setRangeText mutates the element directly and doesn't fire an input
-    // event Svelte's bind:value would otherwise pick up, so the bound state
-    // has to be synced back explicitly.
-    cfg.display[selectedDisplay].details = el.value
-    el.focus()
+    replaceRange(el, start, end, text)
+    // Highlight the just-inserted text, so it's clear what was inserted and
+    // easy to overtype/replace.
+    el.setSelectionRange(start, start + text.length)
   }
 
   function wrapSelection(before: string, after: string = before) {
@@ -150,9 +169,23 @@
     const start = el.selectionStart ?? 0
     const end = el.selectionEnd ?? 0
     const selected = el.value.slice(start, end)
-    el.setRangeText(before + selected + after, start, end, 'end')
-    cfg.display[selectedDisplay].details = el.value
-    el.focus()
+
+    // Toggling the same button again on text it already wrapped removes the
+    // markers instead of stacking another layer around them (e.g. **hello**
+    // -> hello, not ****hello****).
+    const alreadyWrapped =
+      before.length > 0 &&
+      el.value.slice(start - before.length, start) === before &&
+      el.value.slice(end, end + after.length) === after
+
+    if (alreadyWrapped) {
+      const wrapStart = start - before.length
+      replaceRange(el, wrapStart, end + after.length, selected)
+      el.setSelectionRange(wrapStart, wrapStart + selected.length)
+      return
+    }
+
+    replaceRange(el, start, end, before + selected + after)
     // Re-select just the original text (not the before/after markers), so
     // it stays visibly highlighted and a second formatting button or typed
     // replacement acts on the content, not the markup around it.
@@ -161,7 +194,10 @@
 
   // Matches a bare `{{.field}}`/`{{.field.nested}}` reference — the only
   // shape `mask` can meaningfully wrap; wrapping arbitrary literal text in
-  // `{{mask ...}}` would just produce an invalid template.
+  // `{{mask ...}}` would just produce an invalid template. A `{{mask ...}}`
+  // reference itself doesn't match (it doesn't start with a bare dot), so
+  // re-selecting an already-masked span and clicking Mask again is already a
+  // harmless no-op rather than double-masking it.
   const FIELD_REF_RE = /^\{\{\s*(\.[\w.]+)\s*\}\}$/
 
   // Turns a selected `{{.field}}` reference into a masked `` `{{mask .field}}` ``
@@ -180,9 +216,8 @@
       return
     }
     const replacement = '`{{mask ' + match[1] + '}}`'
-    el.setRangeText(replacement, start, end, 'select')
-    cfg.display[selectedDisplay].details = el.value
-    el.focus()
+    replaceRange(el, start, end, replacement)
+    el.setSelectionRange(start, start + replacement.length)
   }
 
   const DISPLAY_LAYOUT_KEY = 'sm-config-edit:displayLayout'
