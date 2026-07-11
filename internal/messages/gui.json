@@ -61,7 +61,7 @@
     "expandMissingWarning": "Expand missing-values warning",
     "collapseMissingWarning": "Collapse missing-values warning",
     "runHere": "Run here",
-    "run": "Run",
+    "run": "Run in terminal",
     "cancel": "Cancel",
     "copyOutput": "Copy output",
     "copyCommand": "Copy command"

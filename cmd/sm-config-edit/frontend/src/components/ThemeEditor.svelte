@@ -124,10 +124,25 @@
         <div class="theme-editor-preview-buttons">
           <span class="btn">{t('themeEditor.previewButton')}</span>
           <span class="btn btn-primary">{t('themeEditor.previewButtonPrimary')}</span>
+          <span class="btn theme-editor-preview-icon-btn" title={t('themeEditor.previewIconButton')}>
+            <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor" /></svg>
+          </span>
         </div>
-        <p class="theme-editor-preview-text">
-          {t('themeEditor.previewBodyText')} <code>{t('themeEditor.previewCode')}</code>
-        </p>
+        <div class="theme-editor-preview-markdown">{@html t('themeEditor.previewMarkdownHtml')}</div>
+        <div class="theme-editor-preview-cmd">
+          <div class="theme-editor-preview-cmd-line">
+            <span class="theme-editor-preview-cmd-no">1</span>
+            <span>{t('themeEditor.previewCommandLine1')}</span>
+          </div>
+          <div class="theme-editor-preview-cmd-line">
+            <span class="theme-editor-preview-cmd-no">2</span>
+            <span>{t('themeEditor.previewCommandLine2')}</span>
+          </div>
+        </div>
+        <div class="theme-editor-preview-output">
+          <div class="theme-editor-preview-output-status">{t('themeEditor.previewOutputStatus')}</div>
+          <pre class="theme-editor-preview-output-body">{t('themeEditor.previewOutputLine')}</pre>
+        </div>
         <p class="theme-editor-preview-error">{t('themeEditor.previewError')}</p>
         <p class="theme-editor-preview-masked">{t('themeEditor.previewMasked')}</p>
         <div class="theme-editor-preview-toast">{t('themeEditor.previewToast')}</div>
@@ -286,18 +301,82 @@
     gap: 6px;
   }
 
-  .theme-editor-preview-text {
-    margin: 0;
+  .theme-editor-preview-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 9px;
+  }
+
+  /* {@html}-inserted content isn't scoped by Svelte, so styling anything
+     inside .theme-editor-preview-markdown needs :global() — same reasoning
+     as .details-preview's own goldmark-rendered output in App.svelte. */
+  .theme-editor-preview-markdown {
     font-size: 0.85rem;
     color: var(--sm-text);
   }
 
-  .theme-editor-preview-text code {
+  .theme-editor-preview-markdown :global(h1),
+  .theme-editor-preview-markdown :global(h2),
+  .theme-editor-preview-markdown :global(h3) {
+    color: var(--sm-accent);
+    margin: 0 0 0.3em;
+  }
+
+  .theme-editor-preview-markdown :global(p) {
+    margin: 0;
+  }
+
+  .theme-editor-preview-markdown :global(code) {
     background: var(--sm-bg-deep);
     color: var(--sm-code);
     padding: 1px 5px;
     border-radius: 3px;
     font-family: "SF Mono", Consolas, monospace;
+  }
+
+  .theme-editor-preview-cmd {
+    background: var(--sm-bg-deep);
+    border-radius: 4px;
+    padding: 8px 0;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.8rem;
+    color: var(--sm-text);
+  }
+
+  .theme-editor-preview-cmd-line {
+    display: flex;
+    gap: 10px;
+    padding: 0 8px;
+  }
+
+  .theme-editor-preview-cmd-no {
+    flex: none;
+    width: 1.4em;
+    text-align: right;
+    color: var(--sm-line-number);
+    user-select: none;
+  }
+
+  .theme-editor-preview-output {
+    background: var(--sm-bg-deep);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .theme-editor-preview-output-status {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    color: var(--sm-accent);
+  }
+
+  .theme-editor-preview-output-body {
+    margin: 0;
+    padding: 0 10px 8px;
+    font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.78rem;
+    color: var(--sm-text-muted);
+    white-space: pre-wrap;
   }
 
   .theme-editor-preview-error {
