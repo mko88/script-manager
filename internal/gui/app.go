@@ -48,12 +48,6 @@ type App struct {
 	exeDir  string
 	loadErr error // from the initial load; the frontend fetches it once via LoadError
 
-	// defaultMessages is this app's compiled frontend/src/messages.json,
-	// embedded by cmd/script-manager-gui/main.go and handed in via
-	// SetDefaultMessages — a mutable field rather than a NewApp parameter so
-	// the many existing NewApp(load) call sites in tests don't need updating.
-	defaultMessages []byte
-
 	// inlineMu guards inlineRuns. Different item/action pairs may run
 	// concurrently — switching to another action in the UI doesn't stop
 	// one already running — but the same pair can't be started twice at
@@ -93,13 +87,6 @@ func (a *App) LoadError() string {
 // Startup is wired as the Wails OnStartup callback.
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
-}
-
-// SetDefaultMessages provides this app's compiled message defaults for
-// GetMessages to self-seed its runtime override file from. Called once by
-// main.go right after NewApp; see the defaultMessages field doc.
-func (a *App) SetDefaultMessages(data []byte) {
-	a.defaultMessages = data
 }
 
 // ExeDir returns the directory containing the running executable, or "" if

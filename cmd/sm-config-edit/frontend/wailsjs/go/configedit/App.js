@@ -50,10 +50,6 @@ export function SaveMessages(arg1, arg2) {
   return window['go']['configedit']['App']['SaveMessages'](arg1, arg2);
 }
 
-export function SetDefaultMessages(arg1) {
-  return window['go']['configedit']['App']['SetDefaultMessages'](arg1);
-}
-
 export function ValidateConfig(arg1) {
   return window['go']['configedit']['App']['ValidateConfig'](arg1);
 }

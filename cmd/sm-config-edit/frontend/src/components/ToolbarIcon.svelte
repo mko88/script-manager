@@ -1,7 +1,7 @@
 <script lang="ts">
   // Icons for the top toolbar's New/Open/Save/Save As — same style as
   // ViewModeIcon/ListActionIcon (1px strokes, currentColor).
-  export let mode: 'new' | 'open' | 'save' | 'save-as' | 'restore'
+  export let mode: 'new' | 'open' | 'save' | 'save-as' | 'restore' | 'expand-all' | 'collapse-all'
 </script>
 
 {#if mode === 'new'}
@@ -65,10 +65,20 @@
       stroke-linejoin="round"
     />
   </svg>
-{:else}
+{:else if mode === 'restore'}
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
     <path d="M3 8a5 5 0 1 0 1.6-3.7" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" />
     <path d="M4.9 1.9v2.8H2.1" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" />
+  </svg>
+{:else if mode === 'expand-all'}
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <path d="M3 5l5 4 5-4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M3 10l5 4 5-4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+  </svg>
+{:else}
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <path d="M3 6l5-4 5 4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
+    <path d="M3 11l5-4 5 4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" />
   </svg>
 {/if}
 

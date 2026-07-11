@@ -33,5 +33,3 @@ export function ReloadConfig():Promise<string>;
 export function RunAction(arg1:number,arg2:number):Promise<void>;
 
 export function RunActionInline(arg1:number,arg2:number):Promise<void>;
-
-export function SetDefaultMessages(arg1:Array<number>):Promise<void>;

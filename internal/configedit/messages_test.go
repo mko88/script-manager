@@ -6,26 +6,35 @@ import (
 	"strings"
 	"testing"
 
-	"script-manager/internal/gui"
+	"script-manager/internal/messages"
 )
 
-func TestMessagesPathFor(t *testing.T) {
-	dir := "/exe/dir"
+func TestGetMessagesWritesOverrideAndDefaultsSnapshot(t *testing.T) {
+	dir := t.TempDir()
+	a := &App{exeDir: dir}
 
-	if path, err := messagesPathFor(dir, "gui"); err != nil || path != filepath.Join(dir, gui.GUIMessagesFilename) {
-		t.Errorf("messagesPathFor(gui) = (%q, %v)", path, err)
+	got, err := a.GetMessages()
+	if err != nil {
+		t.Fatalf("GetMessages() error = %v", err)
 	}
-	if path, err := messagesPathFor(dir, "configedit"); err != nil || path != filepath.Join(dir, configEditMessagesFilename) {
-		t.Errorf("messagesPathFor(configedit) = (%q, %v)", path, err)
+	if len(got) == 0 {
+		t.Error("expected a non-empty message map")
 	}
-	if _, err := messagesPathFor(dir, "bogus"); err == nil {
-		t.Error("expected an error for an unknown target")
+
+	if _, err := os.Stat(filepath.Join(dir, messages.ConfigEditFilename)); err != nil {
+		t.Errorf("expected the override file to be seeded: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, messages.GUIDefaultsFilename)); err != nil {
+		t.Errorf("expected script-manager-gui's defaults snapshot to also be written (regardless of which app started): %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, messages.ConfigEditDefaultsFilename)); err != nil {
+		t.Errorf("expected sm-config-edit's own defaults snapshot to be written: %v", err)
 	}
 }
 
 func TestGetEditableMessagesSelf(t *testing.T) {
 	dir := t.TempDir()
-	a := &App{exeDir: dir, defaultMessages: []byte(`{"nav":{"messages":"Messages"}}`)}
+	a := &App{exeDir: dir}
 
 	got, err := a.GetEditableMessages("configedit")
 	if err != nil {
@@ -49,10 +58,13 @@ func TestGetEditableMessagesGuiMissingFile(t *testing.T) {
 	}
 }
 
-func TestGetEditableMessagesGuiReadsExistingFile(t *testing.T) {
+func TestGetEditableMessagesGuiReconcilesAgainstDefaults(t *testing.T) {
 	dir := t.TempDir()
-	guiPath := filepath.Join(dir, gui.GUIMessagesFilename)
-	if err := os.WriteFile(guiPath, []byte(`{"nav":{"items":"Items"}}`), 0o644); err != nil {
+	guiPath := filepath.Join(dir, messages.GUIFilename)
+	// A stale override missing keys defaults has, and carrying one defaults
+	// no longer has — GetEditableMessages should reconcile this in memory
+	// (without writing it back — that's the "in memory only" contract).
+	if err := os.WriteFile(guiPath, []byte(`{"panel":{"stale":"drop me"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	a := &App{exeDir: dir}
@@ -61,9 +73,20 @@ func TestGetEditableMessagesGuiReadsExistingFile(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetEditableMessages(gui) error = %v", err)
 	}
-	nav, _ := got["nav"].(map[string]interface{})
-	if nav["items"] != "Items" {
-		t.Errorf("got = %v, want nav.items = Items", got)
+	panel, _ := got["panel"].(map[string]interface{})
+	if panel["items"] != "Items" {
+		t.Errorf("got = %v, want panel.items backfilled from defaults", got)
+	}
+	if _, exists := panel["stale"]; exists {
+		t.Errorf("got = %v, want the stale key removed", got)
+	}
+
+	onDisk, err := os.ReadFile(guiPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(onDisk), "stale") {
+		t.Error("on-disk file should be untouched by GetEditableMessages (only Save should persist changes)")
 	}
 }
 
@@ -76,13 +99,12 @@ func TestSaveMessagesRoundTrip(t *testing.T) {
 		t.Fatalf("SaveMessages() error = %v", err)
 	}
 
-	got, err := a.GetEditableMessages("gui")
+	onDisk, err := os.ReadFile(filepath.Join(dir, messages.GUIFilename))
 	if err != nil {
-		t.Fatalf("GetEditableMessages(gui) error = %v", err)
+		t.Fatal(err)
 	}
-	nav, _ := got["nav"].(map[string]interface{})
-	if nav["items"] != "Edited" {
-		t.Errorf("got = %v, want nav.items = Edited", got)
+	if !strings.Contains(string(onDisk), "Edited") {
+		t.Errorf("on-disk content = %q, want it to contain the saved edit", onDisk)
 	}
 }
 
@@ -93,38 +115,18 @@ func TestSaveMessagesUnknownTarget(t *testing.T) {
 	}
 }
 
-func TestGetDefaultMessagesSelfIgnoresSavedOverride(t *testing.T) {
-	dir := t.TempDir()
-	a := &App{exeDir: dir, defaultMessages: []byte(`{"nav":{"messages":"Messages"}}`)}
-	// GetMessages (called once at self startup) seeds both the override and
-	// the defaults snapshot from a.defaultMessages.
-	if _, err := a.GetMessages(); err != nil {
-		t.Fatalf("GetMessages() error = %v", err)
-	}
-	// Simulate a saved edit to the override — GetDefaultMessages must still
-	// report the original compiled default, not this edited value.
-	if err := a.SaveMessages("configedit", map[string]interface{}{"nav": map[string]interface{}{"messages": "Edited"}}); err != nil {
-		t.Fatalf("SaveMessages() error = %v", err)
-	}
-
-	got, err := a.GetDefaultMessages("configedit")
-	if err != nil {
-		t.Fatalf("GetDefaultMessages(configedit) error = %v", err)
-	}
-	nav, _ := got["nav"].(map[string]interface{})
-	if nav["messages"] != "Messages" {
-		t.Errorf("got = %v, want the original default (Messages), not the saved edit", got)
-	}
-}
-
-func TestGetDefaultMessagesGuiMissingFile(t *testing.T) {
+func TestGetDefaultMessagesWorksWithoutAnyFileOnDisk(t *testing.T) {
+	// GetDefaultMessages reads compiled bytes, not a file — it must work
+	// even in a directory where neither app has ever run.
 	a := &App{exeDir: t.TempDir()}
-	_, err := a.GetDefaultMessages("gui")
-	if err == nil {
-		t.Fatal("expected an error when script-manager-gui has never run")
+
+	got, err := a.GetDefaultMessages("gui")
+	if err != nil {
+		t.Fatalf("GetDefaultMessages(gui) error = %v", err)
 	}
-	if !strings.Contains(err.Error(), "run it at least once") {
-		t.Errorf("error = %q, want a hint to run script-manager-gui first", err.Error())
+	panel, _ := got["panel"].(map[string]interface{})
+	if panel["items"] != "Items" {
+		t.Errorf("got = %v, want panel.items = Items", got)
 	}
 }
 

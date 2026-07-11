@@ -26,8 +26,6 @@ export function Save(arg1:configedit.ConfigDTO,arg2:string):Promise<configedit.S
 
 export function SaveMessages(arg1:string,arg2:Record<string, any>):Promise<void>;
 
-export function SetDefaultMessages(arg1:Array<number>):Promise<void>;
-
 export function ValidateConfig(arg1:configedit.ConfigDTO):Promise<Array<configedit.ValidationIssueDTO>>;
 
 export function ValidateField(arg1:string,arg2:string):Promise<string>;

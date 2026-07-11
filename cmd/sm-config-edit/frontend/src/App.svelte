@@ -726,6 +726,7 @@
   let messagesTarget: MessagesTarget = 'gui'
   let messagesRows: { key: string; value: string }[] = []
   let messagesError = ''
+  let messagesSearch = ''
   // Which category groups are collapsed, by name — not reset on target
   // switch, so a layout you've arranged (e.g. collapsing categories you
   // don't care about) carries over between script-manager-gui/sm-config-edit.
@@ -736,6 +737,11 @@
     if (next.has(category)) next.delete(category)
     else next.add(category)
     collapsedMessageGroups = next
+  }
+
+  $: allMessageGroupsCollapsed = messagesGroups.length > 0 && collapsedMessageGroups.size >= messagesGroups.length
+  function toggleAllMessageGroups() {
+    collapsedMessageGroups = allMessageGroupsCollapsed ? new Set() : new Set(messagesGroups.map((g) => g.category))
   }
 
   function flattenMessages(obj: unknown, prefix = ''): { key: string; value: string }[] {
@@ -765,8 +771,10 @@
   }
 
   $: messagesGroups = (() => {
+    const q = messagesSearch.trim().toLowerCase()
     const groups = new Map<string, { key: string; value: string }[]>()
     for (const row of messagesRows) {
+      if (q && !row.key.toLowerCase().includes(q) && !row.value.toLowerCase().includes(q)) continue
       const category = row.key.split('.')[0]
       if (!groups.has(category)) groups.set(category, [])
       groups.get(category)!.push(row)
@@ -799,6 +807,7 @@
   // Resets the in-memory form to the target's compiled defaults — Save is
   // still required afterward to persist it, same as any other edit here.
   async function restoreDefaults() {
+    if (!confirm(t('messagesEditor.confirmRestoreDefaults'))) return
     messagesError = ''
     try {
       messagesRows = flattenMessages(await GetDefaultMessages(messagesTarget))
@@ -1389,6 +1398,13 @@
               <button
                 class="btn icon-btn"
                 type="button"
+                title={allMessageGroupsCollapsed ? t('messagesEditor.expandAll') : t('messagesEditor.collapseAll')}
+                on:click={toggleAllMessageGroups}
+                ><ToolbarIcon mode={allMessageGroupsCollapsed ? 'expand-all' : 'collapse-all'} /></button
+              >
+              <button
+                class="btn icon-btn"
+                type="button"
                 title={t('messagesEditor.restoreDefaults')}
                 on:click={restoreDefaults}><ToolbarIcon mode="restore" /></button
               >
@@ -1400,6 +1416,12 @@
               >
             </div>
           </div>
+          <input
+            type="text"
+            class="messages-search"
+            placeholder={t('messagesEditor.searchPlaceholder')}
+            bind:value={messagesSearch}
+          />
           {#if messagesError}
             <div class="validation-issue validation-error">{messagesError}</div>
           {:else}
@@ -1414,7 +1436,7 @@
                     <span class="messages-group-title">{group.category}</span>
                     <span class="collapse-glyph">{collapsedMessageGroups.has(group.category) ? '▸' : '▾'}</span>
                   </button>
-                  {#if !collapsedMessageGroups.has(group.category)}
+                  {#if messagesSearch.trim() || !collapsedMessageGroups.has(group.category)}
                     {#each group.rows as row (row.key)}
                       <label class="field messages-row">
                         <span class="messages-row-key">{row.key}</span>
@@ -1907,6 +1929,18 @@
     display: flex;
     gap: 4px;
     margin-bottom: 6px;
+  }
+
+  .messages-search {
+    flex: none;
+    margin-bottom: 10px;
+    background: var(--sm-bg-deep);
+    color: var(--sm-text);
+    border: 1px solid var(--sm-border);
+    border-radius: 4px;
+    padding: 5px 7px;
+    font-family: inherit;
+    font-size: 0.85rem;
   }
 
   .messages-rows {

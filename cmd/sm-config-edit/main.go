@@ -14,15 +14,11 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-//go:embed frontend/src/messages.json
-var defaultMessagesJSON []byte
-
 func main() {
 	cfgPath := flag.String("config", "", "path to config file (default: auto-detect)")
 	flag.Parse()
 
 	app := configedit.NewApp(*cfgPath)
-	app.SetDefaultMessages(defaultMessagesJSON)
 
 	err := wails.Run(&options.App{
 		Title:  "Script Manager — Config Editor",

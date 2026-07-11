@@ -1,4 +1,8 @@
-import messages from './messages.json'
+// Moved into internal/messages so the Go backend can embed it directly too
+// (both apps' compiled defaults live in one shared package now — see
+// internal/messages/messages.go) — this is still the single canonical copy,
+// not a duplicate.
+import messages from '../../../../internal/messages/configedit.json'
 
 type Messages = typeof messages
 

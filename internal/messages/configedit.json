@@ -31,6 +31,10 @@
     "targetConfigEdit": "sm-config-edit (this app)",
     "saveButton": "Save",
     "restoreDefaults": "Restore defaults",
+    "confirmRestoreDefaults": "Restore all messages on screen to their shipped defaults? This replaces the form's current contents (including any unsaved edits) — the saved file isn't touched until you Save.",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "searchPlaceholder": "Search key or text…",
     "saved": "Messages saved — restart {app} to see the changes",
     "saveFailed": "Save failed: {error}"
   },
