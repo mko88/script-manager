@@ -214,9 +214,8 @@ func TestFromItemDTOOmitsEmptyReservedKeys(t *testing.T) {
 
 func TestConfigDTORoundTrip(t *testing.T) {
 	cfg := &config.Config{
-		Shell:  []string{"pwsh", "-NoLogo"},
-		Titles: config.TitlesConfig{Items: "Servers"},
-		Env:    map[string]any{"region": "eu", "retries": 3},
+		Shell: []string{"pwsh", "-NoLogo"},
+		Env:   map[string]any{"region": "eu", "retries": 3},
 		Display: config.DisplayList{
 			{Name: "default", List: "{{.name}}", Details: "**{{.name}}**"},
 		},

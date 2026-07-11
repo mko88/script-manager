@@ -4,14 +4,6 @@
 // and writes config.Config instead of just reading it.
 package configedit
 
-// TitlesDTO mirrors config.TitlesConfig.
-type TitlesDTO struct {
-	Items   string `json:"items"`
-	Actions string `json:"actions"`
-	Details string `json:"details"`
-	Command string `json:"command"`
-}
-
 // DisplayDTO mirrors config.DisplayConfig.
 type DisplayDTO struct {
 	Name    string `json:"name"`
@@ -86,7 +78,6 @@ type ItemDTO struct {
 type ConfigDTO struct {
 	Shell        []string         `json:"shell"`
 	Display      []DisplayDTO     `json:"display"`
-	Titles       TitlesDTO        `json:"titles"`
 	Terminal     TerminalDTO      `json:"terminal"`
 	EnvFields    []FieldDTO       `json:"envFields"`
 	Items        []ItemDTO        `json:"items"`

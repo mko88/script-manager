@@ -4,7 +4,6 @@
   import Icon from './components/Icon.svelte'
   import { t } from './messages'
   import {
-    GetTitles,
     GetItems,
     GetActions,
     GetActionDetail,
@@ -22,7 +21,6 @@
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
 
-  let titles: gui.TitlesDTO = { items: t('panel.items'), actions: t('panel.actions'), details: t('panel.details'), command: t('panel.command') }
   let items: gui.ItemDTO[] = []
   let actions: gui.ActionDTO[] = []
   let actionGroupCatalog: gui.ActionGroupDTO[] = []
@@ -205,7 +203,6 @@
   onMount(async () => {
     const loadErr = await LoadError()
     if (loadErr) flash(t('toast.configLoadFailed', { error: loadErr }))
-    titles = await GetTitles()
     items = await GetItems()
     actionGroupCatalog = await GetActionGroups()
     if (items.length > 0) selectItem(0)
@@ -353,7 +350,6 @@
   // frontend, so both need the same items/actions/details re-fetch and
   // reselect-something-sane dance afterward.
   async function refreshAfterConfigChange() {
-    titles = await GetTitles()
     actionGroupCatalog = await GetActionGroups()
     const newItems = await GetItems()
     items = newItems
@@ -573,7 +569,7 @@
     <section class="panel panel-items" style={topStyle(itemsCollapsed, actionsCollapsed, itemsHeight, true)}>
       <header class="panel-title">
         <span class="panel-title-text" class:wrap={itemsCollapsed}>
-          {titles.items}{#if itemsCollapsed && selectedItemLabel}<span class="panel-title-selected">{t('text.separator')}{selectedItemLabel}</span>{/if}
+          {t('panel.items')}{#if itemsCollapsed && selectedItemLabel}<span class="panel-title-selected">{t('text.separator')}{selectedItemLabel}</span>{/if}
         </span>
         <button class="collapse-btn" on:click={() => toggleCollapse('items')} title={itemsCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
           {itemsCollapsed ? '▸' : '▾'}
@@ -601,7 +597,7 @@
     <section class="panel panel-actions" style={bottomStyle(actionsCollapsed, true)}>
       <header class="panel-title">
         <span class="panel-title-text" class:wrap={actionsCollapsed}>
-          {titles.actions}{#if actionsCollapsed && selectedActionLabel}<span class="panel-title-selected">{t('text.separator')}{selectedActionLabel}</span>{/if}
+          {t('panel.actions')}{#if actionsCollapsed && selectedActionLabel}<span class="panel-title-selected">{t('text.separator')}{selectedActionLabel}</span>{/if}
         </span>
         <button class="collapse-btn" on:click={() => toggleCollapse('actions')} title={actionsCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
           {actionsCollapsed ? '▸' : '▾'}
@@ -683,7 +679,7 @@
   <div class="col col-right" bind:this={colRightEl}>
     <section class="panel panel-details" style={topStyle(detailsCollapsed, commandCollapsed, detailsHeight)}>
       <header class="panel-title">
-        <span>{titles.details}</span>
+        <span>{t('panel.details')}</span>
         <button class="collapse-btn" on:click={() => toggleCollapse('details')} title={detailsCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
           {detailsCollapsed ? '▸' : '▾'}
         </button>
@@ -729,7 +725,7 @@
 
     <section class="panel panel-command" style={bottomStyle(commandCollapsed)}>
       <header class="panel-title">
-        <span>{titles.command}</span>
+        <span>{t('panel.command')}</span>
         <button class="collapse-btn" on:click={() => toggleCollapse('command')} title={commandCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
           {commandCollapsed ? '▸' : '▾'}
         </button>

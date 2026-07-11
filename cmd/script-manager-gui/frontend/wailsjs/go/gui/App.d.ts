@@ -22,8 +22,6 @@ export function GetItems():Promise<Array<gui.ItemDTO>>;
 
 export function GetMessages():Promise<Record<string, any>>;
 
-export function GetTitles():Promise<gui.TitlesDTO>;
-
 export function LaunchConfigEditor():Promise<void>;
 
 export function LoadError():Promise<string>;

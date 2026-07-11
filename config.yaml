@@ -2,9 +2,6 @@ shell:
   - bash
   - -c
 
-titles:
-  items: "Environment"
-
 env:
   sshUser: deploy
   region: eu-west-1

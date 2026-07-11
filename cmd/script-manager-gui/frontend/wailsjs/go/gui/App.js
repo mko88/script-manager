@@ -42,10 +42,6 @@ export function GetMessages() {
   return window['go']['gui']['App']['GetMessages']();
 }
 
-export function GetTitles() {
-  return window['go']['gui']['App']['GetTitles']();
-}
-
 export function LaunchConfigEditor() {
   return window['go']['gui']['App']['LaunchConfigEditor']();
 }

@@ -43,26 +43,15 @@ type App struct {
 	loadErr          error // from the initial load, surfaced once via Init
 }
 
-func orTitle(configured, def string) string {
-	if configured != "" {
-		return configured
-	}
-	return def
-}
-
 func NewApp(cfg *config.Config, reload func() (*config.Config, error), loadErr error) *App {
 	list := newListTile(cfg.Items, cfg.Display)
-	list.title = orTitle(cfg.Titles.Items, list.title)
 
 	description := newDescriptionTile(cfg.Display)
-	description.title = orTitle(cfg.Titles.Details, description.title)
 	description.SetConfigPath(cfg.SourcePath)
 
 	actionsPanel := newActionsTile(cfg.Actions)
-	actionsPanel.title = orTitle(cfg.Titles.Actions, actionsPanel.title)
 
 	cmdBar := newCmdBarTile()
-	cmdBar.title = orTitle(cfg.Titles.Command, cmdBar.title)
 	status := newStatusBarTile()
 	list.SetFocused(true)
 
@@ -107,14 +96,9 @@ func NewApp(cfg *config.Config, reload func() (*config.Config, error), loadErr e
 func (a *App) applyConfig(cfg *config.Config) {
 	a.cfg = cfg
 	a.list.SetItems(cfg.Items, cfg.Display)
-	a.list.title = orTitle(cfg.Titles.Items, "Items")
 
 	a.description.SetDisplays(cfg.Display)
-	a.description.title = orTitle(cfg.Titles.Details, "Details")
 	a.description.SetConfigPath(cfg.SourcePath)
-
-	a.actionsTileTitle = orTitle(cfg.Titles.Actions, "Actions")
-	a.cmdBar.title = orTitle(cfg.Titles.Command, "Command")
 
 	a.globalEnv = cfg.Env
 	a.allActions = cfg.Actions

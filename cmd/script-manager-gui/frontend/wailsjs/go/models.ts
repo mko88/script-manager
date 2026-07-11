@@ -102,24 +102,6 @@ export namespace gui {
 	        this.label = source["label"];
 	    }
 	}
-	export class TitlesDTO {
-	    items: string;
-	    actions: string;
-	    details: string;
-	    command: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new TitlesDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.items = source["items"];
-	        this.actions = source["actions"];
-	        this.details = source["details"];
-	        this.command = source["command"];
-	    }
-	}
 
 }
 

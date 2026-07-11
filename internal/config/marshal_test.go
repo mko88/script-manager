@@ -11,8 +11,6 @@ import (
 func TestMarshalRoundTrip(t *testing.T) {
 	src := []byte(`
 shell: [pwsh, -NoLogo]
-titles:
-  items: Servers
 env:
   region: eu
 display:

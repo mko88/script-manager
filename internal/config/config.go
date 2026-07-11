@@ -96,13 +96,6 @@ func FindDisplay(displays DisplayList, item map[string]any) DisplayConfig {
 	return displays[0]
 }
 
-type TitlesConfig struct {
-	Items   string `yaml:"items,omitempty"`
-	Actions string `yaml:"actions,omitempty"`
-	Details string `yaml:"details,omitempty"`
-	Command string `yaml:"command,omitempty"`
-}
-
 // TerminalConfig selects which terminal emulator the GUI's Run button opens
 // actions in (internal/gui owns the built-in table and auto-detection; the
 // TUI ignores this field entirely since it runs actions inline). The zero
@@ -151,7 +144,6 @@ func (t TerminalConfig) MarshalYAML() (interface{}, error) {
 type Config struct {
 	Shell        []string         `yaml:"shell,omitempty"`
 	Display      DisplayList      `yaml:"display,omitempty"`
-	Titles       TitlesConfig     `yaml:"titles,omitempty"`
 	Terminal     TerminalConfig   `yaml:"terminal,omitempty"`
 	Env          map[string]any   `yaml:"env,omitempty"`
 	Items        []map[string]any `yaml:"items,omitempty"`

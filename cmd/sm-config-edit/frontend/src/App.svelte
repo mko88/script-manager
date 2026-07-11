@@ -32,7 +32,6 @@
     return {
       shell: [],
       display: [],
-      titles: { items: '', actions: '', details: '', command: '' },
       terminal: { mode: 'auto', name: '', argv: [] },
       envFields: [],
       items: [],
@@ -49,7 +48,7 @@
   let validation: configedit.ValidationIssueDTO[] = []
   let initialized = false
 
-  type Section = 'items' | 'actionGroups' | 'actions' | 'display' | 'env' | 'shell' | 'titles' | 'terminal' | 'messages'
+  type Section = 'items' | 'actionGroups' | 'actions' | 'display' | 'env' | 'shell' | 'terminal' | 'messages'
   const sections: { key: Section; label: string }[] = [
     { key: 'items', label: t('nav.items') },
     { key: 'actionGroups', label: t('nav.actionGroups') },
@@ -57,7 +56,6 @@
     { key: 'display', label: t('nav.displays') },
     { key: 'env', label: t('nav.environment') },
     { key: 'shell', label: t('nav.shell') },
-    { key: 'titles', label: t('nav.titles') },
     { key: 'terminal', label: t('nav.terminal') },
     { key: 'messages', label: t('nav.messages') },
   ]
@@ -874,23 +872,6 @@
         {#if section === 'shell'}
           <p class="hint">{t('hint.shellCommandPrefix')}<code>pwsh -NoLogo -Command</code>.</p>
           <StringListEditor bind:items={cfg.shell} placeholder={t('placeholder.shellCommand')} />
-        {:else if section === 'titles'}
-          <label class="field">
-            <span>{t('field.itemsPaneTitle')}</span>
-            <input type="text" bind:value={cfg.titles.items} placeholder={t('nav.items')} />
-          </label>
-          <label class="field">
-            <span>{t('field.actionsPaneTitle')}</span>
-            <input type="text" bind:value={cfg.titles.actions} placeholder={t('nav.actions')} />
-          </label>
-          <label class="field">
-            <span>{t('field.detailsPaneTitle')}</span>
-            <input type="text" bind:value={cfg.titles.details} placeholder={t('placeholder.detailsPaneTitle')} />
-          </label>
-          <label class="field">
-            <span>{t('field.commandPaneTitle')}</span>
-            <input type="text" bind:value={cfg.titles.command} placeholder={t('field.command')} />
-          </label>
         {:else if section === 'terminal'}
           <div class="radio-group">
             <label><input type="radio" bind:group={cfg.terminal.mode} value="auto" /> {t('radio.autoDetect')}</label>

@@ -3,9 +3,6 @@ shell:
   - -NoProfile
   - -Command
 
-titles:
-  items: "Environment"
-
 env:
   sshUser: deploy
   region: eu-west-1

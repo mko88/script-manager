@@ -22,7 +22,6 @@
     "displays": "Displays",
     "environment": "Environment",
     "shell": "Shell",
-    "titles": "Titles",
     "terminal": "Terminal",
     "messages": "Messages"
   },
@@ -44,10 +43,6 @@
     "description": "Description",
     "command": "Command",
     "groups": "Groups",
-    "itemsPaneTitle": "Items pane title",
-    "actionsPaneTitle": "Actions pane title",
-    "detailsPaneTitle": "Details pane title",
-    "commandPaneTitle": "Command pane title",
     "terminalName": "Terminal name",
     "display": "Display",
     "name": "Name",
@@ -97,7 +92,6 @@
   },
   "placeholder": {
     "shellCommand": "e.g. pwsh",
-    "detailsPaneTitle": "Details",
     "terminalName": "e.g. wt",
     "terminalArgv": "e.g. --title",
     "actionId": "unique id, referenced by items' Actions list",

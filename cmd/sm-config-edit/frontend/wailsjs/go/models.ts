@@ -130,24 +130,6 @@ export namespace configedit {
 	        this.argv = source["argv"];
 	    }
 	}
-	export class TitlesDTO {
-	    items: string;
-	    actions: string;
-	    details: string;
-	    command: string;
-	
-	    static createFrom(source: any = {}) {
-	        return new TitlesDTO(source);
-	    }
-	
-	    constructor(source: any = {}) {
-	        if ('string' === typeof source) source = JSON.parse(source);
-	        this.items = source["items"];
-	        this.actions = source["actions"];
-	        this.details = source["details"];
-	        this.command = source["command"];
-	    }
-	}
 	export class DisplayDTO {
 	    name: string;
 	    list: string;
@@ -167,7 +149,6 @@ export namespace configedit {
 	export class ConfigDTO {
 	    shell: string[];
 	    display: DisplayDTO[];
-	    titles: TitlesDTO;
 	    terminal: TerminalDTO;
 	    envFields: FieldDTO[];
 	    items: ItemDTO[];
@@ -182,7 +163,6 @@ export namespace configedit {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.shell = source["shell"];
 	        this.display = this.convertValues(source["display"], DisplayDTO);
-	        this.titles = this.convertValues(source["titles"], TitlesDTO);
 	        this.terminal = this.convertValues(source["terminal"], TerminalDTO);
 	        this.envFields = this.convertValues(source["envFields"], FieldDTO);
 	        this.items = this.convertValues(source["items"], ItemDTO);
@@ -275,7 +255,6 @@ export namespace configedit {
 		    return a;
 		}
 	}
-	
 	
 	export class ValidationIssueDTO {
 	    severity: string;

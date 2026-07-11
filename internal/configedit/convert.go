@@ -302,13 +302,7 @@ func terminalFromDTO(dto TerminalDTO) config.TerminalConfig {
 // ToConfigDTO converts a whole loaded config for editing.
 func ToConfigDTO(cfg *config.Config) ConfigDTO {
 	dto := ConfigDTO{
-		Shell: nonNil(append([]string(nil), cfg.Shell...)),
-		Titles: TitlesDTO{
-			Items:   cfg.Titles.Items,
-			Actions: cfg.Titles.Actions,
-			Details: cfg.Titles.Details,
-			Command: cfg.Titles.Command,
-		},
+		Shell:        nonNil(append([]string(nil), cfg.Shell...)),
 		Terminal:     terminalToDTO(cfg.Terminal),
 		EnvFields:    FieldsFromMap(cfg.Env, nil),
 		Display:      []DisplayDTO{},
@@ -334,13 +328,7 @@ func ToConfigDTO(cfg *config.Config) ConfigDTO {
 // FromConfigDTO is ToConfigDTO's inverse, used by Save.
 func FromConfigDTO(dto ConfigDTO) (*config.Config, error) {
 	cfg := &config.Config{
-		Shell: append([]string(nil), dto.Shell...),
-		Titles: config.TitlesConfig{
-			Items:   dto.Titles.Items,
-			Actions: dto.Titles.Actions,
-			Details: dto.Titles.Details,
-			Command: dto.Titles.Command,
-		},
+		Shell:    append([]string(nil), dto.Shell...),
 		Terminal: terminalFromDTO(dto.Terminal),
 	}
 	for _, d := range dto.Display {

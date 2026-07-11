@@ -154,30 +154,6 @@ func (a *App) ReloadConfig() (string, error) {
 	return "", nil
 }
 
-// TitlesDTO mirrors config.TitlesConfig for the frontend pane headers.
-type TitlesDTO struct {
-	Items   string `json:"items"`
-	Actions string `json:"actions"`
-	Details string `json:"details"`
-	Command string `json:"command"`
-}
-
-func (a *App) GetTitles() TitlesDTO {
-	return TitlesDTO{
-		Items:   orDefault(a.cfg.Titles.Items, "Items"),
-		Actions: orDefault(a.cfg.Titles.Actions, "Actions"),
-		Details: orDefault(a.cfg.Titles.Details, "Details"),
-		Command: orDefault(a.cfg.Titles.Command, "Command"),
-	}
-}
-
-func orDefault(v, def string) string {
-	if v == "" {
-		return def
-	}
-	return v
-}
-
 // ActionGroupDTO is one entry of the config's optional actionGroups catalog
 // — the frontend uses Color to paint group chips instead of showing every
 // group with the same flat color; a group with no catalog entry (or no
