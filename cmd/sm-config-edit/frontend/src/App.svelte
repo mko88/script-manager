@@ -1940,17 +1940,22 @@
     width: 100%;
     background: none;
     border: none;
-    padding: 0;
+    border-bottom: 1px solid color-mix(in srgb, #6ee7d8 35%, var(--sm-border));
+    padding: 0 0 6px;
     margin: 0 0 6px;
     cursor: pointer;
     font-family: inherit;
   }
 
+  /* Matches the teal already used for code spans elsewhere (e.g.
+     .details-preview :global(code) below) rather than introducing a new
+     accent color. */
   .messages-group-title {
     font-size: 0.75rem;
+    font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--sm-text-muted);
+    color: #6ee7d8;
   }
 
   .collapse-glyph {
