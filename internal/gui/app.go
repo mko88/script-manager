@@ -54,6 +54,10 @@ type App struct {
 	// once; see RunActionInline.
 	inlineMu   sync.Mutex
 	inlineRuns map[inlineKey]*inlineRun
+
+	// configEditorMu guards configEditorCmd; see LaunchConfigEditor.
+	configEditorMu  sync.Mutex
+	configEditorCmd *exec.Cmd
 }
 
 // NewApp builds the backend around a config loader, so an explicit -config

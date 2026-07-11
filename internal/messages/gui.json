@@ -11,7 +11,8 @@
     "configReloaded": "Config reloaded",
     "loadFailed": "Load failed: {error}",
     "loaded": "Loaded {path}",
-    "openConfigEditorFailed": "Failed to open config editor: {error}"
+    "openConfigEditorFailed": "Failed to open config editor: {error}",
+    "configEditorAlreadyOpen": "Config editor is already open"
   },
   "panel": {
     "items": "Items",

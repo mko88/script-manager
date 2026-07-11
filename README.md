@@ -334,7 +334,7 @@ Different actions can run inline at the same time — starting another action wh
 
 #### Toolbar
 
-Four buttons above the panes: **Load config** browses for a different YAML file and switches to it (including redirecting **Refresh config**/F5 to reload *that* file from then on); **Refresh config** re-reads the current file, same as pressing F5; **Open config editor** (also **Ctrl+E**) launches `sm-config-edit` — the [Config Editor](#config-editor) below — pointed at whichever config file is currently loaded; a sun/moon button at the far right toggles between the dark and light themes (see [Theme](#theme) below).
+Four buttons above the panes: **Load config** browses for a different YAML file and switches to it (including redirecting **Refresh config**/F5 to reload *that* file from then on); **Refresh config** re-reads the current file, same as pressing F5; **Open config editor** (also **Ctrl+E**) launches `sm-config-edit` — the [Config Editor](#config-editor) below — pointed at whichever config file is currently loaded; clicking it again while that instance is still running is a no-op (with a toast saying so) rather than opening a second window; a sun/moon button at the far right toggles between the dark and light themes (see [Theme](#theme) below).
 
 #### Theme
 

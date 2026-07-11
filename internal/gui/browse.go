@@ -61,16 +61,35 @@ func (a *App) configEditorArgv() (bin string, args []string) {
 // LaunchConfigEditor starts sm-config-edit as a sibling process (same
 // directory as this executable), pointed at whichever config file is
 // currently loaded if its on-disk path is known, so the editor opens the
-// same file instead of re-auto-detecting. Fire-and-forget, mirroring
-// RunAction's exec.Command pattern — no Wait(), cmd.Dir set the same way.
-func (a *App) LaunchConfigEditor() error {
+// same file instead of re-auto-detecting. Returns true if an instance this
+// method previously launched is still running, in which case it's left
+// alone rather than starting a second one — the frontend flashes an
+// informational toast for that case rather than treating it as an error.
+// Otherwise fire-and-forget, mirroring RunAction's exec.Command pattern —
+// no synchronous Wait(), cmd.Dir set the same way.
+func (a *App) LaunchConfigEditor() (alreadyRunning bool, err error) {
+	a.configEditorMu.Lock()
+	defer a.configEditorMu.Unlock()
+
+	if a.configEditorCmd != nil {
+		return true, nil
+	}
+
 	bin, args := a.configEditorArgv()
 	cmd := exec.Command(bin, args...)
 	if a.exeDir != "" {
 		cmd.Dir = a.exeDir
 	}
 	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("failed to launch config editor: %w", err)
+		return false, fmt.Errorf("failed to launch config editor: %w", err)
 	}
-	return nil
+
+	a.configEditorCmd = cmd
+	go func() {
+		cmd.Wait()
+		a.configEditorMu.Lock()
+		a.configEditorCmd = nil
+		a.configEditorMu.Unlock()
+	}()
+	return false, nil
 }

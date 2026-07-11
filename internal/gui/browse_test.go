@@ -1,6 +1,7 @@
 package gui
 
 import (
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -36,5 +37,24 @@ func TestConfigEditorArgvOmitsConfigPathWhenUnknown(t *testing.T) {
 	_, args := a.configEditorArgv()
 	if len(args) != 0 {
 		t.Errorf("args = %v, want none", args)
+	}
+}
+
+func TestLaunchConfigEditorSkipsWhenAlreadyRunning(t *testing.T) {
+	// A non-nil configEditorCmd means a previously launched instance hasn't
+	// exited yet (see the cmd.Wait() goroutine in LaunchConfigEditor) — it
+	// never actually needs to run for this guard to be exercised.
+	sentinel := exec.Command("echo")
+	a := &App{configEditorCmd: sentinel}
+
+	alreadyRunning, err := a.LaunchConfigEditor()
+	if err != nil {
+		t.Fatalf("LaunchConfigEditor() error = %v", err)
+	}
+	if !alreadyRunning {
+		t.Error("alreadyRunning = false, want true when configEditorCmd is already set")
+	}
+	if a.configEditorCmd != sentinel {
+		t.Error("configEditorCmd should be left untouched when an instance is already running")
 	}
 }

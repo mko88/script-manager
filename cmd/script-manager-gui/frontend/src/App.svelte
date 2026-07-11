@@ -397,7 +397,10 @@
 
   async function launchConfigEditor() {
     try {
-      await LaunchConfigEditor()
+      const alreadyRunning = await LaunchConfigEditor()
+      if (alreadyRunning) {
+        flash(t('toast.configEditorAlreadyOpen'))
+      }
     } catch (err) {
       flash(t('toast.openConfigEditorFailed', { error: String(err) }))
     }

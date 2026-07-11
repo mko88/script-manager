@@ -22,7 +22,7 @@ export function GetItems():Promise<Array<gui.ItemDTO>>;
 
 export function GetMessages():Promise<Record<string, any>>;
 
-export function LaunchConfigEditor():Promise<void>;
+export function LaunchConfigEditor():Promise<boolean>;
 
 export function LoadError():Promise<string>;
 
