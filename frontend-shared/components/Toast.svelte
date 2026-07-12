@@ -1,7 +1,7 @@
 <script lang="ts">
-  export let message = ''
+  import { toastMessage } from '../toast'
 </script>
 
-{#if message}
-  <div class="toast">{message}</div>
+{#if $toastMessage}
+  <div class="toast">{$toastMessage}</div>
 {/if}

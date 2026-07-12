@@ -289,6 +289,255 @@ body {
   background: var(--sm-btn-primary-hover);
 }
 
+/* Square padding for an icon-only .btn — the plain .btn/.btn-primary
+   padding above assumes a text label. */
+.icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 9px;
+}
+
+.icon-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* Labeled form field: a small muted caption above its widget. Forms that
+   space rows with a flex gap instead override the margin locally. */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.8rem;
+  color: var(--sm-text-muted);
+  margin-bottom: 10px;
+}
+
+.field input,
+.field select,
+.field textarea {
+  background: var(--sm-bg-deep);
+  color: var(--sm-text);
+  border: 1px solid var(--sm-border);
+  border-radius: 4px;
+  padding: 5px 7px;
+  font-family: inherit;
+  font-size: 0.85rem;
+}
+
+.field input:disabled,
+.field select:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Without appearance: none, <select> keeps its native dropdown-arrow chrome
+   in Chromium/WebView2 regardless of the background/color set above, showing
+   as a jarring light box behind the arrow against the dark theme.
+   appearance: none removes that entirely (including the arrow itself), so a
+   plain custom chevron replaces it. .sm-select opts in a select that isn't
+   inside a .field label (e.g. FieldGrid's compact row selects). */
+.field select,
+select.sm-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9b6c8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+/* The arrow color is baked into the SVG's URL-encoded string, so it can't
+   reference --sm-text-muted via var() — swap the whole background-image for
+   the light-theme equivalent (%2355647a = --sm-text-muted's light value)
+   instead. */
+[data-theme="light"] .field select,
+[data-theme="light"] select.sm-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355647a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Color value editor: a native picker swatch next to a free-text field, so
+   any CSS color can be typed, not just what the native picker supports. */
+.color-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.color-field input[type="color"] {
+  flex: none;
+  width: 40px;
+  height: 30px;
+  padding: 2px;
+  cursor: pointer;
+}
+
+.color-field input[type="color"]:disabled {
+  cursor: default;
+}
+
+.color-field input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.hint {
+  color: var(--sm-text-muted);
+  font-size: 0.8rem;
+  margin: 0 0 8px;
+}
+
+.hint code {
+  background: var(--sm-bg-deep);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* Master list + detail form, the layout the config editor's Items/Action
+   Groups/Actions sections share, with .list-toolbar's add/remove/reorder
+   buttons above it. */
+.list-toolbar {
+  flex: none;
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.master-detail {
+  display: flex;
+  gap: 10px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.master {
+  flex: 0 0 200px;
+  overflow-y: auto;
+}
+
+.detail {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.master.reorder-mode .row {
+  cursor: grab;
+}
+
+.checkbox-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.checkbox-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--sm-bg-deep);
+  border: 1px solid var(--sm-border);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.validation-issue {
+  font-size: 0.8rem;
+  color: var(--sm-text-muted);
+}
+
+.validation-issue.validation-error {
+  color: var(--sm-accent-warm);
+  font-weight: 700;
+}
+
+/* Collapsible category group with an uppercase heading — the Messages and
+   Theme sections' shared list shape. The heading's teal matches the color
+   already used for code spans (.details-preview code) rather than
+   introducing a new accent. */
+.messages-group {
+  margin-bottom: 14px;
+}
+
+.messages-group-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid color-mix(in srgb, var(--sm-code) 35%, var(--sm-border));
+  padding: 0 0 6px;
+  margin: 0 0 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.messages-group-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--sm-code);
+}
+
+.collapse-glyph {
+  color: var(--sm-text-muted);
+}
+
+/* goldmark-rendered live-preview content (the config editor's Items and
+   Displays sections). Mirrors script-manager-gui's .details-content rules
+   for the same rendered HTML; table-layout: fixed is the important
+   difference — without it an unstyled <table> sizes itself to its widest
+   cell and refuses to shrink below that, fighting drag-to-resize panes. */
+.details-preview {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.details-preview h1,
+.details-preview h2,
+.details-preview h3 {
+  color: var(--sm-accent);
+  margin: 0.6em 0 0.3em;
+}
+
+.details-preview table {
+  table-layout: fixed;
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.details-preview td,
+.details-preview th {
+  border: 1px solid var(--sm-border);
+  padding: 4px 8px;
+  text-align: left;
+  overflow-wrap: break-word;
+}
+
+.details-preview code {
+  background: var(--sm-bg-deep);
+  color: var(--sm-code);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: "SF Mono", Consolas, monospace;
+  overflow-wrap: break-word;
+}
+
+.preview-label {
+  margin: 4px 0;
+  font-size: 0.85rem;
+}
+
 /* Draggable divider between two resizable panes — see each app's own drag*
    handler (mousedown here, mousemove/mouseup on window) for the resize
    logic itself; this is just the hit target/visual. */

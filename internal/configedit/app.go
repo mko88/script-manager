@@ -7,7 +7,8 @@ import (
 	"path/filepath"
 
 	"script-manager/internal/config"
-	"script-manager/internal/gui"
+	"script-manager/internal/exepath"
+	"script-manager/internal/terminal"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -30,7 +31,7 @@ type App struct {
 // NewApp builds the backend around an optional explicit config path (from
 // -config); "" means auto-detect the same way script-manager-gui does.
 func NewApp(cfgPath string) *App {
-	return &App{cfgPath: cfgPath, exeDir: gui.ExeDir()}
+	return &App{cfgPath: cfgPath, exeDir: exepath.Dir()}
 }
 
 // Startup is wired as the Wails OnStartup callback.
@@ -175,8 +176,8 @@ func (a *App) ValidateField(kind, value string) string {
 }
 
 // KnownTerminals lists the built-in terminal names for the Terminal
-// section's "named" mode, reusing internal/gui's table rather than
+// section's "named" mode, reusing internal/terminal's table rather than
 // duplicating it.
 func (a *App) KnownTerminals() []string {
-	return gui.KnownTerminalNames()
+	return terminal.Names()
 }

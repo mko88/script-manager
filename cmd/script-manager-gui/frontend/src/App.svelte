@@ -1,9 +1,15 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import Toast from '@shared/components/Toast.svelte'
+  import { flash } from '@shared/toast'
+  import { loadPersisted, savePersisted } from '@shared/persist'
   import { watchTheme } from '@shared/theme'
-  import Icon from './components/Icon.svelte'
+  import Icon from '@shared/components/Icon.svelte'
+  import GroupFilter from './components/GroupFilter.svelte'
   import { t } from './messages'
+  import { buildGroupColors, groupChipStyle } from './lib/groupColors'
+  import { inlineStates, inlineKey, startInlineRun, cancelInlineRun } from './lib/inlineRuns'
+  import { dragColumn, dragRow, topStyle, bottomStyle } from './lib/panelLayout'
   import { EventsOn } from '../wailsjs/runtime'
   import {
     GetItems,
@@ -16,9 +22,6 @@
     BrowseConfig,
     LaunchConfigEditor,
     RunAction,
-    RunActionInline,
-    CancelInlineAction,
-    GetInlineStatus,
     LoadError,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
@@ -31,18 +34,8 @@
 
   let selectedItem = -1
   let selectedActionIndex = -1
-  // Empty set means "All" — no filter, show everything. Otherwise an action
-  // matches if it belongs to any selected group (OR semantics).
+  // Two-way bound into GroupFilter; empty set means "All" — no filter.
   let selectedGroups = new Set<string>()
-  // Group chips are sorted by exactly one key at a time: the active button
-  // (name or count) owns the order. Clicking the active button flips its
-  // direction; clicking the inactive one switches to that key, keeping the
-  // direction it last had.
-  let sortMode: 'alpha' | 'count' = 'alpha'
-  let alphaDir: 'asc' | 'desc' = 'asc'
-  let countDir: 'asc' | 'desc' = 'desc'
-  let toast = ''
-  let toastTimer: ReturnType<typeof setTimeout>
 
   // Live reload: internal/gui/themewatch.go watches sm-theme.json and
   // pushes a Wails event whenever sm-config-edit changes it, so a theme
@@ -69,32 +62,10 @@
     if (inlineOutputEl) inlineOutputEl.scrollTop = inlineOutputEl.scrollHeight
   }
 
-  // One entry per item/action pair that's ever been run inline in this
-  // session, keyed by inlineKey(itemIndex, actionIndex) — not just the
-  // single currently-viewed one, so a run started on one action keeps going
-  // (and stays pollable) after switching to a different action, and
-  // switching back shows however far it's gotten (or its finished result)
-  // instead of losing track of it.
-  type InlineState = {
-    itemIndex: number
-    actionIndex: number
-    output: string
-    running: boolean
-  }
-  let inlineStates: Record<string, InlineState> = {}
-
-  function inlineKey(itemIndex: number, actionIndex: number): string {
-    return `${itemIndex}:${actionIndex}`
-  }
-
-  function setInlineState(itemIndex: number, actionIndex: number, state: Omit<InlineState, 'itemIndex' | 'actionIndex'>) {
-    inlineStates = { ...inlineStates, [inlineKey(itemIndex, actionIndex)]: { itemIndex, actionIndex, ...state } }
-  }
-
-  // What the Command pane actually displays — derived from inlineStates for
-  // whatever's currently selected, defaulting to "never run" (blank, not
-  // running) when there's no entry yet.
-  $: currentInline = selectedItem >= 0 && selectedActionIndex >= 0 ? inlineStates[inlineKey(selectedItem, selectedActionIndex)] : undefined
+  // What the Command pane actually displays — derived from the shared
+  // inlineRuns store (see lib/inlineRuns) for whatever's currently selected,
+  // defaulting to "never run" (blank, not running) when there's no entry yet.
+  $: currentInline = selectedItem >= 0 && selectedActionIndex >= 0 ? $inlineStates[inlineKey(selectedItem, selectedActionIndex)] : undefined
   $: inlineRunning = currentInline?.running ?? false
   $: inlineOutput = currentInline?.output ?? ''
 
@@ -103,80 +74,17 @@
   // actionIndex (within the selected item) for the Actions list. Pure data
   // derivations, no DOM access — safe alongside the bug described above,
   // which was specifically about a reactive statement that touched the DOM.
-  $: runningItemIndices = new Set(Object.values(inlineStates).filter((s) => s.running).map((s) => s.itemIndex))
+  $: runningItemIndices = new Set(Object.values($inlineStates).filter((s) => s.running).map((s) => s.itemIndex))
   $: runningActionIndicesForSelectedItem = new Set(
-    Object.values(inlineStates)
+    Object.values($inlineStates)
       .filter((s) => s.running && s.itemIndex === selectedItem)
       .map((s) => s.actionIndex),
   )
-
-  // Unique groups across the current item's actions, in order of first
-  // appearance — same set the TUI's [ / ] cycling walks.
-  $: actionGroups = (() => {
-    const seen = new Set<string>()
-    const list: string[] = []
-    for (const a of actions) {
-      for (const g of a.groups ?? []) {
-        if (!seen.has(g)) {
-          seen.add(g)
-          list.push(g)
-        }
-      }
-    }
-    return list
-  })()
 
   $: filteredActions =
     selectedGroups.size === 0
       ? actions
       : actions.filter((a) => [...selectedGroups].every((g) => (a.groups ?? []).includes(g)))
-
-  $: groupSummary = selectedGroups.size === 0 ? t('text.allGroupsChip') : actionGroups.filter((g) => selectedGroups.has(g)).join(', ')
-
-  // For each group, how many actions would match if that group were added to
-  // the current filter (AND semantics, same rule filteredActions applies) —
-  // for an already-selected group this is just the current filtered count.
-  $: groupCounts = (() => {
-    const counts: Record<string, number> = {}
-    for (const g of actionGroups) {
-      const otherSelected = [...selectedGroups].filter((x) => x !== g)
-      counts[g] = actions.filter(
-        (a) => otherSelected.every((og) => (a.groups ?? []).includes(og)) && (a.groups ?? []).includes(g),
-      ).length
-    }
-    return counts
-  })()
-
-  $: sortedGroups = [...actionGroups].sort((a, b) => {
-    if (sortMode === 'alpha') {
-      return a.localeCompare(b) * (alphaDir === 'asc' ? 1 : -1)
-    }
-    const countCmp = ((groupCounts[a] ?? 0) - (groupCounts[b] ?? 0)) * (countDir === 'asc' ? 1 : -1)
-    if (countCmp !== 0) return countCmp
-    // Equal counts need a deterministic order; plain A-Z, unaffected by the
-    // (inactive) name button.
-    return a.localeCompare(b)
-  })
-
-  // Hide chips that would narrow the filter to nothing — but never hide an
-  // already-selected group, or there'd be no way left to deselect it short of
-  // hitting "All".
-  $: visibleGroups = sortedGroups.filter((g) => selectedGroups.has(g) || (groupCounts[g] ?? 0) > 0)
-
-  $: alphaSortLabel = alphaDir === 'desc' ? t('sort.alphaDesc') : t('sort.alphaAsc')
-  $: alphaSortTitle =
-    sortMode !== 'alpha'
-      ? t('sort.alphaTitleDefault')
-      : alphaDir === 'asc'
-        ? t('sort.alphaTitleAsc')
-        : t('sort.alphaTitleDesc')
-  $: countSortLabel = countDir === 'desc' ? t('sort.countDesc') : t('sort.countAsc')
-  $: countSortTitle =
-    sortMode !== 'count'
-      ? t('sort.countTitleDefault')
-      : countDir === 'desc'
-        ? t('sort.countTitleDesc')
-        : t('sort.countTitleAsc')
 
   $: missingFields = details?.missingFields ?? []
 
@@ -184,28 +92,7 @@
   $: selectedActionLabel = actions.find((a) => a.index === selectedActionIndex)?.title ?? ''
   $: selectedActionGroups = actions.find((a) => a.index === selectedActionIndex)?.groups ?? []
 
-  // Only groups with a configured color get one here — a group with no
-  // catalog entry (or an entry with no color set) just keeps the default
-  // chip styling, so this feature is fully opt-in per group.
-  $: groupColors = Object.fromEntries(
-    actionGroupCatalog.filter((g) => /^#[0-9a-fA-F]{6}$/.test(g.color)).map((g) => [g.id, g.color]),
-  ) as Record<string, string>
-
-  function readableTextColor(hex: string): string {
-    const r = parseInt(hex.slice(1, 3), 16)
-    const g = parseInt(hex.slice(3, 5), 16)
-    const b = parseInt(hex.slice(5, 7), 16)
-    const brightness = (r * 299 + g * 587 + b * 114) / 1000
-    return brightness > 128 ? '#1b2636' : '#d7dee8'
-  }
-
-  // Active/selected chips keep the existing accent-warm highlight regardless
-  // of the group's own color, so "this filter is active" stays unambiguous.
-  function groupChipStyle(group: string, active: boolean): string {
-    const color = groupColors[group]
-    if (active || !color) return ''
-    return `background: ${color}; border-color: ${color}; color: ${readableTextColor(color)};`
-  }
+  $: groupColors = buildGroupColors(actionGroupCatalog)
 
   onMount(async () => {
     const loadErr = await LoadError()
@@ -224,40 +111,17 @@
     details = await GetItemDetails(index)
   }
 
-  function selectAllGroups() {
-    selectedGroups = new Set()
+  // A group-filter change can hide the selected action, so the selection is
+  // always reset alongside it.
+  function onGroupFilterChange() {
     selectedActionIndex = -1
     actionDetail = null
-  }
-
-  function toggleGroup(group: string) {
-    const next = new Set(selectedGroups)
-    if (next.has(group)) next.delete(group)
-    else next.add(group)
-    selectedGroups = next
-    selectedActionIndex = -1
-    actionDetail = null
-  }
-
-  function toggleSort(axis: 'alpha' | 'count') {
-    if (sortMode !== axis) {
-      sortMode = axis
-      return
-    }
-    if (axis === 'alpha') alphaDir = alphaDir === 'asc' ? 'desc' : 'asc'
-    else countDir = countDir === 'asc' ? 'desc' : 'asc'
   }
 
   async function selectAction(index: number) {
     if (selectedItem < 0) return
     selectedActionIndex = index
     actionDetail = await GetActionDetail(selectedItem, index)
-  }
-
-  function flash(msg: string) {
-    toast = msg
-    clearTimeout(toastTimer)
-    toastTimer = setTimeout(() => (toast = ''), 2000)
   }
 
   async function copyToClipboard(value: string) {
@@ -297,59 +161,22 @@
     }
   }
 
-  // How the frontend gets a live-updating view of an inline run: polling
-  // GetInlineStatus on a short timer, not a pushed event — this app's other
-  // bound methods are all plain request/response calls, and that's the
-  // shape that's held up reliably here (see scrollInlineOutputToEnd's doc
-  // comment above for the actual bug that made earlier streaming attempts
-  // look unreliable — it wasn't Wails or this call shape at all).
-  //
-  // A poll loop keeps going until its own run finishes, regardless of
-  // whether the user is still looking at that action — that's what makes
-  // "switch away, switch back" work: inlineStates already has whatever
-  // this loop has captured by the time the user returns, instead of the
-  // loop having given up and stopped tracking it. It only skips the
-  // scroll-into-view side effect while its action isn't the one on screen.
-  const INLINE_POLL_INTERVAL_MS = 300
-
-  async function pollInlineStatus(itemIndex: number, actionIndex: number) {
-    for (;;) {
-      const status = await GetInlineStatus(itemIndex, actionIndex)
-      setInlineState(itemIndex, actionIndex, { output: status.output, running: status.running })
+  // The run/poll mechanics live in lib/inlineRuns — these wrappers just tie
+  // them to the current selection, plus the scroll side effect for whichever
+  // run is on screen right now (a DOM concern that stays in this component;
+  // see scrollInlineOutputToEnd's doc comment above).
+  function runActionInline() {
+    if (selectedItem < 0 || selectedActionIndex < 0) return
+    startInlineRun(selectedItem, selectedActionIndex, (itemIndex, actionIndex) => {
       if (selectedItem === itemIndex && selectedActionIndex === actionIndex) {
         scrollInlineOutputToEnd()
       }
-      if (status.running) {
-        await new Promise((resolve) => setTimeout(resolve, INLINE_POLL_INTERVAL_MS))
-        continue
-      }
-      if (status.errMsg) flash(t('toast.runFailed', { error: status.errMsg }))
-      return
-    }
+    })
   }
 
-  async function runActionInline() {
+  function cancelInlineAction() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
-    const itemIndex = selectedItem
-    const actionIndex = selectedActionIndex
-    if (inlineStates[inlineKey(itemIndex, actionIndex)]?.running) return
-    setInlineState(itemIndex, actionIndex, { output: '', running: true })
-    try {
-      await RunActionInline(itemIndex, actionIndex)
-      pollInlineStatus(itemIndex, actionIndex)
-    } catch (err) {
-      setInlineState(itemIndex, actionIndex, { output: '', running: false })
-      flash(t('toast.runFailed', { error: String(err) }))
-    }
-  }
-
-  async function cancelInlineAction() {
-    if (selectedItem < 0 || selectedActionIndex < 0) return
-    try {
-      await CancelInlineAction(selectedItem, selectedActionIndex)
-    } catch (err) {
-      flash(t('toast.cancelFailed', { error: String(err) }))
-    }
+    cancelInlineRun(selectedItem, selectedActionIndex)
   }
 
   // Shared by reloadConfig (F5 / Refresh config) and browseConfig (Load
@@ -416,12 +243,8 @@
     }
   }
 
-  // --- Resizable / collapsible panel layout ---
+  // --- Resizable / collapsible panel layout (geometry: lib/panelLayout) ---
   const LAYOUT_KEY = 'script-manager-gui:layout'
-  const HEADER_H = 33
-  const MIN_PANEL = 60
-  const MIN_COL = 180
-  const RESIZER = 6
 
   let shellEl: HTMLElement
   let colLeftEl: HTMLElement
@@ -439,42 +262,45 @@
   let detailsWarningCollapsed = true
 
   onMount(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(LAYOUT_KEY) ?? '{}')
-      if (typeof saved.leftWidth === 'number') leftWidth = saved.leftWidth
-      if (typeof saved.itemsHeight === 'number') itemsHeight = saved.itemsHeight
-      if (typeof saved.detailsHeight === 'number') detailsHeight = saved.detailsHeight
-      itemsCollapsed = !!saved.itemsCollapsed
-      actionsCollapsed = !!saved.actionsCollapsed
-      detailsCollapsed = !!saved.detailsCollapsed
-      commandCollapsed = !!saved.commandCollapsed
-      groupChipsCollapsed = !!saved.groupChipsCollapsed
-      detailsWarningCollapsed = saved.detailsWarningCollapsed ?? true
-    } catch {
-      // ignore corrupt/missing layout, defaults already set
-    }
+    // Defaults here are the effective first-run values, not necessarily the
+    // `let` initializers above (e.g. group chips start expanded on a fresh
+    // profile, matching the pre-loadPersisted `!!saved.groupChipsCollapsed`
+    // coercion this replaced).
+    ;({
+      leftWidth,
+      itemsHeight,
+      detailsHeight,
+      itemsCollapsed,
+      actionsCollapsed,
+      detailsCollapsed,
+      commandCollapsed,
+      groupChipsCollapsed,
+      detailsWarningCollapsed,
+    } = loadPersisted(LAYOUT_KEY, {
+      leftWidth: 320,
+      itemsHeight: 340,
+      detailsHeight: 420,
+      itemsCollapsed: false,
+      actionsCollapsed: false,
+      detailsCollapsed: false,
+      commandCollapsed: false,
+      groupChipsCollapsed: false,
+      detailsWarningCollapsed: true,
+    }))
   })
 
   function saveLayout() {
-    localStorage.setItem(
-      LAYOUT_KEY,
-      JSON.stringify({
-        leftWidth,
-        itemsHeight,
-        detailsHeight,
-        itemsCollapsed,
-        actionsCollapsed,
-        detailsCollapsed,
-        commandCollapsed,
-        groupChipsCollapsed,
-        detailsWarningCollapsed,
-      }),
-    )
-  }
-
-  function toggleGroupChips() {
-    groupChipsCollapsed = !groupChipsCollapsed
-    saveLayout()
+    savePersisted(LAYOUT_KEY, {
+      leftWidth,
+      itemsHeight,
+      detailsHeight,
+      itemsCollapsed,
+      actionsCollapsed,
+      detailsCollapsed,
+      commandCollapsed,
+      groupChipsCollapsed,
+      detailsWarningCollapsed,
+    })
   }
 
   function toggleDetailsWarning() {
@@ -482,49 +308,35 @@
     saveLayout()
   }
 
-  function dragColumn(e: MouseEvent) {
-    e.preventDefault()
-    const startX = e.clientX
-    const startWidth = leftWidth
-    function onMove(ev: MouseEvent) {
-      const total = shellEl.getBoundingClientRect().width
-      const max = total - MIN_COL - RESIZER
-      leftWidth = Math.min(max, Math.max(MIN_COL, startWidth + (ev.clientX - startX)))
-    }
-    function onUp() {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      saveLayout()
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }
-
-  function dragRow(e: MouseEvent, get: () => number, set: (v: number) => void, containerEl: () => HTMLElement) {
-    e.preventDefault()
-    const startY = e.clientY
-    const startH = get()
-    function onMove(ev: MouseEvent) {
-      const total = containerEl().getBoundingClientRect().height
-      const max = total - MIN_PANEL - RESIZER - HEADER_H
-      set(Math.min(max, Math.max(MIN_PANEL, startH + (ev.clientY - startY))))
-    }
-    function onUp() {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      saveLayout()
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
+  // The drag/flex geometry lives in lib/panelLayout — these wrappers just
+  // bind it to this window's panels and persist the result.
+  function dragLeftColumn(e: MouseEvent) {
+    dragColumn(e, {
+      getTotal: () => shellEl.getBoundingClientRect().width,
+      get: () => leftWidth,
+      set: (v) => (leftWidth = v),
+      onDone: saveLayout,
+    })
   }
 
   function dragItemsRow(e: MouseEvent) {
     if (itemsCollapsed || actionsCollapsed) return
-    dragRow(e, () => itemsHeight, (v) => (itemsHeight = v), () => colLeftEl)
+    dragRow(e, {
+      getTotal: () => colLeftEl.getBoundingClientRect().height,
+      get: () => itemsHeight,
+      set: (v) => (itemsHeight = v),
+      onDone: saveLayout,
+    })
   }
+
   function dragDetailsRow(e: MouseEvent) {
     if (detailsCollapsed || commandCollapsed) return
-    dragRow(e, () => detailsHeight, (v) => (detailsHeight = v), () => colRightEl)
+    dragRow(e, {
+      getTotal: () => colRightEl.getBoundingClientRect().height,
+      get: () => detailsHeight,
+      set: (v) => (detailsHeight = v),
+      onDone: saveLayout,
+    })
   }
 
   function toggleCollapse(which: 'items' | 'actions' | 'details' | 'command') {
@@ -533,22 +345,6 @@
     else if (which === 'details') detailsCollapsed = !detailsCollapsed
     else commandCollapsed = !commandCollapsed
     saveLayout()
-  }
-
-  // The "top" panel in a pair (Items/Details) gets an explicit height; the
-  // "bottom" panel (Actions/Command) fills whatever space is left. Collapsing
-  // either one just swaps who gets the fixed header-only height. Panels whose
-  // collapsed header shows a selected-item label that can wrap onto multiple
-  // lines (Items, Actions) get an auto flex-basis instead of the fixed
-  // HEADER_H so the wrapped text isn't clipped.
-  function topStyle(topCollapsed: boolean, bottomCollapsed: boolean, size: number, autoCollapse = false) {
-    if (topCollapsed) return autoCollapse ? `flex: 0 0 auto;` : `flex: 0 0 ${HEADER_H}px;`
-    if (bottomCollapsed) return `flex: 1 1 auto;`
-    return `flex: 0 0 ${size}px;`
-  }
-  function bottomStyle(bottomCollapsed: boolean, autoCollapse = false) {
-    if (bottomCollapsed) return autoCollapse ? `flex: 0 0 auto;` : `flex: 0 0 ${HEADER_H}px;`
-    return `flex: 1 1 auto; min-height: 0;`
   }
 </script>
 
@@ -614,55 +410,14 @@
         </button>
       </header>
       {#if !actionsCollapsed}
-        {#if actionGroups.length > 0}
-          <div class="group-filter">
-            <div class="group-filter-header">
-              <button
-                class="collapse-btn group-filter-toggle"
-                on:click={toggleGroupChips}
-                title={groupChipsCollapsed ? t('tooltip.expandGroupFilter') : t('tooltip.collapseGroupFilter')}
-              >
-                {groupChipsCollapsed ? '▸' : '▾'}
-              </button>
-              {#if groupChipsCollapsed}
-                <span class="group-summary">{groupSummary}</span>
-              {:else}
-                <div class="group-sort">
-                  <button
-                    class="sort-btn"
-                    class:active={sortMode === 'alpha'}
-                    on:click={() => toggleSort('alpha')}
-                    title={alphaSortTitle}
-                  >
-                    {alphaSortLabel}
-                  </button>
-                  <button
-                    class="sort-btn"
-                    class:active={sortMode === 'count'}
-                    on:click={() => toggleSort('count')}
-                    title={countSortTitle}
-                  >
-                    {countSortLabel}
-                  </button>
-                </div>
-              {/if}
-            </div>
-            {#if !groupChipsCollapsed}
-              <div class="group-chips">
-                <button class="chip" class:active={selectedGroups.size === 0} on:click={selectAllGroups}>{t('text.allGroupsChip')}</button>
-                {#each visibleGroups as group (group)}
-                  <button
-                    class="chip"
-                    class:active={selectedGroups.has(group)}
-                    style={groupChipStyle(group, selectedGroups.has(group))}
-                    on:click={() => toggleGroup(group)}
-                    >{group}<span class="chip-count">{t('text.groupCount', { count: groupCounts[group] ?? 0 })}</span></button
-                  >
-                {/each}
-              </div>
-            {/if}
-          </div>
-        {/if}
+        <GroupFilter
+          {actions}
+          {groupColors}
+          bind:selectedGroups
+          bind:collapsed={groupChipsCollapsed}
+          onCollapseChange={saveLayout}
+          onSelectionChange={onGroupFilterChange}
+        />
         <div class="panel-body list">
           {#each filteredActions as action (action.index)}
             <button
@@ -684,7 +439,7 @@
   </div>
 
   <!-- svelte-ignore a11y-no-static-element-interactions -->
-  <div class="resizer vertical" on:mousedown={dragColumn}></div>
+  <div class="resizer vertical" on:mousedown={dragLeftColumn}></div>
 
   <div class="col col-right" bind:this={colRightEl}>
     <section class="panel panel-details" style={topStyle(detailsCollapsed, commandCollapsed, detailsHeight)}>
@@ -781,7 +536,7 @@
             {#if selectedActionGroups.length > 0}
               <div class="cmd-groups">
                 {#each selectedActionGroups as group (group)}
-                  <span class="chip chip-static" style={groupChipStyle(group, false)}>{group}</span>
+                  <span class="chip chip-static" style={groupChipStyle(groupColors, group, false)}>{group}</span>
                 {/each}
               </div>
             {/if}
@@ -806,7 +561,7 @@
     </section>
   </div>
 
-    <Toast message={toast} />
+    <Toast />
   </main>
 </div>
 
@@ -827,20 +582,8 @@
     border-bottom: 1px solid var(--sm-border);
   }
 
-  /* Square padding for an icon-only .btn — theme.css's own .btn/.btn-primary
-     assume a text label; not shared since sm-config-edit scopes the same
-     rule locally rather than in theme.css. */
-  .icon-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 9px;
-  }
-
-  .icon-btn:disabled {
-    opacity: 0.35;
-    cursor: default;
-  }
+  /* .icon-btn comes from the shared design system (@shared/theme.css),
+     same as .btn. */
 
   /* Takes over the slot the theme dropdown used to occupy at the far
      right of the toolbar. */
@@ -873,70 +616,6 @@
      .row, .chip, .empty, .toast, .copy-cmd-btn, .run-cmd-btn come from the
      shared design system (@shared/theme.css, imported via style.css) — not
      redefined here. */
-
-  .group-filter {
-    flex: none;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 4px 6px 0;
-  }
-
-  .group-filter-header {
-    display: flex;
-    align-items: flex-start;
-    gap: 4px;
-  }
-
-  .group-filter-toggle {
-    flex: none;
-    padding: 2px 4px;
-  }
-
-  .group-summary {
-    color: var(--sm-text-muted);
-    font-size: 0.78rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .group-sort {
-    flex: none;
-    display: flex;
-    gap: 2px;
-  }
-
-  .sort-btn {
-    flex: none;
-    background: none;
-    border: 1px solid var(--sm-border);
-    color: var(--sm-text-muted);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-size: 0.68rem;
-    line-height: 1.2;
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  .sort-btn:hover {
-    background: var(--sm-hover);
-    color: var(--sm-text);
-  }
-
-  .sort-btn.active {
-    background: var(--sm-accent-warm);
-    border-color: var(--sm-accent-warm);
-    color: var(--sm-bg);
-    font-weight: 700;
-  }
-
-  .group-chips {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 4px;
-  }
 
   .details-warning {
     flex: none;
