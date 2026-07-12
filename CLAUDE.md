@@ -6,9 +6,10 @@
 cmd/script-manager/       ← TUI entry point (thin main: flags + tea.NewProgram)
 cmd/script-manager-gui/   ← Wails GUI entry point (thin main + frontend/)
 cmd/sm-config-edit/       ← Wails config-editor entry point (thin main + frontend/)
-frontend-shared/          ← CSS design system + Svelte components shared by both
-                             Wails frontends (theme.css, components/Toast.svelte);
-                             each frontend's vite.config.ts aliases it as "@shared"
+frontend-shared/          ← CSS design system + Svelte components/modules shared by
+                             both Wails frontends (theme.css, components/{Icon,Toast}.svelte,
+                             messages.ts, toast.ts, persist.ts); each frontend's
+                             vite.config.ts aliases it as "@shared"
 internal/
   config/             ← Config types, YAML loading (config.LoadWithError()) and
                         saving (Config.Marshal()), reserved item-key constants
@@ -17,8 +18,15 @@ internal/
   render/             ← mask pipeline (MaskFunc, ProcessMaskSpans) and the
                         #ALL_ENV_LIST#/#ALL_ENV_TABLE# placeholder expansion
                         (ExpandAllEnv), shared by both frontends
-  gui/                ← Wails-bound App backend (DTOs, RunAction, temp scripts);
-                        bound under the "gui" namespace (window.go.gui.App)
+  exepath/            ← executable-directory resolution (Dir()), shared by gui
+                        and configedit
+  terminal/           ← terminal emulator detection/argv assembly (Launcher,
+                        Names(), Resolve()), shared by gui and configedit
+  gui/                ← Wails-bound App backend (DTOs, bindings); bound under
+                        the "gui" namespace (window.go.gui.App). RunAction,
+                        wrapScript, writeTempScript, buildShellArgv, and temp-
+                        script cleanup live in runner.go; GetItemDetails and
+                        goldmark rendering live in details.go
   configedit/         ← Wails-bound App backend for sm-config-edit (DTOs,
                         Config<->DTO conversion, validation, live preview);
                         bound under the "configedit" namespace
