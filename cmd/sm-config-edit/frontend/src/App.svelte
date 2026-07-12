@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { dndzone } from 'svelte-dnd-action'
   import type { DndEvent } from 'svelte-dnd-action'
+  import { wrap, sortableList, type DndEntry } from './lib/sortable'
   import Toast from '@shared/components/Toast.svelte'
   import { flash } from '@shared/toast'
   import { getTheme, getThemes, type Theme, type CustomPalette } from '@shared/theme'
@@ -11,6 +11,7 @@
   import ThemeEditor from './components/ThemeEditor.svelte'
   import MessagesEditor from './components/MessagesEditor.svelte'
   import DisplaysEditor from './components/DisplaysEditor.svelte'
+  import ActionGroupsEditor from './components/ActionGroupsEditor.svelte'
   import ListActionIcon from './components/ListActionIcon.svelte'
   import ToolbarIcon from './components/ToolbarIcon.svelte'
   import { t } from './messages'
@@ -244,9 +245,6 @@
       interactive: true,
     } as unknown as configedit.ActionDTO
   }
-  function newActionGroup(): configedit.ActionGroupDTO {
-    return { id: '', title: '', color: '' } as unknown as configedit.ActionGroupDTO
-  }
   function addItem() {
     cfg.items = [...cfg.items, newItem()]
     selectedItem = cfg.items.length - 1
@@ -276,47 +274,6 @@
     if (confirm(t('confirm.removeAction', { name }))) removeAction(i)
   }
 
-  function addActionGroup() {
-    cfg.actionGroups = [...cfg.actionGroups, newActionGroup()]
-    selectedActionGroup = cfg.actionGroups.length - 1
-  }
-  // How many actions/items/custom-actions currently reference a group id —
-  // used both to warn before deleting and to actually scrub the reference so
-  // deleting a group doesn't leave dangling entries in groups/actionGroups
-  // lists (the picker UI already hides them, but the underlying data would
-  // otherwise silently keep the stale id forever).
-  function actionGroupRefCount(id: string): number {
-    let count = 0
-    for (const a of cfg.actions) if (a.groups.includes(id)) count++
-    for (const it of cfg.items) {
-      if (it.actionGroups.includes(id)) count++
-      for (const ca of it.customActions) if (ca.groups.includes(id)) count++
-    }
-    return count
-  }
-  function removeActionGroupReferences(id: string) {
-    cfg.actions = cfg.actions.map((a) => ({ ...a, groups: a.groups.filter((g) => g !== id) })) as unknown as configedit.ActionDTO[]
-    cfg.items = cfg.items.map((it) => ({
-      ...it,
-      actionGroups: it.actionGroups.filter((g) => g !== id),
-      customActions: it.customActions.map((ca) => ({ ...ca, groups: ca.groups.filter((g) => g !== id) })),
-    })) as unknown as configedit.ItemDTO[]
-  }
-  function removeActionGroup(i: number) {
-    const id = cfg.actionGroups[i]?.id
-    cfg.actionGroups = cfg.actionGroups.filter((_, idx) => idx !== i)
-    if (id) removeActionGroupReferences(id)
-    if (selectedActionGroup === i) selectedActionGroup = -1
-    else if (selectedActionGroup > i) selectedActionGroup -= 1
-  }
-  function confirmRemoveActionGroup(i: number) {
-    const g = cfg.actionGroups[i]
-    const name = g?.title || g?.id || t('fallback.unnamed')
-    const refCount = g?.id ? actionGroupRefCount(g.id) : 0
-    const refSuffix = refCount > 0 ? t('confirm.removeActionGroupRefSuffix', { count: refCount, plural: refCount > 1 ? 's' : '' }) : ''
-    if (confirm(t('confirm.removeActionGroup', { name, refSuffix }))) removeActionGroup(i)
-  }
-
   function addCustomAction(itemIdx: number) {
     cfg.items[itemIdx].customActions = [...cfg.items[itemIdx].customActions, newAction()]
   }
@@ -326,67 +283,6 @@
 
   function toggleInList(list: string[], value: string): string[] {
     return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
-  }
-
-  // Drag-and-drop reordering for the Items/Action Groups/Actions master
-  // lists, via svelte-dnd-action rather than native HTML5 drag-and-drop.
-  // Native dnd's cursor is browser-controlled, and it disagreed with the
-  // live reorder + animation (dragover hit-tests against the real,
-  // already-reordered layout, while the FLIP transform visually lags
-  // behind it) — that mismatch is what read as the cursor flickering
-  // between "grab" and a no-drop icon. svelte-dnd-action drives
-  // everything from pointer events instead, so there's no browser drag
-  // cursor involved at all, and it handles the live-reorder animation and
-  // cancelled-drag revert internally.
-  //
-  // dndzone needs every item to carry an "id" it can track across
-  // reorders. None of items/actions/action groups reliably have one — an
-  // item has no id field at all, and a brand-new action/action group
-  // defaults its own id to "" (several can exist before being named) — so
-  // each list is wrapped in a {id, ref} pair with a synthetic,
-  // session-only id (a WeakMap keyed by object identity; never touches
-  // the saved data) instead of reusing the domain id field.
-  let dndSeq = 0
-  const dndIds = new WeakMap<object, string>()
-  function dndId(ref: object): string {
-    let id = dndIds.get(ref)
-    if (id === undefined) {
-      id = `d${dndSeq++}`
-      dndIds.set(ref, id)
-    }
-    return id
-  }
-
-  type DndEntry<T> = { id: string; ref: T }
-  function wrap<T extends object>(list: T[]): DndEntry<T>[] {
-    return list.map((ref) => ({ id: dndId(ref), ref }))
-  }
-
-  // svelte-dnd-action's consider/finalize are custom events the dndzone
-  // action adds to its node, not real attributes of a plain <div> — this
-  // project's Svelte/svelte-check versions don't have a working ambient
-  // typing hook for that, so on:consider/on:finalize on the element
-  // itself won't type-check. Attaching them here via plain
-  // addEventListener sidesteps Svelte's (mistaken) typed-attribute check
-  // entirely; nothing about actual behavior changes.
-  type SyncFn<T> = (e: CustomEvent<DndEvent<DndEntry<T>>>, final: boolean) => void
-  type SortableParams<T> = { items: DndEntry<T>[]; onSync: SyncFn<T>; dragDisabled: boolean }
-  function sortableList<T extends object>(node: HTMLElement, params: SortableParams<T>) {
-    const zone = dndzone(node, { items: params.items, flipDurationMs: 200, dragDisabled: params.dragDisabled })
-    const considerHandler = (e: Event) => params.onSync(e as CustomEvent<DndEvent<DndEntry<T>>>, false)
-    const finalizeHandler = (e: Event) => params.onSync(e as CustomEvent<DndEvent<DndEntry<T>>>, true)
-    node.addEventListener('consider', considerHandler)
-    node.addEventListener('finalize', finalizeHandler)
-    return {
-      update(newParams: SortableParams<T>) {
-        zone.update?.({ items: newParams.items, flipDurationMs: 200, dragDisabled: newParams.dragDisabled })
-      },
-      destroy() {
-        node.removeEventListener('consider', considerHandler)
-        node.removeEventListener('finalize', finalizeHandler)
-        zone.destroy?.()
-      },
-    }
   }
 
   // Reordering is opt-in: off by default, toggled per-visit via the
@@ -405,7 +301,6 @@
     reorderMode = !reorderMode
     if (reorderMode) {
       selectedItem = -1
-      selectedActionGroup = -1
       selectedAction = -1
     }
   }
@@ -420,10 +315,8 @@
   // call site.
   let dragging = false
   let itemEntries: DndEntry<configedit.ItemDTO>[] = wrap(cfg.items)
-  let actionGroupEntries: DndEntry<configedit.ActionGroupDTO>[] = wrap(cfg.actionGroups)
   let actionEntries: DndEntry<configedit.ActionDTO>[] = wrap(cfg.actions)
   $: if (!dragging) itemEntries = wrap(cfg.items)
-  $: if (!dragging) actionGroupEntries = wrap(cfg.actionGroups)
   $: if (!dragging) actionEntries = wrap(cfg.actions)
 
   // consider fires continuously during the drag (giving the live-shifting
@@ -439,11 +332,6 @@
     itemEntries = e.detail.items
     dragging = !final
     if (final) cfg.items = itemEntries.filter((w) => w.ref).map((w) => w.ref)
-  }
-  function syncActionGroups(e: CustomEvent<DndEvent<DndEntry<configedit.ActionGroupDTO>>>, final: boolean) {
-    actionGroupEntries = e.detail.items
-    dragging = !final
-    if (final) cfg.actionGroups = actionGroupEntries.filter((w) => w.ref).map((w) => w.ref)
   }
   function syncActions(e: CustomEvent<DndEvent<DndEntry<configedit.ActionDTO>>>, final: boolean) {
     actionEntries = e.detail.items
@@ -570,91 +458,12 @@
             previewItem={PreviewItem}
           />
         {:else if section === 'actionGroups'}
-          <div class="list-toolbar">
-            <button
-              class="btn icon-btn"
-              type="button"
-              title={t('tooltip.addActionGroup')}
-              aria-label={t('tooltip.addActionGroup')}
-              on:click={addActionGroup}><ListActionIcon mode="add" /></button
-            >
-            <button
-              class="btn icon-btn"
-              type="button"
-              title={t('tooltip.removeActionGroup')}
-              aria-label={t('tooltip.removeActionGroup')}
-              disabled={selectedActionGroup < 0}
-              on:click={() => confirmRemoveActionGroup(selectedActionGroup)}><ListActionIcon mode="remove" /></button
-            >
-            <button
-              class="btn icon-btn"
-              class:active={reorderMode}
-              type="button"
-              title={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
-              aria-label={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
-              on:click={toggleReorderMode}><ListActionIcon mode="reorder" /></button
-            >
-          </div>
-          <div class="master-detail">
-            <div
-              class="master list"
-              class:reorder-mode={reorderMode}
-              use:sortableList={{ items: actionGroupEntries, onSync: syncActionGroups, dragDisabled: !reorderMode }}
-            >
-              {#each actionGroupEntries as entry, i (entry.id)}
-                <button
-                  class="row"
-                  class:selected={selectedActionGroup === i}
-                  on:click={() => {
-                    if (!reorderMode) selectedActionGroup = i
-                  }}
-                >
-                  <span class="group-swatch" style="background: {entry.ref.color || 'var(--sm-border)'}"></span>
-                  {entry.ref.title || entry.ref.id || t('fallback.unnamed')}
-                </button>
-              {/each}
-            </div>
-            <div class="detail">
-              {#if selectedActionGroup >= 0 && cfg.actionGroups[selectedActionGroup]}
-                <label class="field">
-                  <span>{t('field.id')}</span>
-                  <input
-                    type="text"
-                    bind:value={cfg.actionGroups[selectedActionGroup].id}
-                    placeholder={t('placeholder.actionGroupId')}
-                  />
-                </label>
-                <label class="field">
-                  <span>{t('field.title')}</span>
-                  <input
-                    type="text"
-                    bind:value={cfg.actionGroups[selectedActionGroup].title}
-                    placeholder={t('placeholder.actionGroupTitle')}
-                  />
-                </label>
-                <div class="field">
-                  <span>{t('field.color')}</span>
-                  <div class="color-field">
-                    <input
-                      type="color"
-                      value={/^#[0-9a-fA-F]{6}$/.test(cfg.actionGroups[selectedActionGroup].color)
-                        ? cfg.actionGroups[selectedActionGroup].color
-                        : '#7fd4ff'}
-                      on:input={(e) => (cfg.actionGroups[selectedActionGroup].color = e.currentTarget.value)}
-                      title={t('tooltip.pickColor')}
-                    />
-                    <input
-                      type="text"
-                      bind:value={cfg.actionGroups[selectedActionGroup].color}
-                      placeholder={t('placeholder.actionGroupColor')}
-                    />
-                  </div>
-                </div>
-              {:else}
-                <div class="empty">{t('empty.selectActionGroupOrAdd')}</div>
-              {/if}
-            </div>
-          </div>
+          <ActionGroupsEditor
+            bind:actionGroups={cfg.actionGroups}
+            bind:items={cfg.items}
+            bind:actions={cfg.actions}
+            bind:selectedActionGroup
+          />
         {:else if section === 'actions'}
           <div class="list-toolbar">
             <button class="btn icon-btn" type="button" title={t('tooltip.addAction')} aria-label={t('tooltip.addAction')} on:click={addAction}
@@ -1075,20 +884,6 @@
     cursor: default;
   }
 
-  .list-toolbar {
-    flex: none;
-    display: flex;
-    gap: 4px;
-    margin-bottom: 8px;
-  }
-
-  .list-toolbar .btn.active {
-    background: var(--sm-accent-warm);
-    border-color: var(--sm-accent-warm);
-    color: var(--sm-bg);
-    font-weight: 700;
-  }
-
   .checkbox-list {
     display: flex;
     flex-wrap: wrap;
@@ -1105,35 +900,6 @@
     padding: 2px 9px;
     font-size: 0.75rem;
     cursor: pointer;
-  }
-
-  .group-swatch {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    margin-right: 6px;
-    vertical-align: middle;
-    border: 1px solid var(--sm-border);
-  }
-
-  .color-field {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .color-field input[type="color"] {
-    flex: none;
-    width: 40px;
-    height: 30px;
-    padding: 2px;
-    cursor: pointer;
-  }
-
-  .color-field input[type="text"] {
-    flex: 1 1 auto;
-    min-width: 0;
   }
 
   .nested-action {

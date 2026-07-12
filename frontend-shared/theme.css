@@ -405,6 +405,13 @@ select.sm-select {
   margin-bottom: 8px;
 }
 
+.list-toolbar .btn.active {
+  background: var(--sm-accent-warm);
+  border-color: var(--sm-accent-warm);
+  color: var(--sm-bg);
+  font-weight: 700;
+}
+
 .master-detail {
   display: flex;
   gap: 10px;
