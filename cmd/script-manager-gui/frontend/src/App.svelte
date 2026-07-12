@@ -80,7 +80,6 @@
     actionIndex: number
     output: string
     running: boolean
-    exitCode: number | null
   }
   let inlineStates: Record<string, InlineState> = {}
 
@@ -98,7 +97,6 @@
   $: currentInline = selectedItem >= 0 && selectedActionIndex >= 0 ? inlineStates[inlineKey(selectedItem, selectedActionIndex)] : undefined
   $: inlineRunning = currentInline?.running ?? false
   $: inlineOutput = currentInline?.output ?? ''
-  $: inlineExitCode = currentInline?.exitCode ?? null
 
   // Which items/actions to show a running indicator for — every entry
   // still running, cross-referenced by itemIndex for the Items list and by
@@ -317,7 +315,7 @@
   async function pollInlineStatus(itemIndex: number, actionIndex: number) {
     for (;;) {
       const status = await GetInlineStatus(itemIndex, actionIndex)
-      setInlineState(itemIndex, actionIndex, { output: status.output, running: status.running, exitCode: status.exitCode })
+      setInlineState(itemIndex, actionIndex, { output: status.output, running: status.running })
       if (selectedItem === itemIndex && selectedActionIndex === actionIndex) {
         scrollInlineOutputToEnd()
       }
@@ -335,12 +333,12 @@
     const itemIndex = selectedItem
     const actionIndex = selectedActionIndex
     if (inlineStates[inlineKey(itemIndex, actionIndex)]?.running) return
-    setInlineState(itemIndex, actionIndex, { output: '', running: true, exitCode: null })
+    setInlineState(itemIndex, actionIndex, { output: '', running: true })
     try {
       await RunActionInline(itemIndex, actionIndex)
       pollInlineStatus(itemIndex, actionIndex)
     } catch (err) {
-      setInlineState(itemIndex, actionIndex, { output: '', running: false, exitCode: null })
+      setInlineState(itemIndex, actionIndex, { output: '', running: false })
       flash(t('toast.runFailed', { error: String(err) }))
     }
   }
@@ -766,22 +764,15 @@
                 {/if}
               </div>
             {/if}
-            {#if inlineRunning || inlineOutput}
+            {#if inlineOutput}
               <div class="cmd-output">
-                <div class="cmd-output-status" class:running={inlineRunning} class:error={inlineExitCode !== null && inlineExitCode !== 0}>
-                  <span>{inlineRunning ? t('status.running') : t('status.exited', { code: String(inlineExitCode) })}</span>
-                  {#if inlineOutput}
-                    <button
-                      class="cmd-copy-btn"
-                      title={t('tooltip.copyOutput')}
-                      aria-label={t('tooltip.copyOutput')}
-                      on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></button
-                    >
-                  {/if}
-                </div>
-                {#if inlineOutput}
-                  <pre class="cmd-output-body" bind:this={inlineOutputEl}>{inlineOutput}</pre>
-                {/if}
+                <button
+                  class="cmd-copy-btn cmd-output-copy-btn"
+                  title={t('tooltip.copyOutput')}
+                  aria-label={t('tooltip.copyOutput')}
+                  on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></button
+                >
+                <pre class="cmd-output-body" bind:this={inlineOutputEl}>{inlineOutput}</pre>
               </div>
             {/if}
             {#if actionDetail.description}
@@ -1045,23 +1036,15 @@
   }
 
   .cmd-output {
+    position: relative;
     background: var(--sm-bg-deep);
     border-radius: 4px;
     margin: 0 0 8px;
   }
-  .cmd-output-status {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 10px;
-    font-size: 0.85rem;
-    color: var(--sm-text-muted);
-  }
-  .cmd-output-status.running {
-    color: var(--sm-accent);
-  }
-  .cmd-output-status.error {
-    color: var(--sm-error);
+  .cmd-output-copy-btn {
+    position: absolute;
+    top: 4px;
+    right: 4px;
   }
   .running-indicator {
     display: inline-block;
@@ -1075,7 +1058,7 @@
   }
   .cmd-output-body {
     margin: 0;
-    padding: 0 10px 10px;
+    padding: 10px;
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.8rem;
     white-space: pre-wrap;
@@ -1103,10 +1086,9 @@
   }
 
   /* Minimal, borderless copy button meant to sit inside a code block —
-     .cmd-line-copy-btn additionally floats it in the top-right corner,
-     the placement docs sites commonly use for a code block's copy action;
-     .cmd-output-status's copy button instead just sits at the end of that
-     flex row (space-between above), no absolute positioning needed there. */
+     .cmd-line-copy-btn and .cmd-output-copy-btn both float it in the
+     top-right corner, the placement docs sites commonly use for a code
+     block's copy action. */
   .cmd-copy-btn {
     display: flex;
     align-items: center;

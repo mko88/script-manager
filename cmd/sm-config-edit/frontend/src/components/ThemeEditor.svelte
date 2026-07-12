@@ -115,51 +115,73 @@
     collapsedGroups = next
   }
 
-  // Which tokens visibly distinguish each preview element from a plain,
-  // unstyled one — clicking that element fills the field-filter box below
-  // with exactly these, so "what do I edit to change this?" is a click
-  // away instead of a hunt through 22 fields. Only the token(s) actually
-  // set by that element's own CSS rule (resting *and* :hover — a plain row/
-  // chip/button's hover background is a real, independently editable
-  // token, not a lighter/darker computed shade of its resting color), not
-  // ones it merely inherits from an ancestor. selectedRow/chipActive don't
-  // list a hover token: .row.selected/.chip.active both come after their
-  // own :hover rule in theme.css at equal specificity, so hovering a
-  // selected row or active chip keeps its active styling — the plain
-  // .row:hover/.chip:hover rule never actually applies to them.
-  const PREVIEW_TOKEN_MAP: Record<string, string[]> = {
-    background: ['bg'],
-    panelTitle: ['accent', 'panel-header', 'border'],
-    selectedRow: ['accent-warm', 'bg'],
-    row: ['text', 'hover'],
-    chipActive: ['accent-warm', 'bg'],
-    chip: ['bg-deep', 'text-muted', 'border', 'tint-hover', 'text'],
-    button: ['border', 'hover', 'hover-strong', 'text'],
-    buttonPrimary: ['accent-warm', 'bg', 'btn-primary-hover'],
-    heading: ['accent'],
-    bodyText: ['text'],
-    highlight: ['bg-deep', 'code'],
-    command: ['bg-deep', 'text', 'line-number'],
-    outputStatus: ['accent'],
-    outputBody: ['bg-deep', 'text-muted'],
-    errorText: ['error'],
-    maskedText: ['masked'],
-    toast: ['panel-header', 'text', 'border', 'shadow'],
+  // Every --sm-* token referenced by a CSS rule that directly matches el —
+  // in its resting state, or in its :hover state (tested by stripping
+  // :hover from the selector and re-matching) — not one it merely
+  // inherits from an ancestor's own rule. Walks the live stylesheets
+  // instead of a hand-maintained per-element map, so a new preview
+  // element's own CSS automatically shows up here without this needing an
+  // update. Can't fully resolve cascade/specificity (e.g. a selected row's
+  // own :hover rule never actually applies, since .row.selected comes
+  // after .row:hover in theme.css at equal specificity) — this unions
+  // every matching rule's tokens regardless, so the result is occasionally
+  // over-inclusive. Acceptable for narrowing the filter box below; not a
+  // precision requirement.
+  function tokensForElement(el: Element): string[] {
+    const found = new Set<string>()
+    const tokenRe = /var\(\s*--sm-([\w-]+)/g
+    // Scans the whole declaration block's text rather than enumerating
+    // style.item(i)/getPropertyValue() one property at a time — WebKitGTK
+    // (this app's Linux target) doesn't reliably expose a shorthand like
+    // "background: var(--sm-accent-warm)" through per-property lookups
+    // the same way Chromium/WebView2 does; cssText sidesteps that engine
+    // difference entirely.
+    function collect(style: CSSStyleDeclaration) {
+      tokenRe.lastIndex = 0
+      let m: RegExpExecArray | null
+      while ((m = tokenRe.exec(style.cssText))) found.add(m[1])
+    }
+    function walk(rules: CSSRuleList) {
+      for (const rule of Array.from(rules)) {
+        if (rule instanceof CSSMediaRule || rule instanceof CSSSupportsRule) {
+          walk(rule.cssRules)
+          continue
+        }
+        if (!(rule instanceof CSSStyleRule)) continue
+        try {
+          if (el.matches(rule.selectorText)) collect(rule.style)
+          const hoverless = rule.selectorText.includes(':hover') ? rule.selectorText.replace(/:hover/g, '') : ''
+          if (hoverless && el.matches(hoverless)) collect(rule.style)
+        } catch {
+          // selector unsupported by this browser — skip
+        }
+      }
+    }
+    for (const sheet of Array.from(document.styleSheets)) {
+      try {
+        walk(sheet.cssRules)
+      } catch {
+        // inaccessible (cross-origin) stylesheet — skip
+      }
+    }
+    return Array.from(found)
   }
 
   let fieldFilter = ''
-  function filterFor(key: keyof typeof PREVIEW_TOKEN_MAP) {
-    fieldFilter = PREVIEW_TOKEN_MAP[key].join(', ')
+  function filterForElement(el: Element) {
+    fieldFilter = tokensForElement(el).join(', ')
+  }
+  function onPreviewClick(e: MouseEvent) {
+    filterForElement(e.currentTarget as Element)
   }
   // The rendered example markdown comes from one {@html} block, so its
-  // three clickable pieces (heading/body text/highlight) are told apart by
-  // delegating from a single listener rather than per-element on:click —
-  // Svelte can't attach handlers inside raw HTML it didn't render itself.
+  // clickable pieces (heading/body text/highlight, or whatever the
+  // message pack's markdown adds later) are told apart by delegating from
+  // a single listener on e.target — the actual sub-element clicked —
+  // rather than per-element on:click, since Svelte can't attach handlers
+  // inside raw HTML it didn't render itself.
   function onMarkdownClick(e: MouseEvent) {
-    const tag = (e.target as HTMLElement).tagName
-    if (tag === 'CODE') filterFor('highlight')
-    else if (tag === 'H1' || tag === 'H2' || tag === 'H3') filterFor('heading')
-    else filterFor('bodyText')
+    filterForElement(e.target as Element)
   }
 
   // The pane itself carries --sm-bg (the page-level background the panel
@@ -169,7 +191,7 @@
   // bubbles up here too, so this only acts when the pane itself — not a
   // descendant — was the actual click target.
   function onBackgroundClick(e: MouseEvent) {
-    if (e.target === e.currentTarget) filterFor('background')
+    if (e.target === e.currentTarget) filterForElement(e.currentTarget as Element)
   }
 
   $: filterTerms = fieldFilter
@@ -323,27 +345,27 @@
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="theme-editor-preview-pane" style={previewStyle} on:click={onBackgroundClick}>
       <div class="theme-editor-preview">
-        <button type="button" class="panel-title" on:click={() => filterFor('panelTitle')}>
+        <button type="button" class="panel-title" on:click={onPreviewClick}>
           <span class="panel-title-text">{t('themeEditor.previewPanelTitle')}</span>
         </button>
         <div class="theme-editor-preview-body">
           <div class="list">
-            <button type="button" class="row selected" on:click={() => filterFor('selectedRow')}
+            <button type="button" class="row selected" on:click={onPreviewClick}
               >{t('themeEditor.previewSelectedRow')}</button
             >
-            <button type="button" class="row" on:click={() => filterFor('row')}>{t('themeEditor.previewRow')}</button>
+            <button type="button" class="row" on:click={onPreviewClick}>{t('themeEditor.previewRow')}</button>
           </div>
           <div class="theme-editor-preview-chips">
-            <button type="button" class="chip active" on:click={() => filterFor('chipActive')}
+            <button type="button" class="chip active" on:click={onPreviewClick}
               >{t('themeEditor.previewChipActive')}</button
             >
-            <button type="button" class="chip" on:click={() => filterFor('chip')}>{t('themeEditor.previewChip')}</button
+            <button type="button" class="chip" on:click={onPreviewClick}>{t('themeEditor.previewChip')}</button
             >
           </div>
           <div class="theme-editor-preview-buttons">
-            <button type="button" class="btn" on:click={() => filterFor('button')}>{t('themeEditor.previewButton')}</button
+            <button type="button" class="btn" on:click={onPreviewClick}>{t('themeEditor.previewButton')}</button
             >
-            <button type="button" class="btn btn-primary" on:click={() => filterFor('buttonPrimary')}
+            <button type="button" class="btn btn-primary" on:click={onPreviewClick}
               >{t('themeEditor.previewButtonPrimary')}</button
             >
           </div>
@@ -355,7 +377,7 @@
           <button
             type="button"
             class="theme-editor-preview-cmd theme-editor-preview-hotspot"
-            on:click={() => filterFor('command')}
+            on:click={onPreviewClick}
           >
             <div class="theme-editor-preview-cmd-line">
               <span class="theme-editor-preview-cmd-no">1</span>
@@ -366,32 +388,25 @@
               <span>{t('themeEditor.previewCommandLine2')}</span>
             </div>
           </button>
-          <div class="theme-editor-preview-output">
-            <button
-              type="button"
-              class="theme-editor-preview-output-status theme-editor-preview-hotspot"
-              on:click={() => filterFor('outputStatus')}>{t('themeEditor.previewOutputStatus')}</button
-            >
-            <button
-              type="button"
-              class="theme-editor-preview-output-body theme-editor-preview-hotspot"
-              on:click={() => filterFor('outputBody')}>{t('themeEditor.previewOutputLine')}</button
-            >
-          </div>
+          <button
+            type="button"
+            class="theme-editor-preview-output-body theme-editor-preview-hotspot"
+            on:click={onPreviewClick}>{t('themeEditor.previewOutputLine')}</button
+          >
           <button
             type="button"
             class="theme-editor-preview-error theme-editor-preview-hotspot"
-            on:click={() => filterFor('errorText')}>{t('themeEditor.previewError')}</button
+            on:click={onPreviewClick}>{t('themeEditor.previewError')}</button
           >
           <button
             type="button"
             class="theme-editor-preview-masked theme-editor-preview-hotspot"
-            on:click={() => filterFor('maskedText')}>{t('themeEditor.previewMasked')}</button
+            on:click={onPreviewClick}>{t('themeEditor.previewMasked')}</button
           >
           <button
             type="button"
             class="theme-editor-preview-toast theme-editor-preview-hotspot"
-            on:click={() => filterFor('toast')}>{t('themeEditor.previewToast')}</button
+            on:click={onPreviewClick}>{t('themeEditor.previewToast')}</button
           >
         </div>
       </div>
@@ -716,21 +731,11 @@
     user-select: none;
   }
 
-  .theme-editor-preview-output {
+  .theme-editor-preview-output-body {
     background: var(--sm-bg-deep);
     border-radius: 4px;
-    overflow: hidden;
-  }
-
-  .theme-editor-preview-output-status {
-    padding: 6px 10px;
-    font-size: 0.8rem;
-    color: var(--sm-accent);
-  }
-
-  .theme-editor-preview-output-body {
     margin: 0;
-    padding: 0 10px 8px;
+    padding: 8px 10px;
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.78rem;
     color: var(--sm-text-muted);

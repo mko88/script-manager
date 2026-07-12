@@ -27,10 +27,6 @@
     "noItemSelected": "No item selected",
     "selectActionToPreview": "Select an action to preview its command"
   },
-  "status": {
-    "running": "Running…",
-    "exited": "Exited {code}"
-  },
   "warning": {
     "missingFields": "⚠ {count} missing value{plural} (shown as <nil>)"
   },
