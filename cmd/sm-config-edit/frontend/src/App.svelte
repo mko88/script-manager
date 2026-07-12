@@ -3,16 +3,17 @@
   import { dndzone } from 'svelte-dnd-action'
   import type { DndEvent } from 'svelte-dnd-action'
   import Toast from '@shared/components/Toast.svelte'
+  import { flash } from '@shared/toast'
   import { getTheme, getThemes, type Theme, type CustomPalette } from '@shared/theme'
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
   import ActionForm from './components/ActionForm.svelte'
   import ThemeEditor from './components/ThemeEditor.svelte'
-  import ViewModeIcon from './components/ViewModeIcon.svelte'
+  import MessagesEditor from './components/MessagesEditor.svelte'
+  import DisplaysEditor from './components/DisplaysEditor.svelte'
   import ListActionIcon from './components/ListActionIcon.svelte'
   import ToolbarIcon from './components/ToolbarIcon.svelte'
   import { t } from './messages'
-  import { looksLikeSecretKey } from './secretKey'
   import {
     InitialState,
     NewBlank,
@@ -47,8 +48,6 @@
 
   let cfg: configedit.ConfigDTO = emptyConfig()
   let path = ''
-  let toast = ''
-  let toastTimer: ReturnType<typeof setTimeout>
 
   // No toolbar switcher here anymore — theme/themes just seed ThemeEditor's
   // picker panel and receive its two-way-bound updates as themes are
@@ -94,211 +93,12 @@
   let previewActionIdx = -1
   let actionPreview: configedit.ActionPreviewDTO | null = null
 
-  // Displays section: preview an arbitrary item against the display being
-  // edited (a display isn't tied to one item the way an item's own preview
-  // is), with a layout toggle for how much space editing vs. previewing
-  // gets. Kept across display switches (not reset in resetSelection) so you
-  // can flip through displays while comparing the same item.
-  type DisplayViewMode = 'edit' | 'preview' | 'split-v' | 'split-h'
-  let previewItemForDisplay = -1
-  let displayViewMode: DisplayViewMode = 'split-v'
-  let displayPreview: configedit.PreviewDTO | null = null
-
-  // Split-v sizes the edit pane by width, split-h by height; the other pane
-  // always gets flex:1 to soak up whatever's left, so together they fill
-  // the full available width (split-v) or height (split-h) — same
-  // fixed-primary-pane-plus-flex:1-remainder pattern script-manager-gui's
-  // own resizer uses (leftWidth/itemsHeight there). Minimums match gui's
-  // MIN_COL/MIN_PANEL exactly — same reasoning: a width split needs more
-  // headroom for usable content than a height split does.
-  const DISPLAY_MIN_WIDTH = 180
-  const DISPLAY_MIN_HEIGHT = 60
-  const DISPLAY_RESIZER = 6
-  let displayEditWidth = 480
-  let displayEditHeight = 260
-  let displaySplitEl: HTMLElement
-
-  // The Details template's helper toolbar (Insert env / formatting buttons)
-  // needs a real element handle for cursor/selection-based edits —
-  // setRangeText operates on the DOM element directly, not on Svelte's
-  // bound value.
-  let detailsTextareaEl: HTMLTextAreaElement | undefined
-
-  // Env var names available to insert into the Details template: global
-  // Environment fields plus the currently-selected preview item's own
-  // fields (if any), deduped — both already loaded client-side for the
-  // preview feature, so no new backend call is needed just to list them.
-  $: availableEnvKeys = Array.from(
-    new Set([
-      ...cfg.envFields.map((f) => f.key),
-      ...(previewItemForDisplay >= 0 ? (cfg.items[previewItemForDisplay]?.fields ?? []).map((f) => f.key) : []),
-    ]),
-  ).filter((k) => k)
-
-  function insertEnvVar(key: string) {
-    // A key that looks like it holds a secret (same heuristic FieldGrid uses
-    // to auto-lock a new field) is inserted already masked, not as a plain
-    // reference someone would otherwise have to remember to wrap themselves.
-    if (looksLikeSecretKey(key)) insertAtCursor('`{{mask .' + key + '}}`')
-    else insertAtCursor(`{{.${key}}}`)
-  }
-
-  function onEnvSelectChange(e: Event) {
-    const select = e.currentTarget as HTMLSelectElement
-    const key = select.value
-    if (key) insertEnvVar(key)
-    select.selectedIndex = 0
-  }
-
-  // Replaces [start, end) in the textarea with text via execCommand, which —
-  // unlike setRangeText — participates in the browser's native undo/redo, so
-  // Ctrl+Z/Ctrl+Y still work after a helper-button edit, the same as they
-  // would after ordinary typing. execCommand acts on the element's current
-  // selection, so it has to be focused with that range selected first.
-  // Falls back to setRangeText (functionally identical, just without undo
-  // support) if execCommand is ever unavailable.
-  function replaceRange(el: HTMLTextAreaElement, start: number, end: number, text: string) {
-    el.focus()
-    el.setSelectionRange(start, end)
-    let handled = false
-    try {
-      handled = document.execCommand('insertText', false, text)
-    } catch {
-      handled = false
-    }
-    if (!handled) el.setRangeText(text, start, end, 'end')
-    // Either path mutates the element directly without firing an input event
-    // Svelte's bind:value would otherwise pick up, so the bound state has to
-    // be synced back explicitly.
-    cfg.display[selectedDisplay].details = el.value
-  }
-
-  function insertAtCursor(text: string) {
-    const el = detailsTextareaEl
-    if (!el) return
-    const start = el.selectionStart ?? el.value.length
-    const end = el.selectionEnd ?? el.value.length
-    replaceRange(el, start, end, text)
-    // Highlight the just-inserted text, so it's clear what was inserted and
-    // easy to overtype/replace.
-    el.setSelectionRange(start, start + text.length)
-  }
-
-  function wrapSelection(before: string, after: string = before) {
-    const el = detailsTextareaEl
-    if (!el) return
-    const start = el.selectionStart ?? 0
-    const end = el.selectionEnd ?? 0
-    const selected = el.value.slice(start, end)
-
-    // Toggling the same button again on text it already wrapped removes the
-    // markers instead of stacking another layer around them (e.g. **hello**
-    // -> hello, not ****hello****).
-    const alreadyWrapped =
-      before.length > 0 &&
-      el.value.slice(start - before.length, start) === before &&
-      el.value.slice(end, end + after.length) === after
-
-    if (alreadyWrapped) {
-      const wrapStart = start - before.length
-      replaceRange(el, wrapStart, end + after.length, selected)
-      el.setSelectionRange(wrapStart, wrapStart + selected.length)
-      return
-    }
-
-    replaceRange(el, start, end, before + selected + after)
-    // Re-select just the original text (not the before/after markers), so
-    // it stays visibly highlighted and a second formatting button or typed
-    // replacement acts on the content, not the markup around it.
-    el.setSelectionRange(start + before.length, start + before.length + selected.length)
-  }
-
-  // Matches a bare `{{.field}}`/`{{.field.nested}}` reference — the only
-  // shape `mask` can meaningfully wrap; wrapping arbitrary literal text in
-  // `{{mask ...}}` would just produce an invalid template. A `{{mask ...}}`
-  // reference itself doesn't match (it doesn't start with a bare dot), so
-  // re-selecting an already-masked span and clicking Mask again is already a
-  // harmless no-op rather than double-masking it.
-  const FIELD_REF_RE = /^\{\{\s*(\.[\w.]+)\s*\}\}$/
-
-  // Turns a selected `{{.field}}` reference into a masked `` `{{mask .field}}` ``
-  // one — the same transform insertEnvVar applies automatically for a
-  // secret-looking key, but usable on a variable already in the template
-  // (e.g. one written by hand, or inserted before its key was recognized).
-  // No-ops with a flash if the selection isn't a bare field reference.
-  function maskSelection() {
-    const el = detailsTextareaEl
-    if (!el) return
-    const start = el.selectionStart ?? 0
-    const end = el.selectionEnd ?? 0
-    const match = el.value.slice(start, end).match(FIELD_REF_RE)
-    if (!match) {
-      flash(t('toast.maskNeedsVariable'))
-      return
-    }
-    const replacement = '`{{mask ' + match[1] + '}}`'
-    replaceRange(el, start, end, replacement)
-    el.setSelectionRange(start, start + replacement.length)
-  }
-
-  const DISPLAY_LAYOUT_KEY = 'sm-config-edit:displayLayout'
-
   onMount(async () => {
     const state = await InitialState()
     applyState(state)
     knownTerminals = await KnownTerminals()
     initialized = true
   })
-
-  onMount(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(DISPLAY_LAYOUT_KEY) ?? '{}')
-      if (saved.viewMode) displayViewMode = saved.viewMode
-      if (typeof saved.editWidth === 'number') displayEditWidth = saved.editWidth
-      if (typeof saved.editHeight === 'number') displayEditHeight = saved.editHeight
-    } catch {
-      // ignore corrupt/missing layout, defaults already set
-    }
-  })
-
-  function saveDisplayLayout() {
-    localStorage.setItem(
-      DISPLAY_LAYOUT_KEY,
-      JSON.stringify({
-        viewMode: displayViewMode,
-        editWidth: displayEditWidth,
-        editHeight: displayEditHeight,
-      }),
-    )
-  }
-  function setDisplayViewMode(mode: DisplayViewMode) {
-    displayViewMode = mode
-    saveDisplayLayout()
-  }
-
-  function dragDisplaySplit(e: MouseEvent) {
-    e.preventDefault()
-    const horizontal = displayViewMode === 'split-h'
-    const min = horizontal ? DISPLAY_MIN_HEIGHT : DISPLAY_MIN_WIDTH
-    const startPos = horizontal ? e.clientY : e.clientX
-    const startSize = horizontal ? displayEditHeight : displayEditWidth
-    function onMove(ev: MouseEvent) {
-      const rect = displaySplitEl.getBoundingClientRect()
-      const total = horizontal ? rect.height : rect.width
-      const max = total - min - DISPLAY_RESIZER
-      const pos = horizontal ? ev.clientY : ev.clientX
-      const next = Math.min(max, Math.max(min, startSize + (pos - startPos)))
-      if (horizontal) displayEditHeight = next
-      else displayEditWidth = next
-    }
-    function onUp() {
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-      saveDisplayLayout()
-    }
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }
 
   // The "clean" snapshot dirty is compared against, taken every time cfg is
   // set programmatically (load/save) rather than by the user editing a
@@ -327,17 +127,6 @@
     previewActionIdx = -1
     preview = null
     actionPreview = null
-    // A brand new/loaded config invalidates item indices entirely, unlike
-    // switching between displays within the same config (where keeping the
-    // same preview item is the point).
-    previewItemForDisplay = -1
-    displayPreview = null
-  }
-
-  function flash(msg: string) {
-    toast = msg
-    clearTimeout(toastTimer)
-    toastTimer = setTimeout(() => (toast = ''), 3000)
   }
 
   let validateTimer: ReturnType<typeof setTimeout>
@@ -458,10 +247,6 @@
   function newActionGroup(): configedit.ActionGroupDTO {
     return { id: '', title: '', color: '' } as unknown as configedit.ActionGroupDTO
   }
-  function newDisplay(): configedit.DisplayDTO {
-    return { name: '', list: '{{.name}}', details: '' } as unknown as configedit.DisplayDTO
-  }
-
   function addItem() {
     cfg.items = [...cfg.items, newItem()]
     selectedItem = cfg.items.length - 1
@@ -530,26 +315,6 @@
     const refCount = g?.id ? actionGroupRefCount(g.id) : 0
     const refSuffix = refCount > 0 ? t('confirm.removeActionGroupRefSuffix', { count: refCount, plural: refCount > 1 ? 's' : '' }) : ''
     if (confirm(t('confirm.removeActionGroup', { name, refSuffix }))) removeActionGroup(i)
-  }
-
-  function addDisplay() {
-    cfg.display = [...cfg.display, newDisplay()]
-    selectedDisplay = cfg.display.length - 1
-  }
-  function copyDisplay() {
-    const src = cfg.display[selectedDisplay]
-    if (!src) return
-    cfg.display = [...cfg.display, { ...src, name: `${src.name} - copy` }]
-    selectedDisplay = cfg.display.length - 1
-  }
-  function removeDisplay(i: number) {
-    cfg.display = cfg.display.filter((_, idx) => idx !== i)
-    if (selectedDisplay === i) selectedDisplay = -1
-    else if (selectedDisplay > i) selectedDisplay -= 1
-  }
-  function confirmRemoveDisplay(i: number) {
-    const name = cfg.display[i]?.name || t('fallback.unnamed')
-    if (confirm(t('confirm.removeDisplay', { name }))) removeDisplay(i)
   }
 
   function addCustomAction(itemIdx: number) {
@@ -711,129 +476,8 @@
     actionPreview = await PreviewAction(cfg.items[selectedItem], cfg.envFields, act)
   }
 
-  let displayPreviewTimer: ReturnType<typeof setTimeout>
-  // previewItemForDisplay >= -1 is always true — it's just there so Svelte
-  // tracks it as a dependency of this statement (picking a different
-  // preview item must re-trigger this the same way editing the template
-  // does), not a real condition.
-  $: if (
-    initialized &&
-    section === 'display' &&
-    selectedDisplay >= 0 &&
-    cfg.display[selectedDisplay] &&
-    previewItemForDisplay >= -1
-  )
-    scheduleDisplayPreview()
-  function scheduleDisplayPreview() {
-    clearTimeout(displayPreviewTimer)
-    displayPreviewTimer = setTimeout(async () => {
-      const d = cfg.display[selectedDisplay]
-      const item = cfg.items[previewItemForDisplay]
-      if (!d || !item) {
-        displayPreview = null
-        return
-      }
-      displayPreview = await PreviewItem(item, cfg.envFields, cfg.display, d.name)
-    }, 250)
-  }
-
-  // Messages section: edits either app's runtime message-override file
-  // (script-manager-gui.messages.json / sm-config-edit.messages.json),
-  // flattened into dotted-key rows for a simple key+text-input editor —
-  // the same dotted paths t() itself resolves. Independent of cfg's own
-  // dirty/save flow: a different file, a different Save action.
-  type MessagesTarget = 'gui' | 'configedit'
-  let messagesTarget: MessagesTarget = 'gui'
-  let messagesRows: { key: string; value: string }[] = []
-  let messagesError = ''
-  let messagesSearch = ''
-  // Which category groups are collapsed, by name — not reset on target
-  // switch, so a layout you've arranged (e.g. collapsing categories you
-  // don't care about) carries over between script-manager-gui/sm-config-edit.
-  let collapsedMessageGroups = new Set<string>()
-
-  function toggleMessageGroup(category: string) {
-    const next = new Set(collapsedMessageGroups)
-    if (next.has(category)) next.delete(category)
-    else next.add(category)
-    collapsedMessageGroups = next
-  }
-
-  $: allMessageGroupsCollapsed = messagesGroups.length > 0 && collapsedMessageGroups.size >= messagesGroups.length
-  function toggleAllMessageGroups() {
-    collapsedMessageGroups = allMessageGroupsCollapsed ? new Set() : new Set(messagesGroups.map((g) => g.category))
-  }
-
-  function flattenMessages(obj: unknown, prefix = ''): { key: string; value: string }[] {
-    if (typeof obj !== 'object' || obj === null) return []
-    const rows: { key: string; value: string }[] = []
-    for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
-      const key = prefix ? `${prefix}.${k}` : k
-      if (typeof v === 'string') rows.push({ key, value: v })
-      else rows.push(...flattenMessages(v, key))
-    }
-    return rows
-  }
-
-  function unflattenMessages(rows: { key: string; value: string }[]): Record<string, unknown> {
-    const root: Record<string, unknown> = {}
-    for (const { key, value } of rows) {
-      const parts = key.split('.')
-      let node = root
-      for (let i = 0; i < parts.length - 1; i++) {
-        const part = parts[i]
-        if (typeof node[part] !== 'object' || node[part] === null) node[part] = {}
-        node = node[part] as Record<string, unknown>
-      }
-      node[parts[parts.length - 1]] = value
-    }
-    return root
-  }
-
-  $: messagesGroups = (() => {
-    const q = messagesSearch.trim().toLowerCase()
-    const groups = new Map<string, { key: string; value: string }[]>()
-    for (const row of messagesRows) {
-      if (q && !row.key.toLowerCase().includes(q) && !row.value.toLowerCase().includes(q)) continue
-      const category = row.key.split('.')[0]
-      if (!groups.has(category)) groups.set(category, [])
-      groups.get(category)!.push(row)
-    }
-    return Array.from(groups, ([category, rows]) => ({ category, rows }))
-  })()
-
-  $: if (initialized && section === 'messages') loadMessages(messagesTarget)
-
-  async function loadMessages(target: MessagesTarget) {
-    messagesError = ''
-    try {
-      messagesRows = flattenMessages(await GetEditableMessages(target))
-    } catch (err) {
-      messagesRows = []
-      messagesError = String(err)
-    }
-  }
-
-  async function saveMessagesSection() {
-    try {
-      await SaveMessages(messagesTarget, unflattenMessages(messagesRows))
-      const app = messagesTarget === 'gui' ? t('messagesEditor.targetGui') : t('messagesEditor.targetConfigEdit')
-      flash(t('messagesEditor.saved', { app }))
-    } catch (err) {
-      flash(t('messagesEditor.saveFailed', { error: String(err) }))
-    }
-  }
-
-  // Resets the in-memory form to the target's compiled defaults — Save is
-  // still required afterward to persist it, same as any other edit here.
-  async function restoreDefaults() {
-    if (!confirm(t('messagesEditor.confirmRestoreDefaults'))) return
-    try {
-      messagesRows = flattenMessages(await GetDefaultMessages(messagesTarget))
-    } catch (err) {
-      flash(t('messagesEditor.restoreDefaultsFailed', { error: String(err) }))
-    }
-  }
+  // Messages section: extracted into MessagesEditor.svelte.
+  // Displays section: extracted into DisplaysEditor.svelte.
 </script>
 
 <svelte:window on:keydown={handleGlobalKeydown} />
@@ -918,172 +562,13 @@
           <p class="hint">{t('hint.envGlobal')}</p>
           <FieldGrid bind:fields={cfg.envFields} validateField={ValidateField} />
         {:else if section === 'display'}
-          <div class="display-section">
-            <div class="display-select-row">
-              <label class="field display-select-field">
-                <span>{t('field.display')}</span>
-                <select bind:value={selectedDisplay}>
-                  <option value={-1}>{t('option.selectDisplay')}</option>
-                  {#each cfg.display as d, i (i)}<option value={i}>{d.name || t('option.unnamedDisplay', { n: i + 1 })}</option
-                    >{/each}
-                </select>
-              </label>
-              <button class="btn icon-btn" type="button" title={t('tooltip.addDisplay')} aria-label={t('tooltip.addDisplay')} on:click={addDisplay}
-                ><ListActionIcon mode="add" /></button
-              >
-              <button
-                class="btn icon-btn"
-                type="button"
-                title={t('tooltip.copyDisplay')}
-                aria-label={t('tooltip.copyDisplay')}
-                disabled={selectedDisplay < 0}
-                on:click={copyDisplay}><ListActionIcon mode="copy" /></button
-              >
-              <button
-                class="btn icon-btn"
-                type="button"
-                title={t('tooltip.removeDisplay')}
-                aria-label={t('tooltip.removeDisplay')}
-                disabled={selectedDisplay < 0}
-                on:click={() => confirmRemoveDisplay(selectedDisplay)}><ListActionIcon mode="remove" /></button
-              >
-            </div>
-
-            {#if selectedDisplay >= 0 && cfg.display[selectedDisplay]}
-              <label class="field">
-                <span>{t('field.name')}</span>
-                <input type="text" bind:value={cfg.display[selectedDisplay].name} />
-              </label>
-
-              <div class="display-toolbar">
-                <div class="view-mode-group">
-                  <button
-                    class="btn icon-btn"
-                    class:active={displayViewMode === 'edit'}
-                    type="button"
-                    title={t('tooltip.editOnly')}
-                    aria-label={t('tooltip.editOnly')}
-                    on:click={() => setDisplayViewMode('edit')}><ViewModeIcon mode="edit" /></button
-                  >
-                  <button
-                    class="btn icon-btn"
-                    class:active={displayViewMode === 'preview'}
-                    type="button"
-                    title={t('tooltip.previewOnly')}
-                    aria-label={t('tooltip.previewOnly')}
-                    on:click={() => setDisplayViewMode('preview')}><ViewModeIcon mode="preview" /></button
-                  >
-                  <button
-                    class="btn icon-btn"
-                    class:active={displayViewMode === 'split-v'}
-                    type="button"
-                    title={t('tooltip.sideBySide')}
-                    aria-label={t('tooltip.sideBySide')}
-                    on:click={() => setDisplayViewMode('split-v')}><ViewModeIcon mode="split-v" /></button
-                  >
-                  <button
-                    class="btn icon-btn"
-                    class:active={displayViewMode === 'split-h'}
-                    type="button"
-                    title={t('tooltip.stacked')}
-                    aria-label={t('tooltip.stacked')}
-                    on:click={() => setDisplayViewMode('split-h')}><ViewModeIcon mode="split-h" /></button
-                  >
-                </div>
-                <label class="field preview-item-picker">
-                  <span>{t('field.previewItem')}</span>
-                  <select bind:value={previewItemForDisplay} on:change={scheduleDisplayPreview}>
-                    <option value={-1}>{t('option.none')}</option>
-                    {#each cfg.items as it, i}<option value={i}>{it.name || t('option.unnamedItem', { n: i + 1 })}</option
-                      >{/each}
-                  </select>
-                </label>
-              </div>
-
-              <div
-                class="display-edit-preview"
-                class:split-v={displayViewMode === 'split-v'}
-                class:split-h={displayViewMode === 'split-h'}
-                bind:this={displaySplitEl}
-              >
-                {#if displayViewMode !== 'preview'}
-                  <div
-                    class="edit-pane panel"
-                    style={displayViewMode === 'split-v'
-                      ? `flex: 0 1 ${displayEditWidth}px`
-                      : displayViewMode === 'split-h'
-                        ? `flex: 0 1 ${displayEditHeight}px`
-                        : ''}
-                  >
-                    <header class="panel-title"><span>{t('panel.edit')}</span></header>
-                    <div class="panel-body edit-pane-body">
-                      <label class="field list-template-field">
-                        <span>{t('field.listTemplate')}</span>
-                        <input type="text" bind:value={cfg.display[selectedDisplay].list} />
-                      </label>
-                      <label class="field details-template-field">
-                        <span>{t('field.detailsTemplate')}</span>
-                        <div class="details-helper-toolbar">
-                          <select class="env-insert-select" title={t('tooltip.insertEnvVar')} on:change={onEnvSelectChange}>
-                            <option value="">{t('option.insertEnv')}</option>
-                            {#each availableEnvKeys as key (key)}<option value={key}>{key}</option>{/each}
-                          </select>
-                          <button class="btn icon-btn" type="button" title={t('tooltip.bold')} on:click={() => wrapSelection('**')}
-                            ><strong>B</strong></button
-                          >
-                          <button class="btn icon-btn" type="button" title={t('tooltip.italic')} on:click={() => wrapSelection('_')}
-                            ><em>I</em></button
-                          >
-                          <button
-                            class="btn icon-btn"
-                            type="button"
-                            title={t('tooltip.highlight')}
-                            on:click={() => wrapSelection('`')}><code>`</code></button
-                          >
-                          <button class="btn icon-btn" type="button" title={t('tooltip.mask')} on:click={maskSelection}
-                            ><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
-                              <rect x="3.5" y="7" width="9" height="6.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3" />
-                              <path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.3" />
-                            </svg></button
-                          >
-                        </div>
-                        <textarea bind:value={cfg.display[selectedDisplay].details} bind:this={detailsTextareaEl}
-                        ></textarea>
-                      </label>
-                    </div>
-                  </div>
-                {/if}
-                {#if displayViewMode === 'split-v' || displayViewMode === 'split-h'}
-                  <!-- svelte-ignore a11y-no-static-element-interactions -->
-                  <div
-                    class="resizer {displayViewMode === 'split-h' ? 'horizontal' : 'vertical'}"
-                    on:mousedown={dragDisplaySplit}
-                  ></div>
-                {/if}
-                {#if displayViewMode !== 'edit'}
-                  <div class="preview-pane-inline panel">
-                    <header class="panel-title"><span>{t('panel.preview')}</span></header>
-                    <div class="panel-body">
-                      {#if previewItemForDisplay < 0}
-                        <div class="empty">{t('empty.pickItemToPreview')}</div>
-                      {:else if displayPreview}
-                        {#if displayPreview.error}
-                          <div class="validation-issue validation-error">{displayPreview.error}</div>
-                        {/if}
-                        <p class="preview-label">{t('hint.listLabel')}<strong>{displayPreview.listLabel}</strong></p>
-                        {#if displayPreview.missingFields?.length}
-                          <p class="hint">{t('hint.missingFields', { fields: displayPreview.missingFields.join(', ') })}</p>
-                        {/if}
-                        <div class="details-preview">{@html displayPreview.detailsHtml}</div>
-                      {/if}
-                    </div>
-                  </div>
-                {/if}
-              </div>
-            {:else}
-              <div class="empty">{t('empty.selectDisplayOrAdd')}</div>
-            {/if}
-          </div>
+          <DisplaysEditor
+            bind:displays={cfg.display}
+            bind:selectedDisplay
+            items={cfg.items}
+            envFields={cfg.envFields}
+            previewItem={PreviewItem}
+          />
         {:else if section === 'actionGroups'}
           <div class="list-toolbar">
             <button
@@ -1389,81 +874,17 @@
             {flash}
           />
         {:else if section === 'messages'}
-          <div class="messages-toolbar">
-            <div class="messages-tabs">
-              <button
-                class="messages-tab"
-                class:active={messagesTarget === 'gui'}
-                type="button"
-                on:click={() => (messagesTarget = 'gui')}>{t('messagesEditor.targetGui')}</button
-              >
-              <button
-                class="messages-tab"
-                class:active={messagesTarget === 'configedit'}
-                type="button"
-                on:click={() => (messagesTarget = 'configedit')}>{t('messagesEditor.targetConfigEdit')}</button
-              >
-            </div>
-            <div class="messages-actions">
-              <button
-                class="btn icon-btn"
-                type="button"
-                title={allMessageGroupsCollapsed ? t('messagesEditor.expandAll') : t('messagesEditor.collapseAll')}
-                on:click={toggleAllMessageGroups}
-                ><ToolbarIcon mode={allMessageGroupsCollapsed ? 'expand-all' : 'collapse-all'} /></button
-              >
-              <button
-                class="btn icon-btn"
-                type="button"
-                title={t('messagesEditor.restoreDefaults')}
-                on:click={restoreDefaults}><ToolbarIcon mode="restore" /></button
-              >
-              <button
-                class="btn btn-primary icon-btn"
-                type="button"
-                title={t('messagesEditor.saveButton')}
-                on:click={saveMessagesSection}><ToolbarIcon mode="save" /></button
-              >
-            </div>
-          </div>
-          <input
-            type="text"
-            class="messages-search"
-            placeholder={t('messagesEditor.searchPlaceholder')}
-            bind:value={messagesSearch}
+          <MessagesEditor
+            getEditableMessages={GetEditableMessages}
+            getDefaultMessages={GetDefaultMessages}
+            saveMessages={SaveMessages}
           />
-          {#if messagesError}
-            <div class="validation-issue validation-error">{messagesError}</div>
-          {:else}
-            <div class="messages-rows">
-              {#each messagesGroups as group (group.category)}
-                <div class="messages-group">
-                  <button
-                    class="messages-group-header"
-                    type="button"
-                    on:click={() => toggleMessageGroup(group.category)}
-                  >
-                    <span class="messages-group-title">{group.category}</span>
-                    <span class="collapse-glyph">{collapsedMessageGroups.has(group.category) ? '▸' : '▾'}</span>
-                  </button>
-                  {#if messagesSearch.trim() || !collapsedMessageGroups.has(group.category)}
-                    {#each group.rows as row (row.key)}
-                      <label class="field messages-row">
-                        <span class="messages-row-key">{row.key}</span>
-                        <input type="text" bind:value={row.value} />
-                      </label>
-                    {/each}
-                  {/if}
-                </div>
-              {/each}
-            </div>
-          {/if}
         {/if}
       </div>
     </section>
   </div>
 
-  <Toast message={toast} />
+  <Toast />
 </main>
 
 <style>
@@ -1579,8 +1000,7 @@
   }
 
   .field input,
-  .field select,
-  .field textarea {
+  .field select {
     background: var(--sm-bg-deep);
     color: var(--sm-text);
     border: 1px solid var(--sm-border);
@@ -1643,45 +1063,6 @@
     cursor: grab;
   }
 
-  /* Displays has no master-list sidebar (a combobox picks the display
-     instead), so it doesn't use .master-detail/.detail at all. Its
-     edit/preview split still needs a real, bounded height to resize
-     within, so display-section fills the available height exactly and
-     lets display-edit-preview's two panes scroll internally instead. */
-  .display-section {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    height: 100%;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .display-select-row {
-    flex: none;
-    display: flex;
-    align-items: flex-end;
-    gap: 12px;
-  }
-
-  .display-select-field {
-    flex: 0 1 320px;
-    margin-bottom: 0;
-  }
-
-  .display-toolbar {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-
-  .view-mode-group {
-    display: flex;
-    gap: 4px;
-  }
-
   .icon-btn {
     display: flex;
     align-items: center;
@@ -1701,91 +1082,11 @@
     margin-bottom: 8px;
   }
 
-  .view-mode-group .btn.active,
   .list-toolbar .btn.active {
     background: var(--sm-accent-warm);
     border-color: var(--sm-accent-warm);
     color: var(--sm-bg);
     font-weight: 700;
-  }
-
-  .preview-item-picker {
-    flex: 0 0 220px;
-    margin-bottom: 0;
-  }
-
-  /* Row by default (also covers single-pane Edit-only/Preview-only modes,
-     where whichever one pane is present just fills 100% via flex:1 below);
-     .split-h switches to a column so the panes stack instead. */
-  .display-edit-preview {
-    display: flex;
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .display-edit-preview.split-h {
-    flex-direction: column;
-  }
-
-  /* Base flex-basis is 0, not auto: with auto, an unconstrained pane's basis
-     is its max-content size — for the Preview pane that means the table's
-     *unwrapped* natural width, which can be huge regardless of the
-     word-wrap CSS below (max-content sizing ignores wrapping opportunities
-     by definition). That huge implicit basis was swamping the edit pane's
-     explicit pixel basis during flex-shrink, collapsing it to ~2px even
-     though its own flex-basis said otherwise. flex-basis:0 makes both
-     panes' share of space depend only on flex-grow/shrink and the explicit
-     pixel size below, never on content. A single visible pane (Edit-only/
-     Preview-only) still fills 100% via flex-grow regardless of basis. */
-  .edit-pane,
-  .preview-pane-inline {
-    flex: 1 1 0;
-    min-width: 0;
-    min-height: 0;
-  }
-
-  .edit-pane-body {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    min-height: 0;
-  }
-
-  .list-template-field {
-    flex: none;
-  }
-
-  .details-template-field {
-    flex: 1 1 auto;
-    min-height: 0;
-    margin-bottom: 0;
-  }
-
-  .details-template-field textarea {
-    flex: 1 1 auto;
-    min-height: 60px;
-    resize: none;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.8rem;
-  }
-
-  .details-helper-toolbar {
-    flex: none;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-bottom: 4px;
-  }
-
-  .details-helper-toolbar .icon-btn {
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.8rem;
-    line-height: 1;
-  }
-
-  .env-insert-select {
-    max-width: 160px;
   }
 
   .checkbox-list {
@@ -1907,102 +1208,5 @@
     word-break: break-word;
   }
 
-  .messages-toolbar {
-    flex: none;
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
-    gap: 8px;
-    margin-bottom: 10px;
-    border-bottom: 1px solid var(--sm-border);
-  }
-
-  .messages-tabs {
-    display: flex;
-    gap: 4px;
-  }
-
-  .messages-tab {
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    padding: 6px 4px 8px;
-    margin-bottom: -1px;
-    color: var(--sm-text-muted);
-    font-size: 0.85rem;
-    font-family: inherit;
-    cursor: pointer;
-  }
-
-  .messages-tab:hover {
-    color: var(--sm-text);
-  }
-
-  .messages-tab.active {
-    color: var(--sm-accent-warm);
-    border-bottom-color: var(--sm-accent-warm);
-    font-weight: 700;
-  }
-
-  .messages-actions {
-    flex: none;
-    display: flex;
-    gap: 4px;
-    margin-bottom: 6px;
-  }
-
-  .messages-search {
-    flex: none;
-    margin-bottom: 10px;
-    background: var(--sm-bg-deep);
-    color: var(--sm-text);
-    border: 1px solid var(--sm-border);
-    border-radius: 4px;
-    padding: 5px 7px;
-    font-family: inherit;
-    font-size: 0.85rem;
-  }
-
-  .messages-rows {
-    flex: 1 1 auto;
-    overflow-y: auto;
-  }
-
-  .messages-group {
-    margin-bottom: 14px;
-  }
-
-  .messages-group-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    background: none;
-    border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--sm-code) 35%, var(--sm-border));
-    padding: 0 0 6px;
-    margin: 0 0 6px;
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  /* Matches the teal already used for code spans elsewhere (e.g.
-     .details-preview :global(code) below) rather than introducing a new
-     accent color. */
-  .messages-group-title {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--sm-code);
-  }
-
-  .collapse-glyph {
-    color: var(--sm-text-muted);
-  }
-
-  .messages-row-key {
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.75rem;
-  }
+  /* .messages-* styling now lives in MessagesEditor.svelte. */
 </style>
