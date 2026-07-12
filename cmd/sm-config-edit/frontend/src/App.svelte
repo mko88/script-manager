@@ -12,6 +12,7 @@
   import MessagesEditor from './components/MessagesEditor.svelte'
   import DisplaysEditor from './components/DisplaysEditor.svelte'
   import ActionGroupsEditor from './components/ActionGroupsEditor.svelte'
+  import ActionsEditor from './components/ActionsEditor.svelte'
   import ListActionIcon from './components/ListActionIcon.svelte'
   import ToolbarIcon from './components/ToolbarIcon.svelte'
   import { t } from './messages'
@@ -260,20 +261,6 @@
     if (confirm(t('confirm.removeItem', { name }))) removeItem(i)
   }
 
-  function addAction() {
-    cfg.actions = [...cfg.actions, newAction()]
-    selectedAction = cfg.actions.length - 1
-  }
-  function removeAction(i: number) {
-    cfg.actions = cfg.actions.filter((_, idx) => idx !== i)
-    if (selectedAction === i) selectedAction = -1
-    else if (selectedAction > i) selectedAction -= 1
-  }
-  function confirmRemoveAction(i: number) {
-    const name = cfg.actions[i]?.title || cfg.actions[i]?.id || t('fallback.untitled')
-    if (confirm(t('confirm.removeAction', { name }))) removeAction(i)
-  }
-
   function addCustomAction(itemIdx: number) {
     cfg.items[itemIdx].customActions = [...cfg.items[itemIdx].customActions, newAction()]
   }
@@ -299,10 +286,7 @@
   // clicked away.
   function toggleReorderMode() {
     reorderMode = !reorderMode
-    if (reorderMode) {
-      selectedItem = -1
-      selectedAction = -1
-    }
+    if (reorderMode) selectedItem = -1
   }
 
   // Re-derived from cfg.* on any change EXCEPT while a drag is active —
@@ -315,9 +299,7 @@
   // call site.
   let dragging = false
   let itemEntries: DndEntry<configedit.ItemDTO>[] = wrap(cfg.items)
-  let actionEntries: DndEntry<configedit.ActionDTO>[] = wrap(cfg.actions)
   $: if (!dragging) itemEntries = wrap(cfg.items)
-  $: if (!dragging) actionEntries = wrap(cfg.actions)
 
   // consider fires continuously during the drag (giving the live-shifting
   // preview via dndzone's own flip animation); finalize fires once,
@@ -333,12 +315,6 @@
     dragging = !final
     if (final) cfg.items = itemEntries.filter((w) => w.ref).map((w) => w.ref)
   }
-  function syncActions(e: CustomEvent<DndEvent<DndEntry<configedit.ActionDTO>>>, final: boolean) {
-    actionEntries = e.detail.items
-    dragging = !final
-    if (final) cfg.actions = actionEntries.filter((w) => w.ref).map((w) => w.ref)
-  }
-
   $: allActionIds = cfg.actions.map((a) => a.id).filter((id) => id)
   $: allActionGroups = cfg.actionGroups.map((g) => g.id).filter((id) => id)
 
@@ -465,51 +441,7 @@
             bind:selectedActionGroup
           />
         {:else if section === 'actions'}
-          <div class="list-toolbar">
-            <button class="btn icon-btn" type="button" title={t('tooltip.addAction')} aria-label={t('tooltip.addAction')} on:click={addAction}
-              ><ListActionIcon mode="add" /></button
-            >
-            <button
-              class="btn icon-btn"
-              type="button"
-              title={t('tooltip.removeAction')}
-              aria-label={t('tooltip.removeAction')}
-              disabled={selectedAction < 0}
-              on:click={() => confirmRemoveAction(selectedAction)}><ListActionIcon mode="remove" /></button
-            >
-            <button
-              class="btn icon-btn"
-              class:active={reorderMode}
-              type="button"
-              title={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
-              aria-label={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
-              on:click={toggleReorderMode}><ListActionIcon mode="reorder" /></button
-            >
-          </div>
-          <div class="master-detail">
-            <div
-              class="master list"
-              class:reorder-mode={reorderMode}
-              use:sortableList={{ items: actionEntries, onSync: syncActions, dragDisabled: !reorderMode }}
-            >
-              {#each actionEntries as entry, i (entry.id)}
-                <button
-                  class="row"
-                  class:selected={selectedAction === i}
-                  on:click={() => {
-                    if (!reorderMode) selectedAction = i
-                  }}>{entry.ref.title || entry.ref.id || t('fallback.untitled')}</button
-                >
-              {/each}
-            </div>
-            <div class="detail">
-              {#if selectedAction >= 0 && cfg.actions[selectedAction]}
-                <ActionForm bind:action={cfg.actions[selectedAction]} {allActionGroups} />
-              {:else}
-                <div class="empty">{t('empty.selectActionOrAdd')}</div>
-              {/if}
-            </div>
-          </div>
+          <ActionsEditor bind:actions={cfg.actions} bind:selectedAction {allActionGroups} />
         {:else if section === 'items'}
           <div class="list-toolbar">
             <button class="btn icon-btn" type="button" title={t('tooltip.addItem')} aria-label={t('tooltip.addItem')} on:click={addItem}
