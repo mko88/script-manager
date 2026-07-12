@@ -189,6 +189,7 @@
     "previewCommandLine2": "./deploy.sh --env prod",
     "previewOutputLine": "OK: 200 healthy",
     "previewError": "Error text",
+    "previewWarning": "⚠ 2 missing values",
     "previewMasked": "•••• masked value",
     "previewToast": "Toast notification"
   }

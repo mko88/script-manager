@@ -15,6 +15,8 @@
   --sm-text-faint: #6b7a90;
   --sm-accent: #7fd4ff;
   --sm-accent-warm: #e8a33d;
+  --sm-accent-warm-text: #1b2636;
+  --sm-warning: #e8a33d;
   --sm-hover: #2b3b52;
   --sm-hover-strong: #34455e;
   --sm-tint-hover: #1f3346;
@@ -34,11 +36,11 @@
    for contrast on a light ground, not just lightness-inverted: a pale
    accent that reads fine on the dark palette's near-black background
    (--sm-accent, --sm-accent-warm, --sm-code, --sm-error) would be
-   low-contrast on white, so those four are darkened instead. Rules that
-   pair --sm-accent-warm as a solid fill with --sm-bg as its text color
-   (selected rows, active chips, primary buttons) still work unmodified in
-   both themes, because accent-warm and bg are kept at opposite ends of the
-   lightness range in each theme — only the values change, never the rule. */
+   low-contrast on white, so those four are darkened instead. --sm-accent-warm-text
+   and --sm-warning are independent tokens, not var()-aliases of --sm-bg/
+   --sm-accent-warm — they just start out equal to them (own values, not
+   references) so nothing looks different yet; each can be recolored on its
+   own without dragging the page background or the accent-warm hue along. */
 :root[data-theme="light"] {
   --sm-bg: #eef1f6;
   --sm-bg-alt: #ffffff;
@@ -50,6 +52,8 @@
   --sm-text-faint: #8996a8;
   --sm-accent: #0d7fb8;
   --sm-accent-warm: #a8660a;
+  --sm-accent-warm-text: #eef1f6;
+  --sm-warning: #a8660a;
   --sm-hover: #e2e8f0;
   --sm-hover-strong: #d5dde8;
   --sm-tint-hover: #dbe9f2;
@@ -210,7 +214,7 @@ body {
 
 .row.selected {
   background: var(--sm-accent-warm);
-  color: var(--sm-bg);
+  color: var(--sm-accent-warm-text);
   font-weight: 700;
 }
 
@@ -240,7 +244,7 @@ body {
 .chip.active {
   background: var(--sm-accent-warm);
   border-color: var(--sm-accent-warm);
-  color: var(--sm-bg);
+  color: var(--sm-accent-warm-text);
   font-weight: 700;
 }
 
@@ -278,7 +282,7 @@ body {
 .btn-primary,
 .run-cmd-btn {
   background: var(--sm-accent-warm);
-  color: var(--sm-bg);
+  color: var(--sm-accent-warm-text);
   border-color: var(--sm-accent-warm);
   font-weight: 700;
   padding: 5px 12px;
@@ -408,7 +412,7 @@ select.sm-select {
 .list-toolbar .btn.active {
   background: var(--sm-accent-warm);
   border-color: var(--sm-accent-warm);
-  color: var(--sm-bg);
+  color: var(--sm-accent-warm-text);
   font-weight: 700;
 }
 

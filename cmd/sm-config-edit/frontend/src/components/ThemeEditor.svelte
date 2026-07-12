@@ -400,6 +400,11 @@
           >
           <button
             type="button"
+            class="theme-editor-preview-warning theme-editor-preview-hotspot"
+            on:click={onPreviewClick}>{t('themeEditor.previewWarning')}</button
+          >
+          <button
+            type="button"
             class="theme-editor-preview-masked theme-editor-preview-hotspot"
             on:click={onPreviewClick}>{t('themeEditor.previewMasked')}</button
           >
@@ -746,6 +751,12 @@
     margin: 0;
     font-size: 0.8rem;
     color: var(--sm-error);
+  }
+
+  .theme-editor-preview-warning {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--sm-warning);
   }
 
   .theme-editor-preview-masked {

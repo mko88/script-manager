@@ -636,11 +636,11 @@
   .warning-toggle {
     flex: none;
     padding: 2px 4px;
-    color: var(--sm-accent-warm);
+    color: var(--sm-warning);
   }
 
   .warning-summary {
-    color: var(--sm-accent-warm);
+    color: var(--sm-warning);
     font-size: 0.78rem;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -655,8 +655,8 @@
   }
 
   .warning-chip {
-    border-color: var(--sm-accent-warm);
-    color: var(--sm-accent-warm);
+    border-color: var(--sm-warning);
+    color: var(--sm-warning);
   }
 
   .details-content {

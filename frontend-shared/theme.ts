@@ -17,7 +17,10 @@ const THEMES_STORAGE_KEY = 'sm-theme-themes'
 export const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
   { label: 'Backgrounds', tokens: ['bg', 'bg-alt', 'bg-deep', 'panel-header', 'border'] },
   { label: 'Text', tokens: ['text', 'text-muted', 'text-faint'] },
-  { label: 'Accents', tokens: ['accent', 'accent-warm', 'code', 'masked', 'error', 'line-number'] },
+  {
+    label: 'Accents',
+    tokens: ['accent', 'accent-warm', 'accent-warm-text', 'code', 'masked', 'warning', 'error', 'line-number'],
+  },
   {
     label: 'Effects',
     tokens: [

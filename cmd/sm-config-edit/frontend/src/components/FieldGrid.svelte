@@ -193,7 +193,7 @@
   .icon-btn.active {
     background: var(--sm-accent-warm);
     border-color: var(--sm-accent-warm);
-    color: var(--sm-bg);
+    color: var(--sm-accent-warm-text);
   }
   input,
   select,
