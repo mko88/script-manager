@@ -1,19 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import type { DndEvent } from 'svelte-dnd-action'
-  import { wrap, sortableList, type DndEntry } from './lib/sortable'
   import Toast from '@shared/components/Toast.svelte'
   import { flash } from '@shared/toast'
   import { getTheme, getThemes, type Theme, type CustomPalette } from '@shared/theme'
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
-  import ActionForm from './components/ActionForm.svelte'
   import ThemeEditor from './components/ThemeEditor.svelte'
   import MessagesEditor from './components/MessagesEditor.svelte'
   import DisplaysEditor from './components/DisplaysEditor.svelte'
   import ActionGroupsEditor from './components/ActionGroupsEditor.svelte'
   import ActionsEditor from './components/ActionsEditor.svelte'
-  import ListActionIcon from './components/ListActionIcon.svelte'
+  import ItemsEditor from './components/ItemsEditor.svelte'
   import ToolbarIcon from './components/ToolbarIcon.svelte'
   import { t } from './messages'
   import {
@@ -90,11 +87,6 @@
   let selectedAction = -1
   let selectedDisplay = -1
 
-  let preview: configedit.PreviewDTO | null = null
-  let previewDisplayName = ''
-  let previewActionIdx = -1
-  let actionPreview: configedit.ActionPreviewDTO | null = null
-
   onMount(async () => {
     const state = await InitialState()
     applyState(state)
@@ -126,9 +118,6 @@
     selectedActionGroup = -1
     selectedAction = -1
     selectedDisplay = -1
-    previewActionIdx = -1
-    preview = null
-    actionPreview = null
   }
 
   let validateTimer: ReturnType<typeof setTimeout>
@@ -228,120 +217,13 @@
     }
   }
 
-  // The generated DTO classes for nested-object fields (ItemDTO, ConfigDTO)
-  // carry a convertValues method, so a plain object literal isn't
-  // structurally assignable — cast new entries the same way the rest of this
-  // file's initial state does.
-  function newItem(): configedit.ItemDTO {
-    return { name: '', display: '', actions: [], actionGroups: [], customActions: [], fields: [] } as unknown as configedit.ItemDTO
-  }
-  function newAction(): configedit.ActionDTO {
-    return {
-      id: '',
-      title: '',
-      description: '',
-      cmd: '',
-      groups: [],
-      noWait: false,
-      interactive: true,
-    } as unknown as configedit.ActionDTO
-  }
-  function addItem() {
-    cfg.items = [...cfg.items, newItem()]
-    selectedItem = cfg.items.length - 1
-    previewActionIdx = -1
-  }
-  function removeItem(i: number) {
-    cfg.items = cfg.items.filter((_, idx) => idx !== i)
-    if (selectedItem === i) selectedItem = -1
-    else if (selectedItem > i) selectedItem -= 1
-  }
-  function confirmRemoveItem(i: number) {
-    const name = cfg.items[i]?.name || t('fallback.unnamed')
-    if (confirm(t('confirm.removeItem', { name }))) removeItem(i)
-  }
-
-  function addCustomAction(itemIdx: number) {
-    cfg.items[itemIdx].customActions = [...cfg.items[itemIdx].customActions, newAction()]
-  }
-  function removeCustomAction(itemIdx: number, i: number) {
-    cfg.items[itemIdx].customActions = cfg.items[itemIdx].customActions.filter((_, idx) => idx !== i)
-  }
-
-  function toggleInList(list: string[], value: string): string[] {
-    return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
-  }
-
-  // Reordering is opt-in: off by default, toggled per-visit via the
-  // reorder-mode button in each list's toolbar (not persisted — reopening
-  // a section, or the app, starts back in "reordering off"). Without this
-  // gate, a plain click-to-select on a row is only one accidental pixel
-  // of movement away from silently reordering the list.
-  let reorderMode = false
-  // Turning reorder mode on clears whatever's selected — keeping a
-  // selection alive through a reorder means tracking its index through
-  // every live-shifting consider event, which isn't worth the
-  // complication. Turning it back off deliberately does *not* try to
-  // restore the old selection; it's simply gone, same as if you'd
-  // clicked away.
-  function toggleReorderMode() {
-    reorderMode = !reorderMode
-    if (reorderMode) selectedItem = -1
-  }
-
-  // Re-derived from cfg.* on any change EXCEPT while a drag is active —
-  // during the drag, dndzone owns itemEntries via consider (below), and
-  // reactively overwriting it out from under it too (with freshly
-  // recreated wrapper objects on every one of our own cfg.items writes)
-  // corrupted its internal drag tracking: the dragged entry vanished
-  // entirely on drop instead of moving. Outside a drag this still stays
-  // correct for free with no manual sync needed at every add/remove/load
-  // call site.
-  let dragging = false
-  let itemEntries: DndEntry<configedit.ItemDTO>[] = wrap(cfg.items)
-  $: if (!dragging) itemEntries = wrap(cfg.items)
-
-  // consider fires continuously during the drag (giving the live-shifting
-  // preview via dndzone's own flip animation); finalize fires once,
-  // settled, on drop or cancel. Only finalize commits to the real cfg.*
-  // data — consider only updates what's rendered, exactly the pattern
-  // svelte-dnd-action's own examples use. No selection to track through
-  // the reorder here: entering reorder mode clears it and blocks
-  // reselecting until reorder mode is off again (see toggleReorderMode),
-  // so selectedX is always -1 for the whole reorder, nothing to keep in
-  // sync with a live-changing index.
-  function syncItems(e: CustomEvent<DndEvent<DndEntry<configedit.ItemDTO>>>, final: boolean) {
-    itemEntries = e.detail.items
-    dragging = !final
-    if (final) cfg.items = itemEntries.filter((w) => w.ref).map((w) => w.ref)
-  }
-  $: allActionIds = cfg.actions.map((a) => a.id).filter((id) => id)
   $: allActionGroups = cfg.actionGroups.map((g) => g.id).filter((id) => id)
-
-  let previewTimer: ReturnType<typeof setTimeout>
-  $: if (initialized && section === 'items' && selectedItem >= 0 && cfg.items[selectedItem]) schedulePreview()
-  function schedulePreview() {
-    clearTimeout(previewTimer)
-    previewTimer = setTimeout(async () => {
-      const item = cfg.items[selectedItem]
-      if (!item) return
-      if (!previewDisplayName && cfg.display.length > 0) previewDisplayName = item.display || cfg.display[0].name
-      preview = await PreviewItem(item, cfg.envFields, cfg.display, previewDisplayName || item.display)
-    }, 250)
-  }
-
-  async function previewSelectedAction() {
-    if (selectedItem < 0 || previewActionIdx < 0) {
-      actionPreview = null
-      return
-    }
-    const act = cfg.actions[previewActionIdx]
-    if (!act) return
-    actionPreview = await PreviewAction(cfg.items[selectedItem], cfg.envFields, act)
-  }
 
   // Messages section: extracted into MessagesEditor.svelte.
   // Displays section: extracted into DisplaysEditor.svelte.
+  // Action Groups section: extracted into ActionGroupsEditor.svelte.
+  // Actions section: extracted into ActionsEditor.svelte.
+  // Items section: extracted into ItemsEditor.svelte.
 </script>
 
 <svelte:window on:keydown={handleGlobalKeydown} />
@@ -443,168 +325,17 @@
         {:else if section === 'actions'}
           <ActionsEditor bind:actions={cfg.actions} bind:selectedAction {allActionGroups} />
         {:else if section === 'items'}
-          <div class="list-toolbar">
-            <button class="btn icon-btn" type="button" title={t('tooltip.addItem')} aria-label={t('tooltip.addItem')} on:click={addItem}
-              ><ListActionIcon mode="add" /></button
-            >
-            <button
-              class="btn icon-btn"
-              type="button"
-              title={t('tooltip.removeItem')}
-              aria-label={t('tooltip.removeItem')}
-              disabled={selectedItem < 0}
-              on:click={() => confirmRemoveItem(selectedItem)}><ListActionIcon mode="remove" /></button
-            >
-            <button
-              class="btn icon-btn"
-              class:active={reorderMode}
-              type="button"
-              title={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
-              aria-label={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
-              on:click={toggleReorderMode}><ListActionIcon mode="reorder" /></button
-            >
-          </div>
-          <div class="master-detail">
-            <div
-              class="master list"
-              class:reorder-mode={reorderMode}
-              use:sortableList={{ items: itemEntries, onSync: syncItems, dragDisabled: !reorderMode }}
-            >
-              {#each itemEntries as entry, i (entry.id)}
-                <button
-                  class="row"
-                  class:selected={selectedItem === i}
-                  on:click={() => {
-                    if (reorderMode) return
-                    selectedItem = i
-                    previewActionIdx = -1
-                    actionPreview = null
-                  }}>{entry.ref.name || t('fallback.unnamed')}</button
-                >
-              {/each}
-            </div>
-            <div class="detail">
-              {#if selectedItem >= 0 && cfg.items[selectedItem]}
-                <label class="field">
-                  <span>{t('field.name')}</span>
-                  <input type="text" bind:value={cfg.items[selectedItem].name} />
-                </label>
-                <label class="field">
-                  <span>{t('field.display')}</span>
-                  <select bind:value={cfg.items[selectedItem].display}>
-                    <option value="">{t('option.defaultDisplay')}</option>
-                    {#each cfg.display as d}<option value={d.name}>{d.name}</option>{/each}
-                  </select>
-                </label>
-
-                {#if allActionIds.length > 0}
-                  <div class="field">
-                    <span>{t('nav.actions')}</span>
-                    <div class="checkbox-list">
-                      {#each allActionIds as id}
-                        <label class="checkbox-chip">
-                          <input
-                            type="checkbox"
-                            checked={cfg.items[selectedItem].actions.includes(id)}
-                            on:change={() =>
-                              (cfg.items[selectedItem].actions = toggleInList(cfg.items[selectedItem].actions, id))}
-                          />
-                          {id}
-                        </label>
-                      {/each}
-                    </div>
-                  </div>
-                {/if}
-
-                {#if allActionGroups.length > 0}
-                  <div class="field">
-                    <span>{t('field.itemActionGroupsList')}</span>
-                    <div class="checkbox-list">
-                      {#each allActionGroups as g}
-                        <label class="checkbox-chip">
-                          <input
-                            type="checkbox"
-                            checked={cfg.items[selectedItem].actionGroups.includes(g)}
-                            on:change={() =>
-                              (cfg.items[selectedItem].actionGroups = toggleInList(
-                                cfg.items[selectedItem].actionGroups,
-                                g,
-                              ))}
-                          />
-                          {g}
-                        </label>
-                      {/each}
-                    </div>
-                  </div>
-                {/if}
-
-                <div class="field">
-                  <span>{t('field.customActions')}</span>
-                  {#each cfg.items[selectedItem].customActions as _, j (j)}
-                    <div class="nested-action">
-                      <ActionForm bind:action={cfg.items[selectedItem].customActions[j]} showId={false} {allActionGroups} />
-                      <button class="btn" type="button" on:click={() => removeCustomAction(selectedItem, j)}
-                        >{t('button.removeCustomAction')}</button
-                      >
-                    </div>
-                  {/each}
-                  <button class="btn" type="button" on:click={() => addCustomAction(selectedItem)}
-                    >{t('button.addCustomAction')}</button
-                  >
-                </div>
-
-                <div class="field">
-                  <span>{t('nav.environment')}</span>
-                  <p class="hint">{t('hint.envItem')}</p>
-                  <FieldGrid bind:fields={cfg.items[selectedItem].fields} validateField={ValidateField} />
-                </div>
-
-                <div class="preview-pane panel">
-                  <header class="panel-title"><span>{t('panel.preview')}</span></header>
-                  <div class="panel-body">
-                    {#if cfg.display.length > 1}
-                      <label class="field">
-                        <span>{t('field.previewDisplay')}</span>
-                        <select bind:value={previewDisplayName} on:change={schedulePreview}>
-                          {#each cfg.display as d}<option value={d.name}>{d.name}</option>{/each}
-                        </select>
-                      </label>
-                    {/if}
-                    {#if preview}
-                      {#if preview.error}
-                        <div class="validation-issue validation-error">{preview.error}</div>
-                      {/if}
-                      <p class="preview-label">{t('hint.listLabel')}<strong>{preview.listLabel}</strong></p>
-                      {#if preview.missingFields?.length}
-                        <p class="hint">{t('hint.missingFields', { fields: preview.missingFields.join(', ') })}</p>
-                      {/if}
-                      <div class="details-preview">{@html preview.detailsHtml}</div>
-                    {/if}
-
-                    {#if cfg.actions.length > 0}
-                      <label class="field">
-                        <span>{t('field.previewAction')}</span>
-                        <select bind:value={previewActionIdx} on:change={previewSelectedAction}>
-                          <option value={-1}>{t('option.none')}</option>
-                          {#each cfg.actions as a, i}<option value={i}>{a.title || a.id}</option>{/each}
-                        </select>
-                      </label>
-                      {#if actionPreview}
-                        {#if actionPreview.error}
-                          <div class="validation-issue validation-error">{actionPreview.error}</div>
-                        {/if}
-                        <p class="preview-label">{t('hint.commandLabel')}</p>
-                        <pre class="cmd-preview">{actionPreview.cmd}</pre>
-                        {#if actionPreview.description}<p class="hint action-desc-preview">{actionPreview.description}</p>{/if}
-                      {/if}
-                    {/if}
-                  </div>
-                </div>
-              {:else}
-                <div class="empty">{t('empty.selectItemOrAdd')}</div>
-              {/if}
-            </div>
-          </div>
+          <ItemsEditor
+            bind:items={cfg.items}
+            bind:selectedItem
+            actions={cfg.actions}
+            {allActionGroups}
+            displays={cfg.display}
+            envFields={cfg.envFields}
+            previewItem={PreviewItem}
+            previewAction={PreviewAction}
+            validateField={ValidateField}
+          />
         {:else if section === 'theme'}
           <ThemeEditor
             bind:theme
@@ -721,10 +452,6 @@
     margin: 0 0 8px;
   }
 
-  .action-desc-preview {
-    white-space: pre-wrap;
-  }
-
   .hint code {
     background: var(--sm-bg-deep);
     padding: 1px 4px;
@@ -740,8 +467,7 @@
     margin-bottom: 10px;
   }
 
-  .field input,
-  .field select {
+  .field input {
     background: var(--sm-bg-deep);
     color: var(--sm-text);
     border: 1px solid var(--sm-border);
@@ -751,29 +477,6 @@
     font-size: 0.85rem;
   }
 
-  /* Without appearance: none, <select> keeps its native dropdown-arrow
-     chrome in Chromium/WebView2 regardless of the background/color set
-     above, showing as a jarring light box behind the arrow against this
-     dark theme. appearance: none removes that entirely (including the
-     arrow itself), so a plain custom chevron replaces it here instead. */
-  .field select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9b6c8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    padding-right: 28px;
-  }
-
-  /* The arrow color is baked into the SVG's URL-encoded string, so it can't
-     reference --sm-text-muted via var() — swap the whole background-image
-     for the light-theme equivalent (%2355647a = --sm-text-muted's light
-     value) instead. */
-  :global([data-theme="light"]) .field select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355647a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  }
-
   .radio-group {
     display: flex;
     gap: 16px;
@@ -781,130 +484,6 @@
     font-size: 0.85rem;
   }
 
-  .master-detail {
-    display: flex;
-    gap: 10px;
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-
-  .master {
-    flex: 0 0 200px;
-    overflow-y: auto;
-  }
-
-  .detail {
-    flex: 1 1 auto;
-    min-width: 0;
-    overflow-y: auto;
-    padding-right: 4px;
-  }
-
-  .master.reorder-mode .row {
-    cursor: grab;
-  }
-
-  .icon-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 9px;
-  }
-
-  .icon-btn:disabled {
-    opacity: 0.35;
-    cursor: default;
-  }
-
-  .checkbox-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-
-  .checkbox-chip {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--sm-bg-deep);
-    border: 1px solid var(--sm-border);
-    border-radius: 999px;
-    padding: 2px 9px;
-    font-size: 0.75rem;
-    cursor: pointer;
-  }
-
-  .nested-action {
-    border: 1px solid var(--sm-border);
-    border-radius: 6px;
-    padding: 8px;
-    margin-bottom: 8px;
-    background: var(--sm-bg-deep);
-  }
-
-  .preview-pane {
-    margin-top: 16px;
-  }
-
-  .preview-label {
-    margin: 4px 0;
-    font-size: 0.85rem;
-  }
-
-  /* Mirrors script-manager-gui's .details-content rules for the same
-     goldmark-rendered HTML. table-layout: fixed (gui's own table rule
-     doesn't need this — it only ever resizes panes by height, never width)
-     is the important addition here: without it, an unstyled <table> sizes
-     itself to its widest cell and refuses to shrink below that, fighting
-     the drag-to-resize divider in split-v mode — this pane, unlike gui's,
-     genuinely needs to shrink to arbitrary widths. */
-  .details-preview {
-    font-size: 0.85rem;
-    line-height: 1.5;
-    margin-bottom: 8px;
-    min-width: 0;
-    overflow-wrap: break-word;
-  }
-
-  .details-preview :global(h1),
-  .details-preview :global(h2),
-  .details-preview :global(h3) {
-    color: var(--sm-accent);
-    margin: 0.6em 0 0.3em;
-  }
-
-  .details-preview :global(table) {
-    table-layout: fixed;
-    border-collapse: collapse;
-    width: 100%;
-  }
-
-  .details-preview :global(td),
-  .details-preview :global(th) {
-    border: 1px solid var(--sm-border);
-    padding: 4px 8px;
-    text-align: left;
-    overflow-wrap: break-word;
-  }
-
-  .details-preview :global(code) {
-    background: var(--sm-bg-deep);
-    color: var(--sm-code);
-    padding: 1px 5px;
-    border-radius: 3px;
-    font-family: "SF Mono", Consolas, monospace;
-    overflow-wrap: break-word;
-  }
-
-  .cmd-preview {
-    background: var(--sm-bg-deep);
-    border-radius: 4px;
-    padding: 8px;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.8rem;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
 
   /* .messages-* styling now lives in MessagesEditor.svelte. */
 </style>
