@@ -2,6 +2,7 @@
   "toast": {
     "configLoadWarning": "Config load warning: {warning}",
     "openFailed": "Open failed: {error}",
+    "openInEditorFailed": "Failed to open in default editor: {error}",
     "saved": "Saved",
     "saveFailed": "Save failed: {error}",
     "fixBlockingErrors": "Fix blocking errors before saving",
@@ -66,6 +67,8 @@
     "saveAria": "Save",
     "saveAsTitle": "Save As (Ctrl+Shift+S)",
     "saveAsAria": "Save As",
+    "openInEditorTitle": "Open in default editor: {path}",
+    "openInEditorAria": "Open config file in default editor",
     "addDisplay": "Add display",
     "copyDisplay": "Copy display",
     "removeDisplay": "Remove display",
@@ -146,7 +149,8 @@
   },
   "panel": {
     "edit": "Edit",
-    "preview": "Preview"
+    "preview": "Preview",
+    "sections": "Sections"
   },
   "text": {
     "unsaved": "(unsaved)",

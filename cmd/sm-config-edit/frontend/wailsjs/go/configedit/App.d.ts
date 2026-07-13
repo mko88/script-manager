@@ -23,6 +23,8 @@ export function KnownTerminals():Promise<Array<string>>;
 
 export function NewBlank():Promise<configedit.StateDTO>;
 
+export function OpenInEditor():Promise<void>;
+
 export function PreviewAction(arg1:configedit.ItemDTO,arg2:Array<configedit.FieldDTO>,arg3:configedit.ActionDTO):Promise<configedit.ActionPreviewDTO>;
 
 export function PreviewItem(arg1:configedit.ItemDTO,arg2:Array<configedit.FieldDTO>,arg3:Array<configedit.DisplayDTO>,arg4:string):Promise<configedit.PreviewDTO>;
