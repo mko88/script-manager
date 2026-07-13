@@ -15,7 +15,7 @@ const THEMES_STORAGE_KEY = 'sm-theme-themes'
 // the "--sm-" prefix), grouped for the theme editor's UI — matches
 // frontend-shared/theme.css's :root block exactly; keep both in sync.
 export const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
-  { label: 'Backgrounds', tokens: ['bg', 'bg-alt', 'bg-deep', 'panel-header', 'border'] },
+  { label: 'Backgrounds', tokens: ['bg', 'bg-alt', 'row-bg', 'button-bg', 'bg-deep', 'panel-header', 'border'] },
   { label: 'Text', tokens: ['text', 'text-muted', 'text-faint'] },
   {
     label: 'Accents',
@@ -25,7 +25,6 @@ export const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
     label: 'Effects',
     tokens: [
       'hover',
-      'hover-strong',
       'tint-hover',
       'overlay-soft',
       'overlay-medium',

@@ -167,9 +167,15 @@
     return Array.from(found)
   }
 
+  // Falls back to the panel's own tokens (--sm-bg-alt/--sm-border) whenever
+  // the clicked element has none of its own — e.g. the markdown preview's
+  // plain body text, which only inherits color from its wrapping button
+  // rather than referencing a token directly itself. Without this, such a
+  // click would blank the filter box instead of showing something useful.
   let fieldFilter = ''
   function filterForElement(el: Element) {
-    fieldFilter = tokensForElement(el).join(', ')
+    const tokens = tokensForElement(el)
+    fieldFilter = (tokens.length > 0 ? tokens : previewPanelEl ? tokensForElement(previewPanelEl) : []).join(', ')
   }
   function onPreviewClick(e: MouseEvent) {
     filterForElement(e.currentTarget as Element)
@@ -192,6 +198,20 @@
   // descendant — was the actual click target.
   function onBackgroundClick(e: MouseEvent) {
     if (e.target === e.currentTarget) filterForElement(e.currentTarget as Element)
+  }
+
+  // .theme-editor-preview (the panel surface itself, --sm-bg-alt) has no
+  // blank space of its own to click — its only direct child besides the
+  // title button is .theme-editor-preview-body, which fills it edge to
+  // edge via padding. So blank-space clicks land on the body wrapper, not
+  // the panel — this mirrors onBackgroundClick's target-must-be-currentTarget
+  // guard (only fires for the body's own blank padding/gaps, not a bubbled
+  // click from a row/chip/button inside it) but resolves the token filter
+  // against the panel element, since that's the one whose CSS rule actually
+  // references --sm-bg-alt.
+  let previewPanelEl: HTMLElement | undefined
+  function onPreviewBodyClick(e: MouseEvent) {
+    if (e.target === e.currentTarget && previewPanelEl) filterForElement(previewPanelEl)
   }
 
   $: filterTerms = fieldFilter
@@ -342,11 +362,13 @@
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <!-- svelte-ignore a11y-click-events-have-key-events -->
     <div class="theme-editor-preview-pane" style={previewStyle} on:click={onBackgroundClick}>
-      <div class="theme-editor-preview">
+      <div class="theme-editor-preview" bind:this={previewPanelEl}>
         <button type="button" class="panel-title" on:click={onPreviewClick}>
           <span class="panel-title-text">{t('themeEditor.previewPanelTitle')}</span>
         </button>
-        <div class="theme-editor-preview-body">
+        <!-- svelte-ignore a11y-no-static-element-interactions -->
+        <!-- svelte-ignore a11y-click-events-have-key-events -->
+        <div class="theme-editor-preview-body" on:click={onPreviewBodyClick}>
           <div class="list">
             <button type="button" class="row selected" on:click={onPreviewClick}
               >{t('themeEditor.previewSelectedRow')}</button
@@ -636,10 +658,16 @@
     gap: 2px;
   }
 
+  /* align-self: flex-start shrink-wraps these to their content instead of
+     stretching full width (the column flex container's default) — the
+     leftover space to their right is then the body's own box, not theirs,
+     so it falls through to onPreviewBodyClick's blank-space handler
+     (--sm-bg-alt) instead of being wrongly attributed to the chip/button. */
   .theme-editor-preview-chips,
   .theme-editor-preview-buttons {
     display: flex;
     gap: 6px;
+    align-self: flex-start;
   }
 
   /* {@html}-inserted content isn't scoped by Svelte, so styling anything
@@ -659,6 +687,11 @@
 
   .theme-editor-preview-markdown :global(p) {
     margin: 0;
+    /* Same value as .theme-editor-preview-markdown's own color above —
+       redeclared here so a direct click on the paragraph (not the
+       heading/code) resolves --sm-text via tokensForElement, which only
+       matches an element's own rules, not an inherited ancestor one. */
+    color: var(--sm-text);
   }
 
   .theme-editor-preview-markdown :global(code) {
@@ -704,18 +737,24 @@
   }
 
   .theme-editor-preview-error {
+    align-self: flex-start;
+    width: auto;
     margin: 0;
     font-size: 0.8rem;
     color: var(--sm-error);
   }
 
   .theme-editor-preview-warning {
+    align-self: flex-start;
+    width: auto;
     margin: 0;
     font-size: 0.8rem;
     color: var(--sm-warning);
   }
 
   .theme-editor-preview-masked {
+    align-self: flex-start;
+    width: auto;
     margin: 0;
     font-size: 0.8rem;
     font-family: "SF Mono", Consolas, monospace;
