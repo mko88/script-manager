@@ -46,6 +46,16 @@ save/restore state machinery; don't reintroduce it.
 
 When adding new concerns, create a new package under `internal/` rather than adding files to `cmd/` or the root.
 
+## Branching for new features
+
+When starting work on a new feature, always create a new branch first and do
+the work there — don't commit new-feature work directly to `main`. Merge
+back to `main` once the feature is done and verified.
+
+Branch name format: `YYYYMMDD-feature`, where `YYYYMMDD` is today's date and
+`feature` is a one-or-two-word kebab-case summary of the work (e.g.
+`20260713-theme-tokens`).
+
 ## Keeping README.md up to date
 
 After any change that affects user-facing behaviour — keybindings, layout, panes, CLI flags, config format, or build instructions — update README.md before closing the task. Do not wait to be asked.
