@@ -7,6 +7,8 @@
 :root {
   --sm-bg: #1b2636;
   --sm-bg-alt: #1f2c3d;
+  --sm-row-bg: #243145;
+  --sm-button-bg: #283850;
   --sm-bg-deep: #14202f;
   --sm-panel-header: #253449;
   --sm-border: #3a4a63;
@@ -18,7 +20,6 @@
   --sm-accent-warm-text: #1b2636;
   --sm-warning: #e8a33d;
   --sm-hover: #2b3b52;
-  --sm-hover-strong: #34455e;
   --sm-tint-hover: #1f3346;
   --sm-overlay-soft: rgba(255, 255, 255, 0.08);
   --sm-overlay-medium: rgba(255, 255, 255, 0.14);
@@ -44,6 +45,8 @@
 :root[data-theme="light"] {
   --sm-bg: #eef1f6;
   --sm-bg-alt: #ffffff;
+  --sm-row-bg: #f5f7fa;
+  --sm-button-bg: #e5eaf1;
   --sm-bg-deep: #e4e9f0;
   --sm-panel-header: #e7ecf3;
   --sm-border: #c7d0dc;
@@ -55,7 +58,6 @@
   --sm-accent-warm-text: #eef1f6;
   --sm-warning: #a8660a;
   --sm-hover: #e2e8f0;
-  --sm-hover-strong: #d5dde8;
   --sm-tint-hover: #dbe9f2;
   --sm-overlay-soft: rgba(0, 0, 0, 0.05);
   --sm-overlay-medium: rgba(0, 0, 0, 0.09);
@@ -160,7 +162,7 @@ body {
 }
 
 .collapse-btn:hover {
-  background: var(--sm-hover-strong);
+  background: var(--sm-hover);
 }
 
 .panel-body {
@@ -198,7 +200,7 @@ body {
   display: block;
   width: 100%;
   text-align: left;
-  background: none;
+  background: var(--sm-row-bg);
   border: none;
   border-radius: 4px;
   color: var(--sm-text);
@@ -226,7 +228,7 @@ body {
 }
 
 .chip {
-  background: var(--sm-bg-deep);
+  background: var(--sm-button-bg);
   color: var(--sm-text-muted);
   border: 1px solid var(--sm-border);
   border-radius: 999px;
@@ -237,7 +239,7 @@ body {
 }
 
 .chip:hover {
-  background: var(--sm-tint-hover);
+  background: var(--sm-hover);
   color: var(--sm-text);
 }
 
@@ -270,13 +272,13 @@ body {
   font-size: 0.8rem;
   font-family: inherit;
   border: 1px solid var(--sm-border);
-  background: var(--sm-hover);
+  background: var(--sm-button-bg);
   color: var(--sm-text);
 }
 
 .btn:hover,
 .copy-cmd-btn:hover {
-  background: var(--sm-hover-strong);
+  background: var(--sm-hover);
 }
 
 .btn-primary,
