@@ -12,6 +12,7 @@
   import ActionsEditor from './components/ActionsEditor.svelte'
   import ItemsEditor from './components/ItemsEditor.svelte'
   import ToolbarIcon from './components/ToolbarIcon.svelte'
+  import RadioGroup from './components/RadioGroup.svelte'
   import Icon from '@shared/components/Icon.svelte'
   import { t } from './messages'
   import {
@@ -19,6 +20,7 @@
     NewBlank,
     BrowseOpen,
     BrowseSaveAs,
+    BrowseScriptFile,
     Save,
     OpenInEditor,
     PreviewItem,
@@ -305,11 +307,14 @@
           <p class="hint">{t('hint.shellCommandPrefix')}<code>pwsh -NoLogo -Command</code>.</p>
           <StringListEditor bind:items={cfg.shell} placeholder={t('placeholder.shellCommand')} />
         {:else if section === 'terminal'}
-          <div class="radio-group">
-            <label><input type="radio" bind:group={cfg.terminal.mode} value="auto" /> {t('radio.autoDetect')}</label>
-            <label><input type="radio" bind:group={cfg.terminal.mode} value="name" /> {t('radio.named')}</label>
-            <label><input type="radio" bind:group={cfg.terminal.mode} value="argv" /> {t('radio.customCommand')}</label>
-          </div>
+          <RadioGroup
+            bind:value={cfg.terminal.mode}
+            options={[
+              { value: 'auto', label: t('radio.autoDetect') },
+              { value: 'name', label: t('radio.named') },
+              { value: 'argv', label: t('radio.customCommand') },
+            ]}
+          />
           {#if cfg.terminal.mode === 'name'}
             <label class="field">
               <span>{t('field.terminalName')}</span>
@@ -345,7 +350,7 @@
             bind:selectedActionGroup
           />
         {:else if section === 'actions'}
-          <ActionsEditor bind:actions={cfg.actions} bind:selectedAction {allActionGroups} />
+          <ActionsEditor bind:actions={cfg.actions} bind:selectedAction {allActionGroups} browseScriptFile={BrowseScriptFile} />
         {:else if section === 'items'}
           <ItemsEditor
             bind:items={cfg.items}
@@ -357,6 +362,7 @@
             previewItem={PreviewItem}
             previewAction={PreviewAction}
             validateField={ValidateField}
+            browseScriptFile={BrowseScriptFile}
           />
         {:else if section === 'theme'}
           <ThemeEditor
@@ -506,13 +512,6 @@
     border-radius: 4px;
     padding: 5px 7px;
     font-family: inherit;
-    font-size: 0.85rem;
-  }
-
-  .radio-group {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 10px;
     font-size: 0.85rem;
   }
 

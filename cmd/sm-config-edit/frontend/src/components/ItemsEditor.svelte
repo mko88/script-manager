@@ -35,6 +35,7 @@
     action: configedit.ActionDTO,
   ) => Promise<configedit.ActionPreviewDTO>
   export let validateField: (kind: string, value: string) => Promise<string>
+  export let browseScriptFile: () => Promise<string>
 
   $: allActionIds = actions.map((a) => a.id).filter((id) => id)
 
@@ -50,6 +51,7 @@
       title: '',
       description: '',
       cmd: '',
+      script: '',
       groups: [],
       noWait: false,
       interactive: true,
@@ -241,7 +243,7 @@
         <span>{t('field.customActions')}</span>
         {#each items[selectedItem].customActions as _, j (j)}
           <div class="nested-action">
-            <ActionForm bind:action={items[selectedItem].customActions[j]} showId={false} {allActionGroups} />
+            <ActionForm bind:action={items[selectedItem].customActions[j]} showId={false} {allActionGroups} {browseScriptFile} />
             <button class="btn" type="button" on:click={() => removeCustomAction(selectedItem, j)}
               >{t('button.removeCustomAction')}</button
             >
@@ -292,8 +294,13 @@
               {#if actionPreview.error}
                 <div class="validation-issue validation-error">{actionPreview.error}</div>
               {/if}
-              <p class="preview-label">{t('hint.commandLabel')}</p>
-              <pre class="cmd-preview">{actionPreview.cmd}</pre>
+              {#if actionPreview.script}
+                <p class="preview-label">{t('hint.scriptLabel')}</p>
+                <pre class="cmd-preview">{actionPreview.script}</pre>
+              {:else}
+                <p class="preview-label">{t('hint.commandLabel')}</p>
+                <pre class="cmd-preview">{actionPreview.cmd}</pre>
+              {/if}
               {#if actionPreview.description}<p class="hint action-desc-preview">{actionPreview.description}</p>{/if}
             {/if}
           {/if}

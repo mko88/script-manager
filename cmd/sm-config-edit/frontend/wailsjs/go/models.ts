@@ -5,6 +5,7 @@ export namespace configedit {
 	    title: string;
 	    description: string;
 	    cmd: string;
+	    script: string;
 	    groups: string[];
 	    noWait: boolean;
 	    interactive: boolean;
@@ -19,6 +20,7 @@ export namespace configedit {
 	        this.title = source["title"];
 	        this.description = source["description"];
 	        this.cmd = source["cmd"];
+	        this.script = source["script"];
 	        this.groups = source["groups"];
 	        this.noWait = source["noWait"];
 	        this.interactive = source["interactive"];
@@ -43,6 +45,7 @@ export namespace configedit {
 	export class ActionPreviewDTO {
 	    description: string;
 	    cmd: string;
+	    script: string;
 	    error: string;
 	
 	    static createFrom(source: any = {}) {
@@ -53,6 +56,7 @@ export namespace configedit {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.description = source["description"];
 	        this.cmd = source["cmd"];
+	        this.script = source["script"];
 	        this.error = source["error"];
 	    }
 	}

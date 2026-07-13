@@ -21,6 +21,7 @@ export namespace gui {
 	export class ActionDetailDTO {
 	    description: string;
 	    cmd: string;
+	    script: string;
 	    noWait: boolean;
 	    interactive: boolean;
 	
@@ -32,6 +33,7 @@ export namespace gui {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.description = source["description"];
 	        this.cmd = source["cmd"];
+	        this.script = source["script"];
 	        this.noWait = source["noWait"];
 	        this.interactive = source["interactive"];
 	    }

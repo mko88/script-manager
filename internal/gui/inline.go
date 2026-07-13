@@ -49,9 +49,6 @@ func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup
 	if actionIndex < 0 || actionIndex >= len(actions) {
 		return nil, nil, fmt.Errorf("invalid action")
 	}
-	if len(a.cfg.Shell) == 0 {
-		return nil, nil, fmt.Errorf("no shell configured")
-	}
 
 	act := actions[actionIndex]
 	if act.Interactive {
@@ -59,6 +56,23 @@ func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup
 	}
 	merged := a.mergedItem(item)
 
+	if act.Script != "" {
+		expandedScript, err := action.Expand(act.Script, merged)
+		if err != nil {
+			return nil, nil, fmt.Errorf("script path template error: %w", err)
+		}
+		cmd = exec.Command(expandedScript)
+		if a.appDataDir != "" {
+			cmd.Dir = a.appDataDir
+		}
+		cmd.Env = action.Env(merged)
+		setProcessGroup(cmd)
+		return cmd, func() {}, nil
+	}
+
+	if len(a.cfg.Shell) == 0 {
+		return nil, nil, fmt.Errorf("no shell configured")
+	}
 	expandedCmd, err := action.Expand(act.Cmd, merged)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cmd template error: %w", err)

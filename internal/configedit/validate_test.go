@@ -73,4 +73,19 @@ func TestValidateConfig(t *testing.T) {
 			t.Errorf("expected an error-severity issue, got %+v", issues)
 		}
 	})
+
+	t.Run("action with both cmd and script is an error", func(t *testing.T) {
+		dto := ConfigDTO{Actions: []ActionDTO{{ID: "deploy", Cmd: "echo hi", Script: "./deploy.sh"}}}
+		issues := ValidateConfig(dto)
+		if !hasIssue(issues, "error") {
+			t.Errorf("expected an error-severity issue, got %+v", issues)
+		}
+	})
+
+	t.Run("action with only script is not an error", func(t *testing.T) {
+		dto := ConfigDTO{Actions: []ActionDTO{{ID: "deploy", Script: "./deploy.sh"}}}
+		if issues := ValidateConfig(dto); len(issues) != 0 {
+			t.Errorf("expected no issues, got %+v", issues)
+		}
+	})
 }

@@ -44,7 +44,6 @@
     "id": "ID",
     "title": "Title",
     "description": "Description",
-    "command": "Command",
     "groups": "Groups",
     "terminalName": "Terminal name",
     "display": "Display",
@@ -103,7 +102,8 @@
     "actionGroupId": "unique id, referenced by actions/items",
     "actionGroupTitle": "display name (optional)",
     "actionGroupColor": "#7fd4ff or a CSS color name",
-    "fieldKey": "key"
+    "fieldKey": "key",
+    "scriptPath": "e.g. C:\\scripts\\deploy.ps1 or ./deploy.sh"
   },
   "option": {
     "selectDisplay": "(select a display)",
@@ -116,7 +116,9 @@
   "radio": {
     "autoDetect": "Auto-detect",
     "named": "Named",
-    "customCommand": "Custom command"
+    "customCommand": "Custom command",
+    "cmd": "Command",
+    "script": "Script file"
   },
   "empty": {
     "pickItemToPreview": "Pick an item above to preview against.",
@@ -134,6 +136,7 @@
     "missingFields": "⚠ missing: {fields}",
     "listLabel": "List label: ",
     "commandLabel": "Command:",
+    "scriptLabel": "Script:",
     "noWaitCheckbox": "No wait (close the terminal immediately instead of pausing after the command finishes)",
     "interactiveCheckbox": "Interactive (needs terminal input — hides \"Run here\" in the GUI)"
   },
@@ -145,7 +148,8 @@
     "removeCustomAction": "Remove custom action",
     "addCustomAction": "+ Add custom action",
     "addField": "+ Add field",
-    "add": "+ Add"
+    "add": "+ Add",
+    "browse": "Browse…"
   },
   "panel": {
     "edit": "Edit",

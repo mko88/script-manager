@@ -26,6 +26,7 @@ type ActionDTO struct {
 	Title       string   `json:"title"`
 	Description string   `json:"description"`
 	Cmd         string   `json:"cmd"`
+	Script      string   `json:"script"`
 	Groups      []string `json:"groups"`
 	NoWait      bool     `json:"noWait"`
 	Interactive bool     `json:"interactive"`
@@ -119,5 +120,6 @@ type PreviewDTO struct {
 type ActionPreviewDTO struct {
 	Description string `json:"description"`
 	Cmd         string `json:"cmd"`
+	Script      string `json:"script"`
 	Error       string `json:"error"`
 }

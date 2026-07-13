@@ -88,14 +88,27 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 		return err
 	}
 
-	expandedCmd, err := action.Expand(act.Cmd, merged)
-	if err != nil {
-		return fmt.Errorf("cmd template error: %w", err)
-	}
-	script := wrapScript(shellBasename(a.cfg.Shell[0]), expandedCmd, !act.NoWait)
-	scriptPath, err := writeTempScript(a.cfg.Shell[0], script)
-	if err != nil {
-		return fmt.Errorf("failed to write temp script: %w", err)
+	var scriptPath string
+	if act.Script != "" {
+		expandedScript, err := action.Expand(act.Script, merged)
+		if err != nil {
+			return fmt.Errorf("script path template error: %w", err)
+		}
+		wrapped := wrapScriptFile(shellBasename(a.cfg.Shell[0]), expandedScript, !act.NoWait)
+		scriptPath, err = writeTempScript(a.cfg.Shell[0], wrapped)
+		if err != nil {
+			return fmt.Errorf("failed to write temp script: %w", err)
+		}
+	} else {
+		expandedCmd, err := action.Expand(act.Cmd, merged)
+		if err != nil {
+			return fmt.Errorf("cmd template error: %w", err)
+		}
+		wrapped := wrapScript(shellBasename(a.cfg.Shell[0]), expandedCmd, !act.NoWait)
+		scriptPath, err = writeTempScript(a.cfg.Shell[0], wrapped)
+		if err != nil {
+			return fmt.Errorf("failed to write temp script: %w", err)
+		}
 	}
 	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, !act.NoWait)
 
@@ -152,6 +165,45 @@ func wrapScript(shellBase, script string, stayOpen bool) string {
 		return b.String()
 	}
 }
+
+// wrapScriptFile is wrapScript's counterpart for script-mode actions: it
+// wraps a direct invocation of scriptPath instead of an expanded command
+// string — no interpreter, no extra flags, the file is expected to already
+// be natively runnable. Self-delete placement follows the exact same
+// reasoning as wrapScript. pwsh/cmd's stay-open behavior still comes
+// entirely from buildShellArgv's -NoExit/-k flags, unchanged; only the
+// POSIX default branch needs its own pause epilogue baked in here too,
+// since bash has no -NoExit equivalent for running a script file directly.
+func wrapScriptFile(shellBase, scriptPath string, stayOpen bool) string {
+	switch shellBase {
+	case "pwsh", "powershell":
+		return "Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue\n" +
+			"& " + psQuote(scriptPath) + "\n"
+	case "cmd":
+		// call, not a bare invocation: if scriptPath is itself a .bat/.cmd,
+		// a bare call would transfer control away and never run the
+		// self-delete line after it.
+		return "call \"" + scriptPath + "\"\r\n" + "del \"%~f0\"\r\n"
+	default:
+		var b strings.Builder
+		b.WriteString("rm -f -- \"$0\"\n")
+		b.WriteString(shQuote(scriptPath))
+		b.WriteString("\n")
+		if stayOpen {
+			b.WriteString("__status=$?\n")
+			b.WriteString("printf '\\n[exit status %s] Press Enter to close...' \"$__status\"\n")
+			b.WriteString("read -r __line\n")
+		}
+		return b.String()
+	}
+}
+
+// psQuote/shQuote wrap a path in single quotes for their respective shells,
+// escaping any embedded single quote (doubled for PowerShell, '\'' for
+// POSIX shells) — paths containing spaces are the common case this guards
+// against.
+func psQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
+func shQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
 // writeTempScript writes script to a new temp file with an extension the
 // target shell recognizes, and returns its path. Running the script from a

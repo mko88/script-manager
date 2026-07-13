@@ -10,6 +10,10 @@ export function BrowseSaveAs() {
   return window['go']['configedit']['App']['BrowseSaveAs']();
 }
 
+export function BrowseScriptFile() {
+  return window['go']['configedit']['App']['BrowseScriptFile']();
+}
+
 export function DeleteTheme(arg1) {
   return window['go']['configedit']['App']['DeleteTheme'](arg1);
 }

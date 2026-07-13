@@ -12,6 +12,16 @@ func ValidateConfig(dto ConfigDTO) []ValidationIssueDTO {
 
 	actionIDs := map[string]bool{}
 	for _, act := range dto.Actions {
+		if act.Cmd != "" && act.Script != "" {
+			label := act.Title
+			if label == "" {
+				label = act.ID
+			}
+			issues = append(issues, ValidationIssueDTO{
+				Severity: "error",
+				Message:  fmt.Sprintf("action %q has both a command and a script set — pick one", label),
+			})
+		}
 		if act.ID == "" {
 			continue
 		}
