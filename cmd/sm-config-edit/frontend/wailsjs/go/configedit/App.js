@@ -42,6 +42,10 @@ export function NewBlank() {
   return window['go']['configedit']['App']['NewBlank']();
 }
 
+export function OpenInEditor() {
+  return window['go']['configedit']['App']['OpenInEditor']();
+}
+
 export function PreviewAction(arg1, arg2, arg3) {
   return window['go']['configedit']['App']['PreviewAction'](arg1, arg2, arg3);
 }

@@ -12,6 +12,7 @@
   import ActionsEditor from './components/ActionsEditor.svelte'
   import ItemsEditor from './components/ItemsEditor.svelte'
   import ToolbarIcon from './components/ToolbarIcon.svelte'
+  import Icon from '@shared/components/Icon.svelte'
   import { t } from './messages'
   import {
     InitialState,
@@ -19,6 +20,7 @@
     BrowseOpen,
     BrowseSaveAs,
     Save,
+    OpenInEditor,
     PreviewItem,
     PreviewAction,
     ValidateConfig,
@@ -195,6 +197,15 @@
     if (target) await doSave(target)
   }
 
+  async function openInEditor() {
+    if (!path) return
+    try {
+      await OpenInEditor()
+    } catch (err) {
+      flash(t('toast.openInEditorFailed', { error: String(err) }))
+    }
+  }
+
   // Standard New/Open/Save/Save As shortcuts — Ctrl on Windows/Linux, Cmd on
   // Mac. These are modifier combos, not text a focused input would ever
   // insert, so it's safe to handle them regardless of what's focused.
@@ -228,7 +239,7 @@
 
 <svelte:window on:keydown={handleGlobalKeydown} />
 
-<main class="app-shell">
+<div class="app-root">
   <header class="toolbar">
     <button class="btn icon-btn" type="button" title={t('tooltip.newTitle')} aria-label={t('tooltip.newAria')} on:click={newConfig}
       ><ToolbarIcon mode="new" /></button
@@ -252,33 +263,44 @@
       disabled={hasBlockingError}
       on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></button
     >
-    <span class="toolbar-path">{path || t('text.unsaved')}{dirty ? t('text.dirtyMarker') : ''}</span>
+    <button
+      class="btn icon-btn open-in-editor-btn"
+      type="button"
+      disabled={!path}
+      title={path ? t('tooltip.openInEditorTitle', { path }) : ''}
+      aria-label={t('tooltip.openInEditorAria')}
+      on:click={openInEditor}><Icon name="edit" /></button
+    >
   </header>
 
-  {#if validation.length > 0}
-    <div class="validation-banner">
-      {#each validation as issue}
-        <div class="validation-issue" class:validation-error={issue.severity === 'error'}>
-          {issue.severity === 'error' ? t('text.errorIcon') : t('text.warningIcon')}
-          {issue.message}
-        </div>
-      {/each}
-    </div>
-  {/if}
+  <main class="app-shell">
+    {#if validation.length > 0}
+      <div class="validation-banner">
+        {#each validation as issue}
+          <div class="validation-issue" class:validation-error={issue.severity === 'error'}>
+            {issue.severity === 'error' ? t('text.errorIcon') : t('text.warningIcon')}
+            {issue.message}
+          </div>
+        {/each}
+      </div>
+    {/if}
 
-  <div class="body">
-    <nav class="section-nav list">
-      {#each sections as s (s.key)}
-        <button class="row" class:selected={section === s.key} on:click={() => (section = s.key)}>{s.label}</button>
-      {/each}
-    </nav>
+    <div class="body">
+      <section class="panel section-nav">
+        <header class="panel-title"><span>{t('panel.sections')}</span></header>
+        <nav class="panel-body list">
+          {#each sections as s (s.key)}
+            <button class="row" class:selected={section === s.key} on:click={() => (section = s.key)}>{s.label}</button>
+          {/each}
+        </nav>
+      </section>
 
-    <section class="panel main-panel">
-      <header class="panel-title"><span>{sectionTitle}</span></header>
-      <div
-        class="panel-body"
-        class:list-body={section === 'items' || section === 'actionGroups' || section === 'actions' || section === 'theme' || section === 'messages'}
-      >
+      <section class="panel main-panel">
+        <header class="panel-title"><span>{sectionTitle}</span></header>
+        <div
+          class="panel-body"
+          class:list-body={section === 'items' || section === 'actionGroups' || section === 'actions' || section === 'theme' || section === 'messages'}
+        >
         {#if section === 'shell'}
           <p class="hint">{t('hint.shellCommandPrefix')}<code>pwsh -NoLogo -Command</code>.</p>
           <StringListEditor bind:items={cfg.shell} placeholder={t('placeholder.shellCommand')} />
@@ -352,22 +374,19 @@
             saveMessages={SaveMessages}
           />
         {/if}
-      </div>
-    </section>
-  </div>
+        </div>
+      </section>
+    </div>
 
-  <Toast />
-</main>
+    <Toast />
+  </main>
+</div>
 
 <style>
-  .app-shell {
+  .app-root {
     display: flex;
     flex-direction: column;
     height: 100vh;
-    box-sizing: border-box;
-    padding: 8px;
-    gap: 8px;
-    text-align: left;
   }
 
   .toolbar {
@@ -375,17 +394,30 @@
     display: flex;
     align-items: center;
     gap: 8px;
+    padding: 6px 8px;
+    background: var(--sm-panel-header);
+    border-bottom: 1px solid var(--sm-border);
   }
 
-  .toolbar-path {
+  /* .icon-btn comes from the shared design system (@shared/theme.css),
+     same as .btn. */
+
+  /* Takes over the far-right slot script-manager-gui's settings-btn
+     occupies — a peripheral, non-file-op action pinned opposite New/Open/
+     Save/Save As. */
+  .open-in-editor-btn {
+    margin-left: auto;
+  }
+
+  .app-shell {
+    display: flex;
+    flex-direction: column;
     flex: 1 1 auto;
-    min-width: 0;
-    margin-left: 8px;
-    color: var(--sm-text-muted);
-    font-size: 0.85rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-height: 0;
+    box-sizing: border-box;
+    padding: 8px;
+    gap: 8px;
+    text-align: left;
   }
 
   .validation-banner {
