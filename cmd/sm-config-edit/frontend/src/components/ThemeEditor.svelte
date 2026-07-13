@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { TOKEN_GROUPS, readPaletteFor, setTheme, type CustomPalette, type Theme } from '@shared/theme'
+  import CollapseToggle from '@shared/components/CollapseToggle.svelte'
   import { t } from '../messages'
 
   // Two-way bound: this component both seeds from and writes back to the
@@ -100,8 +101,7 @@
     }
   })
 
-  function toggleThemePanel() {
-    themePanelCollapsed = !themePanelCollapsed
+  function persistThemePanelCollapsed() {
     localStorage.setItem(THEME_PANEL_KEY, JSON.stringify({ collapsed: themePanelCollapsed }))
   }
 
@@ -264,9 +264,7 @@
   <div class="panel theme-editor-panel">
     <header class="panel-title">
       <span class="panel-title-text">{t('themeEditor.currentThemeLabel')}<strong>{activeThemeLabel}</strong></span>
-      <button class="collapse-btn" type="button" on:click={toggleThemePanel}>
-        {themePanelCollapsed ? '▸' : '▾'}
-      </button>
+      <CollapseToggle bind:collapsed={themePanelCollapsed} onToggle={persistThemePanelCollapsed} expandTitle="" collapseTitle="" />
     </header>
     {#if !themePanelCollapsed}
       <div class="panel-body theme-editor-panel-body">
@@ -490,51 +488,9 @@
     font-size: 0.85rem;
   }
 
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 0.8rem;
-    color: var(--sm-text-muted);
-    margin-bottom: 10px;
-  }
-
-  .field input,
-  .field select {
-    background: var(--sm-bg-deep);
-    color: var(--sm-text);
-    border: 1px solid var(--sm-border);
-    border-radius: 4px;
-    padding: 5px 7px;
-    font-family: inherit;
-    font-size: 0.85rem;
-  }
-
-  /* Without appearance: none, <select> keeps its native dropdown-arrow
-     chrome in Chromium/WebView2 regardless of the background/color set
-     above, showing as a jarring light box behind the arrow against this
-     dark theme — same fix as App.svelte's own .field select, duplicated
-     here since Svelte's per-component scoping means that rule doesn't
-     reach this file's markup. */
-  .field select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9b6c8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 10px center;
-    padding-right: 28px;
-  }
-
-  :global([data-theme="light"]) .field select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355647a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  }
-
-  .field input:disabled,
-  .field select:disabled {
-    opacity: 0.6;
-    cursor: default;
-  }
+  /* .field/.field input/.field select (including the select-arrow
+     override and its light-theme variant) come from the shared design
+     system (@shared/theme.css) — not redefined here. */
 
   .token-name {
     font-family: "SF Mono", Consolas, monospace;

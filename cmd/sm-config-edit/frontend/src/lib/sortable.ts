@@ -44,6 +44,26 @@ export function wrap<T extends object>(list: T[]): DndEntry<T>[] {
 export type SyncFn<T> = (e: CustomEvent<DndEvent<DndEntry<T>>>, final: boolean) => void
 export type SortableParams<T> = { items: DndEntry<T>[]; onSync: SyncFn<T>; dragDisabled: boolean }
 
+// The consider/finalize handler every reorderable master list (Items,
+// Action Groups, Actions) wires into sortableList — identical logic at all
+// three call sites, so it's factored out here. Only the stateless handler
+// body moves: the entries/dragging `let`s and the `$: if (!dragging)
+// entries = wrap(list)` re-derivation stay local to each component, since
+// Svelte's reactive statements can't be extracted into a plain function —
+// only assigned-to via callbacks, the same getter/setter-config shape
+// lib/panelLayout.ts's dragColumn/dragRow already use for the same reason.
+export function syncList<T>(config: {
+  setEntries: (entries: DndEntry<T>[]) => void
+  setDragging: (dragging: boolean) => void
+  setList: (list: T[]) => void
+}): SyncFn<T> {
+  return (e, final) => {
+    config.setEntries(e.detail.items)
+    config.setDragging(!final)
+    if (final) config.setList(e.detail.items.filter((w) => w.ref).map((w) => w.ref))
+  }
+}
+
 export function sortableList<T extends object>(node: HTMLElement, params: SortableParams<T>) {
   const zone = dndzone(node, { items: params.items, flipDurationMs: 200, dragDisabled: params.dragDisabled })
   const considerHandler = (e: Event) => params.onSync(e as CustomEvent<DndEvent<DndEntry<T>>>, false)

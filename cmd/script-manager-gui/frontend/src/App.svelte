@@ -5,6 +5,9 @@
   import { loadPersisted, savePersisted } from '@shared/persist'
   import { watchTheme } from '@shared/theme'
   import Icon from '@shared/components/Icon.svelte'
+  import CollapseToggle from '@shared/components/CollapseToggle.svelte'
+  import IconButton from '@shared/components/IconButton.svelte'
+  import Panel from './components/Panel.svelte'
   import GroupFilter from './components/GroupFilter.svelte'
   import { t } from './messages'
   import { buildGroupColors, groupChipStyle } from './lib/groupColors'
@@ -304,11 +307,6 @@
     })
   }
 
-  function toggleDetailsWarning() {
-    detailsWarningCollapsed = !detailsWarningCollapsed
-    saveLayout()
-  }
-
   // The drag/flex geometry lives in lib/panelLayout — these wrappers just
   // bind it to this window's panels and persist the result.
   function dragLeftColumn(e: MouseEvent) {
@@ -340,193 +338,176 @@
     })
   }
 
-  function toggleCollapse(which: 'items' | 'actions' | 'details' | 'command') {
-    if (which === 'items') itemsCollapsed = !itemsCollapsed
-    else if (which === 'actions') actionsCollapsed = !actionsCollapsed
-    else if (which === 'details') detailsCollapsed = !detailsCollapsed
-    else commandCollapsed = !commandCollapsed
-    saveLayout()
-  }
 </script>
 
 <svelte:window on:keydown={onKeyDown} />
 
 <div class="app-root">
   <header class="toolbar">
-    <button class="btn icon-btn" type="button" title={t('tooltip.loadConfig')} aria-label={t('tooltip.loadConfig')} on:click={browseConfig}
-      ><Icon name="load" /></button
-    >
-    <button
-      class="btn icon-btn"
-      type="button"
-      title={t('tooltip.refreshConfigTitle')}
-      aria-label={t('tooltip.refreshConfigAria')}
-      on:click={reloadConfig}><Icon name="refresh" /></button
-    >
-    <button
+    <IconButton title={t('tooltip.loadConfig')} on:click={browseConfig}><Icon name="load" /></IconButton>
+    <IconButton title={t('tooltip.refreshConfigTitle')} aria={t('tooltip.refreshConfigAria')} on:click={reloadConfig}><Icon name="refresh" /></IconButton>
+    <IconButton
       class="btn icon-btn settings-btn"
-      type="button"
       title={t('tooltip.openConfigEditorTitle')}
-      aria-label={t('tooltip.openConfigEditorAria')}
-      on:click={launchConfigEditor}><Icon name="settings" /></button
+      aria={t('tooltip.openConfigEditorAria')}
+      on:click={launchConfigEditor}><Icon name="settings" /></IconButton
     >
   </header>
   <main class="app-shell" bind:this={shellEl}>
   <div class="col col-left" style="flex: 0 0 {leftWidth}px" bind:this={colLeftEl}>
-    <section class="panel panel-items" style={topStyle(itemsCollapsed, actionsCollapsed, itemsHeight, true)}>
-      <header class="panel-title">
-        <span class="panel-title-text" class:wrap={itemsCollapsed}>
-          {t('panel.items')}{#if itemsCollapsed && selectedItemLabel}<span class="panel-title-selected">{t('text.separator')}{selectedItemLabel}</span>{/if}
-        </span>
-        <button class="collapse-btn" on:click={() => toggleCollapse('items')} title={itemsCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
-          {itemsCollapsed ? '▸' : '▾'}
-        </button>
-      </header>
-      {#if !itemsCollapsed}
-        <div class="panel-body list">
-          {#each items as item (item.index)}
-            <button
-              class="row"
-              class:selected={item.index === selectedItem}
-              on:click={() => selectItem(item.index)}
-            >{item.label}{#if runningItemIndices.has(item.index)}<span class="running-indicator" title={t('tooltip.actionRunningItem')}>●</span>{/if}</button>
-          {/each}
-          {#if items.length === 0}
-            <div class="empty">{t('empty.noItems')}</div>
-          {/if}
-        </div>
-      {/if}
-    </section>
+    <Panel
+      bind:collapsed={itemsCollapsed}
+      title={t('panel.items')}
+      titleWrap={itemsCollapsed}
+      expandTitle={t('tooltip.expand')}
+      collapseTitle={t('tooltip.collapse')}
+      onToggle={saveLayout}
+      style={topStyle(itemsCollapsed, actionsCollapsed, itemsHeight, true)}
+      class="panel-items"
+    >
+      <svelte:fragment slot="title-extra">
+        {#if itemsCollapsed && selectedItemLabel}<span class="panel-title-selected">{t('text.separator')}{selectedItemLabel}</span>{/if}
+      </svelte:fragment>
+      <div class="panel-body list">
+        {#each items as item (item.index)}
+          <button
+            class="row"
+            class:selected={item.index === selectedItem}
+            on:click={() => selectItem(item.index)}
+          >{item.label}{#if runningItemIndices.has(item.index)}<span class="running-indicator" title={t('tooltip.actionRunningItem')}>●</span>{/if}</button>
+        {/each}
+        {#if items.length === 0}
+          <div class="empty">{t('empty.noItems')}</div>
+        {/if}
+      </div>
+    </Panel>
 
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="resizer horizontal" class:disabled={itemsCollapsed || actionsCollapsed} on:mousedown={dragItemsRow}></div>
 
-    <section class="panel panel-actions" style={bottomStyle(actionsCollapsed, true)}>
-      <header class="panel-title">
-        <span class="panel-title-text" class:wrap={actionsCollapsed}>
-          {t('panel.actions')}{#if actionsCollapsed && selectedActionLabel}<span class="panel-title-selected">{t('text.separator')}{selectedActionLabel}</span>{/if}
-        </span>
-        <button class="collapse-btn" on:click={() => toggleCollapse('actions')} title={actionsCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
-          {actionsCollapsed ? '▸' : '▾'}
-        </button>
-      </header>
-      {#if !actionsCollapsed}
-        <GroupFilter
-          {actions}
-          {groupColors}
-          bind:selectedGroups
-          bind:collapsed={groupChipsCollapsed}
-          onCollapseChange={saveLayout}
-          onSelectionChange={onGroupFilterChange}
-        />
-        <div class="panel-body list">
-          {#each filteredActions as action (action.index)}
-            <button
-              class="row"
-              class:selected={action.index === selectedActionIndex}
-              on:click={() => selectAction(action.index)}
-            >{action.title}{#if runningActionIndicesForSelectedItem.has(action.index)}<span class="running-indicator" title={t('tooltip.actionRunningAction')}>●</span>{/if}</button>
-          {/each}
-          {#if selectedItem >= 0 && filteredActions.length === 0}
-            <div class="empty">
-              {selectedGroups.size > 0
-                ? t('empty.noActionsForGroups', { plural: selectedGroups.size > 1 ? 's' : '' })
-                : t('empty.noActionsForItem')}
-            </div>
-          {/if}
-        </div>
-      {/if}
-    </section>
+    <Panel
+      bind:collapsed={actionsCollapsed}
+      title={t('panel.actions')}
+      titleWrap={actionsCollapsed}
+      expandTitle={t('tooltip.expand')}
+      collapseTitle={t('tooltip.collapse')}
+      onToggle={saveLayout}
+      style={bottomStyle(actionsCollapsed, true)}
+      class="panel-actions"
+    >
+      <svelte:fragment slot="title-extra">
+        {#if actionsCollapsed && selectedActionLabel}<span class="panel-title-selected">{t('text.separator')}{selectedActionLabel}</span>{/if}
+      </svelte:fragment>
+      <GroupFilter
+        {actions}
+        {groupColors}
+        bind:selectedGroups
+        bind:collapsed={groupChipsCollapsed}
+        onCollapseChange={saveLayout}
+        onSelectionChange={onGroupFilterChange}
+      />
+      <div class="panel-body list">
+        {#each filteredActions as action (action.index)}
+          <button
+            class="row"
+            class:selected={action.index === selectedActionIndex}
+            on:click={() => selectAction(action.index)}
+          >{action.title}{#if runningActionIndicesForSelectedItem.has(action.index)}<span class="running-indicator" title={t('tooltip.actionRunningAction')}>●</span>{/if}</button>
+        {/each}
+        {#if selectedItem >= 0 && filteredActions.length === 0}
+          <div class="empty">
+            {selectedGroups.size > 0
+              ? t('empty.noActionsForGroups', { plural: selectedGroups.size > 1 ? 's' : '' })
+              : t('empty.noActionsForItem')}
+          </div>
+        {/if}
+      </div>
+    </Panel>
   </div>
 
   <!-- svelte-ignore a11y-no-static-element-interactions -->
   <div class="resizer vertical" on:mousedown={dragLeftColumn}></div>
 
   <div class="col col-right" bind:this={colRightEl}>
-    <section class="panel panel-details" style={topStyle(detailsCollapsed, commandCollapsed, detailsHeight)}>
-      <header class="panel-title">
-        <span>{t('panel.details')}</span>
-        <button class="collapse-btn" on:click={() => toggleCollapse('details')} title={detailsCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
-          {detailsCollapsed ? '▸' : '▾'}
-        </button>
-      </header>
-      {#if !detailsCollapsed}
-        {#if missingFields.length > 0}
-          <div class="details-warning">
-            <div class="details-warning-header">
-              <button
-                class="collapse-btn warning-toggle"
-                on:click={toggleDetailsWarning}
-                title={detailsWarningCollapsed ? t('tooltip.expandMissingWarning') : t('tooltip.collapseMissingWarning')}
-              >
-                {detailsWarningCollapsed ? '▸' : '▾'}
-              </button>
-              <span class="warning-summary">
-                {t('warning.missingFields', { count: missingFields.length, plural: missingFields.length > 1 ? 's' : '' })}
-              </span>
-            </div>
-            {#if !detailsWarningCollapsed}
-              <div class="warning-chips">
-                {#each missingFields as field (field)}
-                  <span class="chip chip-static warning-chip">{field}</span>
-                {/each}
-              </div>
-            {/if}
+    <Panel
+      bind:collapsed={detailsCollapsed}
+      title={t('panel.details')}
+      expandTitle={t('tooltip.expand')}
+      collapseTitle={t('tooltip.collapse')}
+      onToggle={saveLayout}
+      style={topStyle(detailsCollapsed, commandCollapsed, detailsHeight)}
+      class="panel-details"
+    >
+      {#if missingFields.length > 0}
+        <div class="details-warning">
+          <div class="details-warning-header">
+            <CollapseToggle
+              bind:collapsed={detailsWarningCollapsed}
+              onToggle={saveLayout}
+              class="warning-toggle"
+              expandTitle={t('tooltip.expandMissingWarning')}
+              collapseTitle={t('tooltip.collapseMissingWarning')}
+            />
+            <span class="warning-summary">
+              {t('warning.missingFields', { count: missingFields.length, plural: missingFields.length > 1 ? 's' : '' })}
+            </span>
           </div>
-        {/if}
-        <!-- svelte-ignore a11y-click-events-have-key-events -->
-        <!-- svelte-ignore a11y-no-static-element-interactions -->
-        <div class="panel-body details-content" on:click={onDetailsClick}>
-          {#if details?.html}
-            {@html details.html}
-          {:else}
-            <div class="empty">{t('empty.noItemSelected')}</div>
+          {#if !detailsWarningCollapsed}
+            <div class="warning-chips">
+              {#each missingFields as field (field)}
+                <span class="chip chip-static warning-chip">{field}</span>
+              {/each}
+            </div>
           {/if}
         </div>
       {/if}
-    </section>
+      <!-- svelte-ignore a11y-click-events-have-key-events -->
+      <!-- svelte-ignore a11y-no-static-element-interactions -->
+      <div class="panel-body details-content" on:click={onDetailsClick}>
+        {#if details?.html}
+          {@html details.html}
+        {:else}
+          <div class="empty">{t('empty.noItemSelected')}</div>
+        {/if}
+      </div>
+    </Panel>
 
     <!-- svelte-ignore a11y-no-static-element-interactions -->
     <div class="resizer horizontal" class:disabled={detailsCollapsed || commandCollapsed} on:mousedown={dragDetailsRow}></div>
 
-    <section class="panel panel-command" style={bottomStyle(commandCollapsed)}>
-      <header class="panel-title">
-        <span>{t('panel.command')}</span>
-        <button class="collapse-btn" on:click={() => toggleCollapse('command')} title={commandCollapsed ? t('tooltip.expand') : t('tooltip.collapse')}>
-          {commandCollapsed ? '▸' : '▾'}
-        </button>
-      </header>
-      {#if !commandCollapsed}
+    <Panel
+      bind:collapsed={commandCollapsed}
+      title={t('panel.command')}
+      expandTitle={t('tooltip.expand')}
+      collapseTitle={t('tooltip.collapse')}
+      onToggle={saveLayout}
+      style={bottomStyle(commandCollapsed)}
+      class="panel-command"
+    >
         <div class="panel-body command-content">
           {#if actionDetail}
             {#if actionDetail.cmd || actionDetail.script}
               <div class="cmd-actions">
                 {#if !actionDetail.interactive}
-                  <button
+                  <IconButton
                     class="run-cmd-btn icon-btn"
                     title={t('tooltip.runHere')}
-                    aria-label={t('tooltip.runHere')}
                     disabled={inlineRunning}
-                    on:click={runActionInline}><Icon name="run-here" /></button
+                    on:click={runActionInline}><Icon name="run-here" /></IconButton
                   >
                 {/if}
-                <button class="run-cmd-btn icon-btn" title={t('tooltip.run')} aria-label={t('tooltip.run')} on:click={runAction}
-                  ><Icon name="run" /></button
-                >
+                <IconButton class="run-cmd-btn icon-btn" title={t('tooltip.run')} on:click={runAction}><Icon name="run" /></IconButton>
                 {#if inlineRunning}
-                  <button class="copy-cmd-btn icon-btn" title={t('tooltip.cancel')} aria-label={t('tooltip.cancel')} on:click={cancelInlineAction}
-                    ><Icon name="cancel" /></button
-                  >
+                  <IconButton class="copy-cmd-btn icon-btn" title={t('tooltip.cancel')} on:click={cancelInlineAction}><Icon name="cancel" /></IconButton>
                 {/if}
               </div>
             {/if}
             {#if inlineOutput}
               <div class="cmd-output">
-                <button
+                <IconButton
                   class="cmd-copy-btn cmd-output-copy-btn"
                   title={t('tooltip.copyOutput')}
-                  aria-label={t('tooltip.copyOutput')}
-                  on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></button
+                  on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></IconButton
                 >
                 <pre class="cmd-output-body" bind:this={inlineOutputEl}>{inlineOutput}</pre>
               </div>
@@ -543,18 +524,14 @@
             {/if}
             {#if actionDetail.script}
               <div class="cmd-line">
-                <button class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} aria-label={t('tooltip.copyCommand')} on:click={copyCmd}
-                  ><Icon name="copy" /></button
-                >
+                <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
                 <div class="cmd-line-row">
                   <span class="cmd-line-text">{t('text.scriptLabel')}{actionDetail.script}</span>
                 </div>
               </div>
             {:else if actionDetail.cmd}
               <div class="cmd-line">
-                <button class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} aria-label={t('tooltip.copyCommand')} on:click={copyCmd}
-                  ><Icon name="copy" /></button
-                >
+                <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
                 {#each actionDetail.cmd.replace(/\n+$/, '').split('\n') as line, i (i)}
                   <div class="cmd-line-row">
                     <span class="cmd-line-no">{i + 1}</span>
@@ -567,8 +544,7 @@
             <div class="empty">{t('empty.selectActionToPreview')}</div>
           {/if}
         </div>
-      {/if}
-    </section>
+    </Panel>
   </div>
 
     <Toast />
@@ -597,7 +573,10 @@
 
   /* Takes over the slot the theme dropdown used to occupy at the far
      right of the toolbar. */
-  .settings-btn {
+  /* :global — this class now renders inside IconButton's own template
+     (via its class prop), which Svelte's per-component CSS scoping
+     wouldn't otherwise reach. */
+  :global(.settings-btn) {
     margin-left: auto;
   }
 
@@ -643,7 +622,10 @@
     gap: 4px;
   }
 
-  .warning-toggle {
+  /* :global, not scoped — the button this styles now renders inside
+     CollapseToggle's own template (a different component), which
+     Svelte's per-component CSS scoping wouldn't otherwise reach. */
+  :global(.warning-toggle) {
     flex: none;
     padding: 2px 4px;
     color: var(--sm-warning);
@@ -730,7 +712,10 @@
     border-radius: 4px;
     margin: 0 0 8px;
   }
-  .cmd-output-copy-btn {
+  /* :global — these buttons now render inside IconButton's own template
+     (via its class prop), which Svelte's per-component CSS scoping
+     wouldn't otherwise reach. */
+  :global(.cmd-output-copy-btn) {
     position: absolute;
     top: 4px;
     right: 4px;
@@ -778,7 +763,7 @@
      .cmd-line-copy-btn and .cmd-output-copy-btn both float it in the
      top-right corner, the placement docs sites commonly use for a code
      block's copy action. */
-  .cmd-copy-btn {
+  :global(.cmd-copy-btn) {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -789,11 +774,11 @@
     color: var(--sm-text-muted);
     cursor: pointer;
   }
-  .cmd-copy-btn:hover {
+  :global(.cmd-copy-btn:hover) {
     background: var(--sm-overlay-soft);
     color: var(--sm-text);
   }
-  .cmd-line-copy-btn {
+  :global(.cmd-line-copy-btn) {
     position: absolute;
     top: 4px;
     right: 4px;
