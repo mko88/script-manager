@@ -7,14 +7,14 @@ import (
 )
 
 func TestGetThemeDefaultsToDark(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	if got := a.GetTheme(); got.Active != "dark" {
 		t.Errorf("GetTheme() = %+v, want Active dark", got)
 	}
 }
 
 func TestSetThemeRoundTrip(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	if err := a.SetTheme("light"); err != nil {
 		t.Fatalf("SetTheme() error = %v", err)
 	}
@@ -33,7 +33,7 @@ func TestSetThemePreservesExistingCustomPalette(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	a := &App{exeDir: dir}
+	a := &App{appDataDir: dir}
 	if err := a.SetTheme("dark"); err != nil {
 		t.Fatal(err)
 	}

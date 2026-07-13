@@ -16,6 +16,6 @@ import (
 // own compiled messages.json at startup, falling back per-key on any error
 // or missing key.
 func (a *App) GetMessages() (map[string]interface{}, error) {
-	messages.RefreshDefaultsSnapshots(a.exeDir)
-	return messages.LoadOrSync(filepath.Join(a.exeDir, messages.GUIFilename), messages.GUI)
+	messages.RefreshDefaultsSnapshots(a.appDataDir)
+	return messages.LoadOrSync(filepath.Join(a.appDataDir, messages.GUIFilename), messages.GUI)
 }

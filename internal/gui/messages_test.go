@@ -10,7 +10,7 @@ import (
 
 func TestGetMessagesWritesOverrideAndDefaultsSnapshot(t *testing.T) {
 	dir := t.TempDir()
-	a := &App{exeDir: dir}
+	a := &App{appDataDir: dir}
 
 	got, err := a.GetMessages()
 	if err != nil {

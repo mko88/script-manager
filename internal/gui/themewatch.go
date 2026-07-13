@@ -22,9 +22,9 @@ const ThemeChangedEvent = "theme:changed"
 // events for one logical write) into one reload.
 const themeWatchDebounce = 150 * time.Millisecond
 
-// watchTheme watches this executable's directory for changes to
-// theme.Filename and emits ThemeChangedEvent with the reloaded state on
-// every change. Watches the directory rather than the file itself so it
+// watchTheme watches the app-data directory for changes to theme.Filename
+// and emits ThemeChangedEvent with the reloaded state on every change.
+// Watches the directory rather than the file itself so it
 // still notices the file's first-ever creation — fsnotify can't watch a
 // path that doesn't exist yet, which matters here since sm-theme.json
 // doesn't exist until a theme has actually been switched or saved at
@@ -37,7 +37,7 @@ func (a *App) watchTheme() {
 	if err != nil {
 		return
 	}
-	if err := watcher.Add(a.exeDir); err != nil {
+	if err := watcher.Add(a.appDataDir); err != nil {
 		watcher.Close()
 		return
 	}
@@ -58,7 +58,7 @@ func (a *App) watchTheme() {
 					debounce.Stop()
 				}
 				debounce = time.AfterFunc(themeWatchDebounce, func() {
-					wailsruntime.EventsEmit(a.ctx, ThemeChangedEvent, theme.Load(a.exeDir))
+					wailsruntime.EventsEmit(a.ctx, ThemeChangedEvent, theme.Load(a.appDataDir))
 				})
 			case _, ok := <-watcher.Errors:
 				if !ok {

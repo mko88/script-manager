@@ -11,7 +11,7 @@ import (
 
 func TestGetMessagesWritesOverrideAndDefaultsSnapshot(t *testing.T) {
 	dir := t.TempDir()
-	a := &App{exeDir: dir}
+	a := &App{appDataDir: dir}
 
 	got, err := a.GetMessages()
 	if err != nil {
@@ -34,7 +34,7 @@ func TestGetMessagesWritesOverrideAndDefaultsSnapshot(t *testing.T) {
 
 func TestGetEditableMessagesSelf(t *testing.T) {
 	dir := t.TempDir()
-	a := &App{exeDir: dir}
+	a := &App{appDataDir: dir}
 
 	got, err := a.GetEditableMessages("configedit")
 	if err != nil {
@@ -50,7 +50,7 @@ func TestGetEditableMessagesGuiFallsBackToDefaultsWhenNeverRun(t *testing.T) {
 	// script-manager-gui hasn't run, so it has no override file — this must
 	// not error, since this process has script-manager-gui's compiled
 	// defaults too (see internal/messages).
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 
 	got, err := a.GetEditableMessages("gui")
 	if err != nil {
@@ -71,7 +71,7 @@ func TestGetEditableMessagesGuiReconcilesAgainstDefaults(t *testing.T) {
 	if err := os.WriteFile(guiPath, []byte(`{"panel":{"stale":"drop me"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	a := &App{exeDir: dir}
+	a := &App{appDataDir: dir}
 
 	got, err := a.GetEditableMessages("gui")
 	if err != nil {
@@ -96,7 +96,7 @@ func TestGetEditableMessagesGuiReconcilesAgainstDefaults(t *testing.T) {
 
 func TestSaveMessagesRoundTrip(t *testing.T) {
 	dir := t.TempDir()
-	a := &App{exeDir: dir}
+	a := &App{appDataDir: dir}
 
 	data := map[string]interface{}{"nav": map[string]interface{}{"items": "Edited"}}
 	if err := a.SaveMessages("gui", data); err != nil {
@@ -113,7 +113,7 @@ func TestSaveMessagesRoundTrip(t *testing.T) {
 }
 
 func TestSaveMessagesUnknownTarget(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	if err := a.SaveMessages("bogus", map[string]interface{}{}); err == nil {
 		t.Error("expected an error for an unknown target")
 	}
@@ -122,7 +122,7 @@ func TestSaveMessagesUnknownTarget(t *testing.T) {
 func TestGetDefaultMessagesWorksWithoutAnyFileOnDisk(t *testing.T) {
 	// GetDefaultMessages reads compiled bytes, not a file — it must work
 	// even in a directory where neither app has ever run.
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 
 	got, err := a.GetDefaultMessages("gui")
 	if err != nil {
@@ -135,7 +135,7 @@ func TestGetDefaultMessagesWorksWithoutAnyFileOnDisk(t *testing.T) {
 }
 
 func TestGetDefaultMessagesUnknownTarget(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	if _, err := a.GetDefaultMessages("bogus"); err == nil {
 		t.Error("expected an error for an unknown target")
 	}
