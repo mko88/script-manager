@@ -65,6 +65,7 @@
   "text": {
     "allGroupsChip": "All",
     "separator": " · ",
-    "groupCount": "({count})"
+    "groupCount": "({count})",
+    "scriptLabel": "Script: "
   }
 }

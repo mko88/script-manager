@@ -267,3 +267,30 @@ func TestLoadFromWithError(t *testing.T) {
 		}
 	})
 }
+
+func TestParseCustomActionsScript(t *testing.T) {
+	raw := []interface{}{
+		map[string]interface{}{"title": "Deploy", "script": "./deploy.sh"},
+	}
+	actions := ParseCustomActions(raw)
+	if len(actions) != 1 {
+		t.Fatalf("got %d actions, want 1", len(actions))
+	}
+	if actions[0].Script != "./deploy.sh" {
+		t.Errorf("Script = %q, want %q", actions[0].Script, "./deploy.sh")
+	}
+	if actions[0].Cmd != "" {
+		t.Errorf("Cmd = %q, want empty", actions[0].Cmd)
+	}
+}
+
+func TestParseCustomActionsScriptOnlyStillValid(t *testing.T) {
+	// A script-only entry (no title, no cmd) must still survive the
+	// validity check ParseCustomActions applies to drop empty entries.
+	raw := []interface{}{
+		map[string]interface{}{"script": "./deploy.sh"},
+	}
+	if actions := ParseCustomActions(raw); len(actions) != 1 {
+		t.Fatalf("got %d actions, want 1", len(actions))
+	}
+}

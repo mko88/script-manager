@@ -182,6 +182,7 @@ func (a *App) GetActions(itemIndex int) []ActionDTO {
 type ActionDetailDTO struct {
 	Description string `json:"description"`
 	Cmd         string `json:"cmd"`
+	Script      string `json:"script"`
 	NoWait      bool   `json:"noWait"`
 	Interactive bool   `json:"interactive"`
 }
@@ -200,6 +201,7 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 	return ActionDetailDTO{
 		Description: action.Preview(act.Description, merged),
 		Cmd:         action.Preview(act.Cmd, merged),
+		Script:      action.Preview(act.Script, merged),
 		NoWait:      act.NoWait,
 		Interactive: act.Interactive,
 	}

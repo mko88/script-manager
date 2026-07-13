@@ -7,6 +7,8 @@ export function BrowseOpen():Promise<configedit.StateDTO>;
 
 export function BrowseSaveAs():Promise<string>;
 
+export function BrowseScriptFile():Promise<string>;
+
 export function DeleteTheme(arg1:string):Promise<void>;
 
 export function GetDefaultMessages(arg1:string):Promise<Record<string, any>>;

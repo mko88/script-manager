@@ -158,6 +158,7 @@ func actionToDTO(a config.Action) ActionDTO {
 		Title:       a.Title,
 		Description: a.Description,
 		Cmd:         a.Cmd,
+		Script:      a.Script,
 		Groups:      nonNil(append([]string(nil), a.Groups...)),
 		NoWait:      a.NoWait,
 		Interactive: a.Interactive,
@@ -170,6 +171,7 @@ func actionFromDTO(dto ActionDTO) config.Action {
 		Title:       dto.Title,
 		Description: dto.Description,
 		Cmd:         dto.Cmd,
+		Script:      dto.Script,
 		Groups:      append([]string(nil), dto.Groups...),
 		NoWait:      dto.NoWait,
 		Interactive: dto.Interactive,
@@ -189,6 +191,9 @@ func actionGroupFromDTO(dto ActionGroupDTO) config.ActionGroup {
 // config.ParseCustomActions.
 func actionDTOToMap(a ActionDTO) map[string]any {
 	m := map[string]any{"title": a.Title, "cmd": a.Cmd}
+	if a.Script != "" {
+		m["script"] = a.Script
+	}
 	if a.ID != "" {
 		m["id"] = a.ID
 	}

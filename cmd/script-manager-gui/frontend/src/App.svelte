@@ -147,8 +147,9 @@
   }
 
   function copyCmd() {
-    if (!actionDetail?.cmd) return
-    copyToClipboard(actionDetail.cmd)
+    const value = actionDetail?.cmd || actionDetail?.script
+    if (!value) return
+    copyToClipboard(value)
   }
 
   async function runAction() {
@@ -498,7 +499,7 @@
       {#if !commandCollapsed}
         <div class="panel-body command-content">
           {#if actionDetail}
-            {#if actionDetail.cmd}
+            {#if actionDetail.cmd || actionDetail.script}
               <div class="cmd-actions">
                 {#if !actionDetail.interactive}
                   <button
@@ -540,7 +541,16 @@
                 {/each}
               </div>
             {/if}
-            {#if actionDetail.cmd}
+            {#if actionDetail.script}
+              <div class="cmd-line">
+                <button class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} aria-label={t('tooltip.copyCommand')} on:click={copyCmd}
+                  ><Icon name="copy" /></button
+                >
+                <div class="cmd-line-row">
+                  <span class="cmd-line-text">{t('text.scriptLabel')}{actionDetail.script}</span>
+                </div>
+              </div>
+            {:else if actionDetail.cmd}
               <div class="cmd-line">
                 <button class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} aria-label={t('tooltip.copyCommand')} on:click={copyCmd}
                   ><Icon name="copy" /></button

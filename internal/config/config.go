@@ -26,10 +26,16 @@ const (
 )
 
 type Action struct {
-	ID          string   `yaml:"id,omitempty"`
-	Title       string   `yaml:"title"`
-	Description string   `yaml:"description,omitempty"`
-	Cmd         string   `yaml:"cmd"`
+	ID          string `yaml:"id,omitempty"`
+	Title       string `yaml:"title"`
+	Description string `yaml:"description,omitempty"`
+	// Cmd and Script are mutually exclusive: Cmd is a shell-template command
+	// string (expanded and run through the configured shell); Script is a
+	// file path run directly, no shell/template wrapping. Script takes
+	// precedence if both are somehow set — see internal/configedit/validate.go
+	// for the editor-side check that keeps that from happening normally.
+	Cmd         string   `yaml:"cmd,omitempty"`
+	Script      string   `yaml:"script,omitempty"`
 	Groups      []string `yaml:"groups,omitempty"`
 	NoWait      bool     `yaml:"noWait,omitempty"`
 	// Interactive marks an action whose command needs to read from stdin
@@ -263,6 +269,7 @@ func ParseCustomActions(v any) []Action {
 			Title:       StrVal(m["title"]),
 			Description: StrVal(m["description"]),
 			Cmd:         StrVal(m["cmd"]),
+			Script:      StrVal(m["script"]),
 		}
 		if gs, ok := AsStringSlice(m["groups"]); ok {
 			a.Groups = gs
@@ -273,7 +280,7 @@ func ParseCustomActions(v any) []Action {
 		if interactive, ok := m["interactive"].(bool); ok {
 			a.Interactive = interactive
 		}
-		if a.Title != "" || a.Cmd != "" {
+		if a.Title != "" || a.Cmd != "" || a.Script != "" {
 			result = append(result, a)
 		}
 	}

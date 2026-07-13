@@ -22,17 +22,26 @@ type actionFinishedMsg struct{ err error }
 // shell. Bubble Tea suspends the TUI, hands the terminal to the subprocess,
 // and resumes the same model afterwards — no state is lost.
 func (a *App) execAction(act config.Action) tea.Cmd {
-	if len(a.cfg.Shell) == 0 {
-		return a.flashMessage("No shell configured", 3*time.Second)
-	}
 	merged := a.MergedItem()
-	expanded, err := action.Expand(act.Cmd, merged)
-	if err != nil {
-		return a.flashMessage("Command template error: "+err.Error(), 3*time.Second)
-	}
 
-	args := append(append([]string{}, a.cfg.Shell[1:]...), expanded)
-	cmd := exec.Command(a.cfg.Shell[0], args...)
+	var cmd *exec.Cmd
+	if act.Script != "" {
+		expandedScript, err := action.Expand(act.Script, merged)
+		if err != nil {
+			return a.flashMessage("Script path template error: "+err.Error(), 3*time.Second)
+		}
+		cmd = exec.Command(expandedScript)
+	} else {
+		if len(a.cfg.Shell) == 0 {
+			return a.flashMessage("No shell configured", 3*time.Second)
+		}
+		expanded, err := action.Expand(act.Cmd, merged)
+		if err != nil {
+			return a.flashMessage("Command template error: "+err.Error(), 3*time.Second)
+		}
+		args := append(append([]string{}, a.cfg.Shell[1:]...), expanded)
+		cmd = exec.Command(a.cfg.Shell[0], args...)
+	}
 	cmd.Env = action.Env(merged)
 
 	proc := &actionProcess{

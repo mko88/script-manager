@@ -110,6 +110,13 @@ func (a *App) BrowseOpen() (StateDTO, error) {
 	return a.stateFor(cfg), nil
 }
 
+// BrowseScriptFile prompts for any file to use as a script action's target.
+// No extension filter — script files legitimately have arbitrary or no
+// extension (e.g. a bare shebang script on Linux).
+func (a *App) BrowseScriptFile() (string, error) {
+	return runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{Title: "Select script file"})
+}
+
 // BrowseSaveAs prompts for a destination path; it does not write anything.
 // An empty return means the dialog was cancelled.
 func (a *App) BrowseSaveAs() (string, error) {
