@@ -3,6 +3,7 @@
   import { loadPersisted, savePersisted } from '@shared/persist'
   import { flash } from '@shared/toast'
   import Icon from '@shared/components/Icon.svelte'
+  import IconButton from '@shared/components/IconButton.svelte'
   import { t } from '../messages'
   import { looksLikeSecretKey } from '../secretKey'
   import type { configedit } from '../../wailsjs/go/models'
@@ -270,24 +271,12 @@
           >{/each}
       </select>
     </label>
-    <button class="btn icon-btn" type="button" title={t('tooltip.addDisplay')} aria-label={t('tooltip.addDisplay')} on:click={addDisplay}
-      ><Icon name="add" /></button
-    >
-    <button
-      class="btn icon-btn"
-      type="button"
-      title={t('tooltip.copyDisplay')}
-      aria-label={t('tooltip.copyDisplay')}
-      disabled={selectedDisplay < 0}
-      on:click={copyDisplay}><Icon name="copy" /></button
-    >
-    <button
-      class="btn icon-btn"
-      type="button"
+    <IconButton title={t('tooltip.addDisplay')} on:click={addDisplay}><Icon name="add" /></IconButton>
+    <IconButton title={t('tooltip.copyDisplay')} disabled={selectedDisplay < 0} on:click={copyDisplay}><Icon name="copy" /></IconButton>
+    <IconButton
       title={t('tooltip.removeDisplay')}
-      aria-label={t('tooltip.removeDisplay')}
       disabled={selectedDisplay < 0}
-      on:click={() => confirmRemoveDisplay(selectedDisplay)}><Icon name="remove" /></button
+      on:click={() => confirmRemoveDisplay(selectedDisplay)}><Icon name="remove" /></IconButton
     >
   </div>
 
@@ -299,37 +288,25 @@
 
     <div class="display-toolbar">
       <div class="view-mode-group">
-        <button
-          class="btn icon-btn"
-          class:active={displayViewMode === 'edit'}
-          type="button"
+        <IconButton
+          active={displayViewMode === 'edit'}
           title={t('tooltip.editOnly')}
-          aria-label={t('tooltip.editOnly')}
-          on:click={() => setDisplayViewMode('edit')}><Icon name="edit" /></button
+          on:click={() => setDisplayViewMode('edit')}><Icon name="edit" /></IconButton
         >
-        <button
-          class="btn icon-btn"
-          class:active={displayViewMode === 'preview'}
-          type="button"
+        <IconButton
+          active={displayViewMode === 'preview'}
           title={t('tooltip.previewOnly')}
-          aria-label={t('tooltip.previewOnly')}
-          on:click={() => setDisplayViewMode('preview')}><Icon name="preview" /></button
+          on:click={() => setDisplayViewMode('preview')}><Icon name="preview" /></IconButton
         >
-        <button
-          class="btn icon-btn"
-          class:active={displayViewMode === 'split-v'}
-          type="button"
+        <IconButton
+          active={displayViewMode === 'split-v'}
           title={t('tooltip.sideBySide')}
-          aria-label={t('tooltip.sideBySide')}
-          on:click={() => setDisplayViewMode('split-v')}><Icon name="split-v" /></button
+          on:click={() => setDisplayViewMode('split-v')}><Icon name="split-v" /></IconButton
         >
-        <button
-          class="btn icon-btn"
-          class:active={displayViewMode === 'split-h'}
-          type="button"
+        <IconButton
+          active={displayViewMode === 'split-h'}
           title={t('tooltip.stacked')}
-          aria-label={t('tooltip.stacked')}
-          on:click={() => setDisplayViewMode('split-h')}><Icon name="split-h" /></button
+          on:click={() => setDisplayViewMode('split-h')}><Icon name="split-h" /></IconButton
         >
       </div>
       <label class="field preview-item-picker">
@@ -370,23 +347,14 @@
                   <option value="">{t('option.insertEnv')}</option>
                   {#each availableEnvKeys as key (key)}<option value={key}>{key}</option>{/each}
                 </select>
-                <button class="btn icon-btn" type="button" title={t('tooltip.bold')} on:click={() => wrapSelection('**')}
-                  ><strong>B</strong></button
-                >
-                <button class="btn icon-btn" type="button" title={t('tooltip.italic')} on:click={() => wrapSelection('_')}
-                  ><em>I</em></button
-                >
-                <button
-                  class="btn icon-btn"
-                  type="button"
-                  title={t('tooltip.highlight')}
-                  on:click={() => wrapSelection('`')}><code>`</code></button
-                >
-                <button class="btn icon-btn" type="button" title={t('tooltip.mask')} on:click={maskSelection}
+                <IconButton title={t('tooltip.bold')} on:click={() => wrapSelection('**')}><strong>B</strong></IconButton>
+                <IconButton title={t('tooltip.italic')} on:click={() => wrapSelection('_')}><em>I</em></IconButton>
+                <IconButton title={t('tooltip.highlight')} on:click={() => wrapSelection('`')}><code>`</code></IconButton>
+                <IconButton title={t('tooltip.mask')} on:click={maskSelection}
                   ><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
                     <rect x="3.5" y="7" width="9" height="6.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3" />
                     <path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.3" />
-                  </svg></button
+                  </svg></IconButton
                 >
               </div>
               <textarea bind:value={displays[selectedDisplay].details} bind:this={detailsTextareaEl}
@@ -467,7 +435,11 @@
     gap: 4px;
   }
 
-  .view-mode-group .btn.active {
+  /* .btn.active partially :global — that class now renders inside
+     IconButton's own template, which Svelte's per-component CSS scoping
+     wouldn't otherwise reach; .view-mode-group itself stays scoped since
+     it's still this component's own element. */
+  .view-mode-group :global(.btn.active) {
     background: var(--sm-accent-warm);
     border-color: var(--sm-accent-warm);
     color: var(--sm-accent-warm-text);
@@ -543,7 +515,7 @@
     margin-bottom: 4px;
   }
 
-  .details-helper-toolbar .icon-btn {
+  .details-helper-toolbar :global(.icon-btn) {
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.8rem;
     line-height: 1;

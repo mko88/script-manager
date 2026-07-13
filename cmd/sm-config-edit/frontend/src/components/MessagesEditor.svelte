@@ -1,6 +1,7 @@
 <script lang="ts">
   import { flash } from '@shared/toast'
   import Icon from '@shared/components/Icon.svelte'
+  import IconButton from '@shared/components/IconButton.svelte'
   import { t } from '../messages'
 
   // The Messages section: edits either app's runtime message-override file
@@ -127,25 +128,13 @@
     >
   </div>
   <div class="messages-actions">
-    <button
-      class="btn icon-btn"
-      type="button"
+    <IconButton
       title={allMessageGroupsCollapsed ? t('messagesEditor.expandAll') : t('messagesEditor.collapseAll')}
       on:click={toggleAllMessageGroups}
-      ><Icon name={allMessageGroupsCollapsed ? 'expand-all' : 'collapse-all'} /></button
+      ><Icon name={allMessageGroupsCollapsed ? 'expand-all' : 'collapse-all'} /></IconButton
     >
-    <button
-      class="btn icon-btn"
-      type="button"
-      title={t('messagesEditor.restoreDefaults')}
-      on:click={restoreDefaults}><Icon name="restore" /></button
-    >
-    <button
-      class="btn btn-primary icon-btn"
-      type="button"
-      title={t('messagesEditor.saveButton')}
-      on:click={saveMessagesSection}><Icon name="save" /></button
-    >
+    <IconButton title={t('messagesEditor.restoreDefaults')} on:click={restoreDefaults}><Icon name="restore" /></IconButton>
+    <IconButton class="btn btn-primary icon-btn" title={t('messagesEditor.saveButton')} on:click={saveMessagesSection}><Icon name="save" /></IconButton>
   </div>
 </div>
 <input

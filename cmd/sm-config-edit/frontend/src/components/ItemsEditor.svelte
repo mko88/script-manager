@@ -1,10 +1,10 @@
 <script lang="ts">
-  import Icon from '@shared/components/Icon.svelte'
   import ActionForm from './ActionForm.svelte'
   import FieldGrid from './FieldGrid.svelte'
+  import ListToolbar from './ListToolbar.svelte'
+  import CheckboxChipList from './CheckboxChipList.svelte'
   import { t } from '../messages'
-  import { wrap, sortableList, type DndEntry } from '../lib/sortable'
-  import type { DndEvent } from 'svelte-dnd-action'
+  import { wrap, sortableList, syncList, type DndEntry } from '../lib/sortable'
   import type { configedit } from '../../wailsjs/go/models'
 
   // The Items section: a reorderable master list, a detail form (reserved
@@ -80,10 +80,6 @@
     items[itemIdx].customActions = items[itemIdx].customActions.filter((_, idx) => idx !== i)
   }
 
-  function toggleInList(list: string[], value: string): string[] {
-    return list.includes(value) ? list.filter((v) => v !== value) : [...list, value]
-  }
-
   // Reordering is opt-in: off by default, toggled per-visit via the
   // reorder-mode button in the toolbar (not persisted — reopening the
   // section, or the app, starts back in "reordering off"). Without this
@@ -110,11 +106,11 @@
   // consider fires continuously during the drag (giving the live-shifting
   // preview via dndzone's own flip animation); finalize fires once,
   // settled, on drop or cancel. Only finalize commits to the real data.
-  function syncItems(e: CustomEvent<DndEvent<DndEntry<configedit.ItemDTO>>>, final: boolean) {
-    itemEntries = e.detail.items
-    dragging = !final
-    if (final) items = itemEntries.filter((w) => w.ref).map((w) => w.ref)
-  }
+  const syncItems = syncList<configedit.ItemDTO>({
+    setEntries: (v) => (itemEntries = v),
+    setDragging: (v) => (dragging = v),
+    setList: (v) => (items = v),
+  })
 
   let preview: configedit.PreviewDTO | null = null
   let previewDisplayName = ''
@@ -144,27 +140,17 @@
   }
 </script>
 
-<div class="list-toolbar">
-  <button class="btn icon-btn" type="button" title={t('tooltip.addItem')} aria-label={t('tooltip.addItem')} on:click={addItem}
-    ><Icon name="add" /></button
-  >
-  <button
-    class="btn icon-btn"
-    type="button"
-    title={t('tooltip.removeItem')}
-    aria-label={t('tooltip.removeItem')}
-    disabled={selectedItem < 0}
-    on:click={() => confirmRemoveItem(selectedItem)}><Icon name="remove" /></button
-  >
-  <button
-    class="btn icon-btn"
-    class:active={reorderMode}
-    type="button"
-    title={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
-    aria-label={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
-    on:click={toggleReorderMode}><Icon name="reorder" /></button
-  >
-</div>
+<ListToolbar
+  addLabel={t('tooltip.addItem')}
+  removeLabel={t('tooltip.removeItem')}
+  removeDisabled={selectedItem < 0}
+  {reorderMode}
+  reorderEnterLabel={t('tooltip.enterReorderMode')}
+  reorderExitLabel={t('tooltip.exitReorderMode')}
+  on:add={addItem}
+  on:remove={() => confirmRemoveItem(selectedItem)}
+  on:toggleReorder={toggleReorderMode}
+/>
 <div class="master-detail">
   <div
     class="master list"
@@ -201,41 +187,14 @@
       {#if allActionIds.length > 0}
         <div class="field">
           <span>{t('nav.actions')}</span>
-          <div class="checkbox-list">
-            {#each allActionIds as id}
-              <label class="checkbox-chip">
-                <input
-                  type="checkbox"
-                  checked={items[selectedItem].actions.includes(id)}
-                  on:change={() =>
-                    (items[selectedItem].actions = toggleInList(items[selectedItem].actions, id))}
-                />
-                {id}
-              </label>
-            {/each}
-          </div>
+          <CheckboxChipList options={allActionIds} bind:selected={items[selectedItem].actions} />
         </div>
       {/if}
 
       {#if allActionGroups.length > 0}
         <div class="field">
           <span>{t('field.itemActionGroupsList')}</span>
-          <div class="checkbox-list">
-            {#each allActionGroups as g}
-              <label class="checkbox-chip">
-                <input
-                  type="checkbox"
-                  checked={items[selectedItem].actionGroups.includes(g)}
-                  on:change={() =>
-                    (items[selectedItem].actionGroups = toggleInList(
-                      items[selectedItem].actionGroups,
-                      g,
-                    ))}
-                />
-                {g}
-              </label>
-            {/each}
-          </div>
+          <CheckboxChipList options={allActionGroups} bind:selected={items[selectedItem].actionGroups} />
         </div>
       {/if}
 

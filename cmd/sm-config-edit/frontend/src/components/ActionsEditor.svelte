@@ -1,9 +1,8 @@
 <script lang="ts">
-  import Icon from '@shared/components/Icon.svelte'
   import ActionForm from './ActionForm.svelte'
+  import ListToolbar from './ListToolbar.svelte'
   import { t } from '../messages'
-  import { wrap, sortableList, type DndEntry } from '../lib/sortable'
-  import type { DndEvent } from 'svelte-dnd-action'
+  import { wrap, sortableList, syncList, type DndEntry } from '../lib/sortable'
   import type { configedit } from '../../wailsjs/go/models'
 
   // The Actions section: a reorderable master list of the global actions,
@@ -54,34 +53,24 @@
   let actionEntries: DndEntry<configedit.ActionDTO>[] = wrap(actions)
   $: if (!dragging) actionEntries = wrap(actions)
 
-  function syncActions(e: CustomEvent<DndEvent<DndEntry<configedit.ActionDTO>>>, final: boolean) {
-    actionEntries = e.detail.items
-    dragging = !final
-    if (final) actions = actionEntries.filter((w) => w.ref).map((w) => w.ref)
-  }
+  const syncActions = syncList<configedit.ActionDTO>({
+    setEntries: (v) => (actionEntries = v),
+    setDragging: (v) => (dragging = v),
+    setList: (v) => (actions = v),
+  })
 </script>
 
-<div class="list-toolbar">
-  <button class="btn icon-btn" type="button" title={t('tooltip.addAction')} aria-label={t('tooltip.addAction')} on:click={addAction}
-    ><Icon name="add" /></button
-  >
-  <button
-    class="btn icon-btn"
-    type="button"
-    title={t('tooltip.removeAction')}
-    aria-label={t('tooltip.removeAction')}
-    disabled={selectedAction < 0}
-    on:click={() => confirmRemoveAction(selectedAction)}><Icon name="remove" /></button
-  >
-  <button
-    class="btn icon-btn"
-    class:active={reorderMode}
-    type="button"
-    title={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
-    aria-label={reorderMode ? t('tooltip.exitReorderMode') : t('tooltip.enterReorderMode')}
-    on:click={toggleReorderMode}><Icon name="reorder" /></button
-  >
-</div>
+<ListToolbar
+  addLabel={t('tooltip.addAction')}
+  removeLabel={t('tooltip.removeAction')}
+  removeDisabled={selectedAction < 0}
+  {reorderMode}
+  reorderEnterLabel={t('tooltip.enterReorderMode')}
+  reorderExitLabel={t('tooltip.exitReorderMode')}
+  on:add={addAction}
+  on:remove={() => confirmRemoveAction(selectedAction)}
+  on:toggleReorder={toggleReorderMode}
+/>
 <div class="master-detail">
   <div
     class="master list"

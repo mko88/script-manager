@@ -14,6 +14,7 @@
   import ToolbarIcon from './components/ToolbarIcon.svelte'
   import RadioGroup from './components/RadioGroup.svelte'
   import Icon from '@shared/components/Icon.svelte'
+  import IconButton from '@shared/components/IconButton.svelte'
   import { t } from './messages'
   import {
     InitialState,
@@ -243,35 +244,27 @@
 
 <div class="app-root">
   <header class="toolbar">
-    <button class="btn icon-btn" type="button" title={t('tooltip.newTitle')} aria-label={t('tooltip.newAria')} on:click={newConfig}
-      ><ToolbarIcon mode="new" /></button
-    >
-    <button class="btn icon-btn" type="button" title={t('tooltip.openTitle')} aria-label={t('tooltip.openAria')} on:click={openConfig}
-      ><ToolbarIcon mode="open" /></button
-    >
-    <button
+    <IconButton title={t('tooltip.newTitle')} aria={t('tooltip.newAria')} on:click={newConfig}><ToolbarIcon mode="new" /></IconButton>
+    <IconButton title={t('tooltip.openTitle')} aria={t('tooltip.openAria')} on:click={openConfig}><ToolbarIcon mode="open" /></IconButton>
+    <IconButton
       class="btn btn-primary icon-btn"
-      type="button"
       title={t('tooltip.saveTitle')}
-      aria-label={t('tooltip.saveAria')}
+      aria={t('tooltip.saveAria')}
       disabled={hasBlockingError}
-      on:click={saveConfig}><ToolbarIcon mode="save" /></button
+      on:click={saveConfig}><ToolbarIcon mode="save" /></IconButton
     >
-    <button
-      class="btn icon-btn"
-      type="button"
+    <IconButton
       title={t('tooltip.saveAsTitle')}
-      aria-label={t('tooltip.saveAsAria')}
+      aria={t('tooltip.saveAsAria')}
       disabled={hasBlockingError}
-      on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></button
+      on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></IconButton
     >
-    <button
+    <IconButton
       class="btn icon-btn open-in-editor-btn"
-      type="button"
       disabled={!path}
       title={path ? t('tooltip.openInEditorTitle', { path }) : ''}
-      aria-label={t('tooltip.openInEditorAria')}
-      on:click={openInEditor}><Icon name="edit" /></button
+      aria={t('tooltip.openInEditorAria')}
+      on:click={openInEditor}><Icon name="edit" /></IconButton
     >
   </header>
 
@@ -410,8 +403,10 @@
 
   /* Takes over the far-right slot script-manager-gui's settings-btn
      occupies — a peripheral, non-file-op action pinned opposite New/Open/
-     Save/Save As. */
-  .open-in-editor-btn {
+     Save/Save As. :global — this class now renders inside IconButton's
+     own template (via its class prop), which Svelte's per-component CSS
+     scoping wouldn't otherwise reach. */
+  :global(.open-in-editor-btn) {
     margin-left: auto;
   }
 
@@ -496,25 +491,8 @@
     border-radius: 3px;
   }
 
-  .field {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-size: 0.8rem;
-    color: var(--sm-text-muted);
-    margin-bottom: 10px;
-  }
-
-  .field input {
-    background: var(--sm-bg-deep);
-    color: var(--sm-text);
-    border: 1px solid var(--sm-border);
-    border-radius: 4px;
-    padding: 5px 7px;
-    font-family: inherit;
-    font-size: 0.85rem;
-  }
-
+  /* .field/.field input come from the shared design system
+     (@shared/theme.css) — not redefined here. */
 
   /* .messages-* styling now lives in MessagesEditor.svelte. */
 </style>

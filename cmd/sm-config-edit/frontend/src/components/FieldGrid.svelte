@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '../messages'
   import { looksLikeSecretKey } from '../secretKey'
+  import IconButton from '@shared/components/IconButton.svelte'
 
   // Drives a []FieldDTO (Environment, or an item's non-reserved "Additional
   // Fields"): a key, a kind selector, a kind-appropriate value widget, and a
@@ -68,11 +69,11 @@
         bind:value={fields[i].key}
         on:input={() => onKeyInput(i)}
       />
-      <select class="field-kind" bind:value={fields[i].kind} on:change={() => onKindChange(i)}>
+      <select class="field-kind sm-select" bind:value={fields[i].kind} on:change={() => onKindChange(i)}>
         {#each kinds as k}<option value={k}>{k}</option>{/each}
       </select>
       {#if fields[i].kind === 'bool'}
-        <select class="field-value" bind:value={fields[i].value} on:change={() => check(i)}>
+        <select class="field-value sm-select" bind:value={fields[i].value} on:change={() => check(i)}>
           <option value="true">true</option>
           <option value="false">false</option>
         </select>
@@ -107,10 +108,9 @@
           on:blur={() => (focused = { ...focused, [i]: false })}
         />
       {/if}
-      <button
-        class="btn icon-btn"
-        class:active={fields[i].secret}
-        type="button"
+      <IconButton
+        class="btn icon-btn field-icon-btn"
+        active={fields[i].secret}
         title={fields[i].secret ? t('tooltip.markedSecret') : t('tooltip.markSecret')}
         on:click={() => toggleSecret(i)}
       >
@@ -125,8 +125,8 @@
             <path d="M5 7V5a3 3 0 0 1 5.7-1.3" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
           </svg>
         {/if}
-      </button>
-      <button class="btn icon-btn" type="button" title={t('tooltip.removeField')} on:click={() => remove(i)}>{t('text.removeGlyph')}</button>
+      </IconButton>
+      <IconButton class="btn icon-btn field-icon-btn" title={t('tooltip.removeField')} on:click={() => remove(i)}>{t('text.removeGlyph')}</IconButton>
     </div>
     {#if errors[i]}
       <div class="field-error">{errors[i]}</div>
@@ -179,8 +179,11 @@
   }
   /* A fixed box (not just matching padding) so the lock's SVG and the
      remove button's "✕" text glyph — different intrinsic content sizes —
-     still render at identical dimensions. */
-  .icon-btn {
+     still render at identical dimensions. field-icon-btn (not the plain
+     .icon-btn every toolbar button also carries), and :global since these
+     buttons now render inside IconButton's own template — narrowly scoped
+     so this fixed sizing doesn't leak to every icon button in the app. */
+  :global(.field-icon-btn) {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -190,7 +193,7 @@
     padding: 0;
     flex: none;
   }
-  .icon-btn.active {
+  :global(.field-icon-btn.active) {
     background: var(--sm-accent-warm);
     border-color: var(--sm-accent-warm);
     color: var(--sm-accent-warm-text);
@@ -207,23 +210,11 @@
     font-size: 0.85rem;
   }
 
-  /* See App.svelte's .field select for why appearance: none is needed —
-     without it, Chromium/WebView2 keeps a native, light dropdown-arrow
-     box regardless of the background/color set above. */
-  select {
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a9b6c8' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
+  /* appearance/arrow-image/light-theme-variant come from the shared
+     .sm-select utility (@shared/theme.css) — only the tighter spacing
+     FieldGrid's compact rows need is overridden locally here. */
+  .sm-select {
     background-position: right 8px center;
     padding-right: 24px;
-  }
-
-  /* See App.svelte's light-theme select override for why this can't just
-     be a var() — the arrow color is baked into the SVG's URL-encoded
-     string (%2355647a = --sm-text-muted's light value). */
-  :global([data-theme="light"]) select {
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355647a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   }
 </style>

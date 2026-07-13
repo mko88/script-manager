@@ -1,6 +1,7 @@
 <script lang="ts">
   import { t } from '../messages'
   import RadioGroup from './RadioGroup.svelte'
+  import CheckboxChipList from './CheckboxChipList.svelte'
 
   // Shared by the global Actions section and an item's Custom Actions list —
   // both edit the same []Action-shaped data (internal/configedit.ActionDTO).
@@ -21,10 +22,6 @@
   export let allActionGroups: string[] = []
   // Opens a native file picker and returns the chosen path ("" if cancelled).
   export let browseScriptFile: () => Promise<string>
-
-  function toggleGroup(id: string) {
-    action.groups = action.groups.includes(id) ? action.groups.filter((g) => g !== id) : [...action.groups, id]
-  }
 
   // cmd and script are mutually exclusive. mode starts derived from which
   // one is currently populated, but from then on is tracked as its own
@@ -89,14 +86,7 @@
   {#if allActionGroups.length > 0}
     <div class="field">
       <span>{t('field.groups')}</span>
-      <div class="checkbox-list">
-        {#each allActionGroups as g}
-          <label class="checkbox-chip">
-            <input type="checkbox" checked={action.groups.includes(g)} on:change={() => toggleGroup(g)} />
-            {g}
-          </label>
-        {/each}
-      </div>
+      <CheckboxChipList options={allActionGroups} bind:selected={action.groups} />
     </div>
   {/if}
   <label class="field-checkbox">
@@ -155,20 +145,6 @@
     color: var(--sm-text-muted);
     margin-bottom: 10px;
   }
-  .checkbox-list {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  .checkbox-chip {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    background: var(--sm-bg-deep);
-    border: 1px solid var(--sm-border);
-    border-radius: 999px;
-    padding: 2px 9px;
-    font-size: 0.75rem;
-    cursor: pointer;
-  }
+  /* .checkbox-list/.checkbox-chip come from the shared design system
+     (@shared/theme.css) — not redefined here. */
 </style>
