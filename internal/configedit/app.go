@@ -6,8 +6,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"script-manager/internal/appdata"
 	"script-manager/internal/config"
-	"script-manager/internal/exepath"
 	"script-manager/internal/terminal"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -23,15 +23,16 @@ type App struct {
 	// path is the file InitialState/BrowseOpen loaded from or Save last wrote
 	// to; "" means an unsaved new file.
 	path string
-	// exeDir is this executable's directory, used to resolve both this app's
-	// own and its sibling script-manager-gui's runtime messages files.
-	exeDir string
+	// appDataDir is the app-data directory (see internal/appdata), used to
+	// resolve both this app's own and its sibling script-manager-gui's
+	// runtime theme/messages files.
+	appDataDir string
 }
 
 // NewApp builds the backend around an optional explicit config path (from
 // -config); "" means auto-detect the same way script-manager-gui does.
 func NewApp(cfgPath string) *App {
-	return &App{cfgPath: cfgPath, exeDir: exepath.Dir()}
+	return &App{cfgPath: cfgPath, appDataDir: appdata.Dir()}
 }
 
 // Startup is wired as the Wails OnStartup callback.

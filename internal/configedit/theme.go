@@ -6,15 +6,15 @@ import "script-manager/internal/theme"
 // internal/theme), so this app's startup picks up a switch — or a saved
 // custom palette — made in the other one.
 func (a *App) GetTheme() theme.State {
-	return theme.Load(a.exeDir)
+	return theme.Load(a.appDataDir)
 }
 
 // SetTheme switches the active theme, keeping whatever custom palette is
 // already persisted.
 func (a *App) SetTheme(active string) error {
-	s := theme.Load(a.exeDir)
+	s := theme.Load(a.appDataDir)
 	s.Active = active
-	return theme.Save(a.exeDir, s)
+	return theme.Save(a.appDataDir, s)
 }
 
 // SaveTheme creates or updates a named custom theme and makes it active.
@@ -22,7 +22,7 @@ func (a *App) SetTheme(active string) error {
 // this save ("" otherwise) — the old entry is removed so a rename and a
 // color edit save as one atomic step instead of two round trips.
 func (a *App) SaveTheme(name, renamedFrom string, palette map[string]string) error {
-	s := theme.Load(a.exeDir)
+	s := theme.Load(a.appDataDir)
 	if s.Themes == nil {
 		s.Themes = map[string]map[string]string{}
 	}
@@ -31,16 +31,16 @@ func (a *App) SaveTheme(name, renamedFrom string, palette map[string]string) err
 	}
 	s.Themes[name] = palette
 	s.Active = name
-	return theme.Save(a.exeDir, s)
+	return theme.Save(a.appDataDir, s)
 }
 
 // DeleteTheme removes a named custom theme, falling back to "dark" if it
 // was the active one.
 func (a *App) DeleteTheme(name string) error {
-	s := theme.Load(a.exeDir)
+	s := theme.Load(a.appDataDir)
 	delete(s.Themes, name)
 	if s.Active == name {
 		s.Active = "dark"
 	}
-	return theme.Save(a.exeDir, s)
+	return theme.Save(a.appDataDir, s)
 }

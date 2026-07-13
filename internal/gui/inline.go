@@ -74,8 +74,8 @@ func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup
 
 	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, false)
 	cmd = exec.Command(shellArgv[0], shellArgv[1:]...)
-	if a.exeDir != "" {
-		cmd.Dir = a.exeDir
+	if a.appDataDir != "" {
+		cmd.Dir = a.appDataDir
 	}
 	cmd.Env = action.Env(merged)
 	// Stdin is deliberately left disconnected: an inline run is for a

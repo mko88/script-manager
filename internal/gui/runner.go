@@ -83,7 +83,7 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 
 	// Resolve the terminal before writing anything to disk, so a missing or
 	// misconfigured terminal fails fast without leaving a temp script behind.
-	term, err := terminal.Resolve(a.cfg.Terminal, runtime.GOOS, title, a.exeDir)
+	term, err := terminal.Resolve(a.cfg.Terminal, runtime.GOOS, title, a.appDataDir)
 	if err != nil {
 		return err
 	}
@@ -99,9 +99,9 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 	}
 	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, !act.NoWait)
 
-	cmd := exec.Command(term.Path(), term.Args(title, a.exeDir, shellArgv)...)
-	if a.exeDir != "" {
-		cmd.Dir = a.exeDir
+	cmd := exec.Command(term.Path(), term.Args(title, a.appDataDir, shellArgv)...)
+	if a.appDataDir != "" {
+		cmd.Dir = a.appDataDir
 	}
 	cmd.Env = action.Env(merged)
 	if err := cmd.Start(); err != nil {

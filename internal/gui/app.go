@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"script-manager/internal/action"
+	"script-manager/internal/appdata"
 	"script-manager/internal/config"
 	"script-manager/internal/exepath"
 
@@ -21,12 +22,17 @@ import (
 
 // App is the Wails-bound backend.
 type App struct {
-	ctx     context.Context
-	cfg     *config.Config
-	load    func() (*config.Config, error)
-	md      goldmark.Markdown
-	exeDir  string
-	loadErr error // from the initial load; the frontend fetches it once via LoadError
+	ctx context.Context
+	cfg *config.Config
+	load func() (*config.Config, error)
+	md   goldmark.Markdown
+	// exeDir anchors things that must sit next to this binary specifically:
+	// finding the sibling sm-config-edit executable (see browse.go). Theme,
+	// messages, and the working directory actions run in all use appDataDir
+	// instead, since exeDir isn't reliably writable (e.g. Program Files).
+	exeDir     string
+	appDataDir string
+	loadErr    error // from the initial load; the frontend fetches it once via LoadError
 
 	// inlineMu guards inlineRuns. Different item/action pairs may run
 	// concurrently — switching to another action in the UI doesn't stop
@@ -49,6 +55,7 @@ func NewApp(load func() (*config.Config, error)) *App {
 		cfg:        cfg,
 		load:       load,
 		exeDir:     exepath.Dir(),
+		appDataDir: appdata.Dir(),
 		loadErr:    err,
 		inlineRuns: make(map[inlineKey]*inlineRun),
 		md: goldmark.New(

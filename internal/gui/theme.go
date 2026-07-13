@@ -6,14 +6,14 @@ import "script-manager/internal/theme"
 // internal/theme), so this app's startup picks up a switch — or a saved
 // custom palette — made in the other one.
 func (a *App) GetTheme() theme.State {
-	return theme.Load(a.exeDir)
+	return theme.Load(a.appDataDir)
 }
 
 // SetTheme switches the active theme, keeping whatever named custom
 // themes are already persisted (this app can select one but not edit it —
 // only sm-config-edit's SaveTheme does that).
 func (a *App) SetTheme(active string) error {
-	s := theme.Load(a.exeDir)
+	s := theme.Load(a.appDataDir)
 	s.Active = active
-	return theme.Save(a.exeDir, s)
+	return theme.Save(a.appDataDir, s)
 }

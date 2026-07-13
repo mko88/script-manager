@@ -3,14 +3,14 @@ package configedit
 import "testing"
 
 func TestGetThemeDefaultsToDark(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	if got := a.GetTheme(); got.Active != "dark" {
 		t.Errorf("GetTheme() = %+v, want Active dark", got)
 	}
 }
 
 func TestSaveThemeCreatesAndActivates(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	palette := map[string]string{"bg": "#101010", "accent": "#ff8800"}
 
 	if err := a.SaveTheme("Custom", "", palette); err != nil {
@@ -27,7 +27,7 @@ func TestSaveThemeCreatesAndActivates(t *testing.T) {
 }
 
 func TestSaveThemeUpdatesInPlace(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	if err := a.SaveTheme("Custom", "", map[string]string{"bg": "#101010"}); err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func TestSaveThemeUpdatesInPlace(t *testing.T) {
 }
 
 func TestSaveThemeRenames(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	if err := a.SaveTheme("Custom", "", map[string]string{"bg": "#101010"}); err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func TestSaveThemeRenames(t *testing.T) {
 }
 
 func TestSetThemeSwitchesAwayFromCustomWithoutLosingIt(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	if err := a.SaveTheme("Custom", "", map[string]string{"bg": "#101010"}); err != nil {
 		t.Fatal(err)
 	}
@@ -76,7 +76,7 @@ func TestSetThemeSwitchesAwayFromCustomWithoutLosingIt(t *testing.T) {
 }
 
 func TestDeleteThemeFallsBackToDarkWhenActive(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	if err := a.SaveTheme("Custom", "", map[string]string{"bg": "#101010"}); err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestDeleteThemeFallsBackToDarkWhenActive(t *testing.T) {
 }
 
 func TestDeleteThemeKeepsActiveWhenUnrelated(t *testing.T) {
-	a := &App{exeDir: t.TempDir()}
+	a := &App{appDataDir: t.TempDir()}
 	if err := a.SaveTheme("Custom", "", map[string]string{"bg": "#101010"}); err != nil {
 		t.Fatal(err)
 	}

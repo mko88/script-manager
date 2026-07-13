@@ -13,8 +13,8 @@ import (
 // against defaults on every call, both apps' defaults snapshots
 // refreshed); used by sm-config-edit's own startup bootstrap.
 func (a *App) GetMessages() (map[string]interface{}, error) {
-	messages.RefreshDefaultsSnapshots(a.exeDir)
-	return messages.LoadOrSync(filepath.Join(a.exeDir, messages.ConfigEditFilename), messages.ConfigEdit)
+	messages.RefreshDefaultsSnapshots(a.appDataDir)
+	return messages.LoadOrSync(filepath.Join(a.appDataDir, messages.ConfigEditFilename), messages.ConfigEdit)
 }
 
 // GetEditableMessages returns the current message text for the Messages
@@ -39,7 +39,7 @@ func (a *App) GetEditableMessages(target string) (map[string]interface{}, error)
 		return nil, err
 	}
 	override := map[string]interface{}{}
-	data, readErr := os.ReadFile(filepath.Join(a.exeDir, filename))
+	data, readErr := os.ReadFile(filepath.Join(a.appDataDir, filename))
 	switch {
 	case readErr == nil:
 		if err := json.Unmarshal(data, &override); err != nil {
@@ -90,5 +90,5 @@ func (a *App) SaveMessages(target string, data map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(filepath.Join(a.exeDir, filename), out, 0o644)
+	return os.WriteFile(filepath.Join(a.appDataDir, filename), out, 0o644)
 }
