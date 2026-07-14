@@ -1,14 +1,32 @@
 package config
 
 import (
+	_ "embed"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 
+	"script-manager/internal/appdata"
+
 	"gopkg.in/yaml.v3"
 )
+
+//go:embed templates/default.yaml
+var defaultConfigUnix string
+
+//go:embed templates/default-win.yaml
+var defaultConfigWindows string
+
+// defaultConfigYAML returns the OS-appropriate starter config content used
+// to seed the app-data directory when no config file exists anywhere.
+func defaultConfigYAML() string {
+	if runtime.GOOS == "windows" {
+		return defaultConfigWindows
+	}
+	return defaultConfigUnix
+}
 
 // Reserved item keys. Every other key in an item map is free-form data for
 // templates and the subprocess environment.
@@ -297,11 +315,18 @@ func StrVal(v any) string {
 }
 
 // LoadWithError resolves the config file automatically — next to the binary
-// first, then the working directory — and reports the last error encountered
-// (e.g. a missing file or a YAML syntax error) so callers can reload without
-// losing the previous config on failure. On Windows, config-win.yaml takes
-// precedence in both locations, falling back to config.yaml when absent.
-// Use LoadFromWithError to load an explicit path instead.
+// first, then the working directory, then the shared app-data directory (see
+// internal/appdata; the same place theme/messages already live) — and
+// reports the last error encountered (e.g. a missing file or a YAML syntax
+// error) so callers can reload without losing the previous config on
+// failure. On Windows, config-win.yaml takes precedence in every location,
+// falling back to config.yaml when absent. If none of those candidates
+// exist anywhere — first-ever startup, nothing to fall back to — a minimal
+// OS-appropriate starter config is written to the app-data directory and
+// loaded from there, so there's always something to work with instead of an
+// empty app. Use LoadFromWithError to load an explicit path instead (never
+// auto-creates; an explicit path the user gave that doesn't exist is a real
+// error, not an invitation to invent one).
 func LoadWithError() (*Config, error) {
 	names := []string{"config.yaml"}
 	if runtime.GOOS == "windows" {
@@ -312,6 +337,7 @@ func LoadWithError() (*Config, error) {
 	if exe, err := os.Executable(); err == nil {
 		exeDir = filepath.Dir(exe)
 	}
+	dataDir := appdata.Dir()
 
 	var paths []string
 	for _, name := range names {
@@ -320,13 +346,51 @@ func LoadWithError() (*Config, error) {
 		}
 		paths = append(paths, name)
 	}
+	if dataDir != "" {
+		for _, name := range names {
+			paths = append(paths, filepath.Join(dataDir, name))
+		}
+	}
 
-	return loadPaths(paths)
+	if dataDir == "" {
+		return loadPaths(paths)
+	}
+	return loadOrCreate(paths, filepath.Join(dataDir, names[0]), defaultConfigYAML())
 }
 
 // LoadFromWithError loads a config from an explicit file path.
 func LoadFromWithError(path string) (*Config, error) {
 	return loadPaths([]string{path})
+}
+
+// loadOrCreate tries each candidate path via loadPaths; if none of them
+// exist at all (as opposed to existing but failing to parse — see anyExists),
+// it writes defaultYAML to defaultPath and loads that instead. Split out
+// from LoadWithError so this fallback-creation behavior is testable without
+// the real os.Executable()/appdata.Dir() filesystem dependencies.
+func loadOrCreate(paths []string, defaultPath, defaultYAML string) (*Config, error) {
+	cfg, err := loadPaths(paths)
+	if cfg.SourcePath != "" || anyExists(paths) {
+		return cfg, err
+	}
+	if writeErr := os.WriteFile(defaultPath, []byte(defaultYAML), 0o644); writeErr != nil {
+		return cfg, err
+	}
+	return loadPaths([]string{defaultPath})
+}
+
+// anyExists reports whether any of the given paths exists on disk, whether
+// or not it parses successfully — used to tell "genuinely nothing found
+// anywhere" (safe to seed a default) apart from "something exists but every
+// candidate is broken" (a real error the user needs to see, not paper over
+// with a fresh default file elsewhere).
+func anyExists(paths []string) bool {
+	for _, p := range paths {
+		if _, err := os.Stat(p); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 // loadPaths tries each candidate path in order and returns the config from

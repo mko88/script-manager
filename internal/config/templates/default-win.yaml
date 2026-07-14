@@ -1,0 +1,23 @@
+# Starter config, generated automatically because no config file was found
+# anywhere (next to the binary, in the working directory, or in the app-data
+# directory). Replace this with your own items, actions, and displays — see
+# the project README for the full format and more examples.
+
+shell:
+  - pwsh
+  - -NoProfile
+  - -Command
+
+display:
+  - name: default
+    list: "{{.name}}"
+    details: |
+      **{{.name}}**
+
+items:
+  - name: Example item
+
+actions:
+  - id: hello
+    title: Say hello
+    cmd: Write-Host "Hello from script-manager!"
