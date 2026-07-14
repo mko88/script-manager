@@ -175,7 +175,7 @@
   }
 
   .field-error {
-    color: var(--sm-accent-warm);
+    color: var(--sm-bg-primary);
     font-size: 0.75rem;
     margin: -2px 0 4px 144px;
   }
@@ -196,9 +196,9 @@
     flex: none;
   }
   :global(.field-icon-btn.active) {
-    background: var(--sm-accent-warm);
-    border-color: var(--sm-accent-warm);
-    color: var(--sm-accent-warm-text);
+    background: var(--sm-bg-primary);
+    border-color: var(--sm-bg-primary);
+    color: var(--sm-text-primary);
   }
   input,
   select,

@@ -457,9 +457,9 @@
      wouldn't otherwise reach; .view-mode-group itself stays scoped since
      it's still this component's own element. */
   .view-mode-group :global(.btn.active) {
-    background: var(--sm-accent-warm);
-    border-color: var(--sm-accent-warm);
-    color: var(--sm-accent-warm-text);
+    background: var(--sm-bg-primary);
+    border-color: var(--sm-bg-primary);
+    color: var(--sm-text-primary);
     font-weight: 700;
   }
 

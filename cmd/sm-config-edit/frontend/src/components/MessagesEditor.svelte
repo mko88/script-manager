@@ -203,8 +203,8 @@
   }
 
   .messages-tab.active {
-    color: var(--sm-accent-warm);
-    border-bottom-color: var(--sm-accent-warm);
+    color: var(--sm-bg-primary);
+    border-bottom-color: var(--sm-bg-primary);
     font-weight: 700;
   }
 

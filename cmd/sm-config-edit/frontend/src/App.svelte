@@ -464,7 +464,7 @@
   }
 
   .validation-issue.validation-error {
-    color: var(--sm-accent-warm);
+    color: var(--sm-bg-primary);
     font-weight: 700;
   }
 

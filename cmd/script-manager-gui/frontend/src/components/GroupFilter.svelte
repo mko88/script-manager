@@ -218,14 +218,14 @@
   }
 
   .sort-btn:hover {
-    background: var(--sm-hover);
+    background: var(--sm-secondary-hover);
     color: var(--sm-text);
   }
 
   .sort-btn.active {
-    background: var(--sm-accent-warm);
-    border-color: var(--sm-accent-warm);
-    color: var(--sm-accent-warm-text);
+    background: var(--sm-bg-primary);
+    border-color: var(--sm-bg-primary);
+    color: var(--sm-text-primary);
     font-weight: 700;
   }
 
