@@ -15,15 +15,28 @@ const THEMES_STORAGE_KEY = 'sm-theme-themes'
 // the "--sm-" prefix), grouped for the theme editor's UI — matches
 // frontend-shared/theme.css's :root block exactly; keep both in sync.
 export const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
-  { label: 'Backgrounds', tokens: ['bg', 'bg-alt', 'row-bg', 'button-bg', 'bg-deep', 'panel-header', 'border'] },
-  { label: 'Text', tokens: ['text', 'text-muted', 'text-faint', 'text-heading', 'text-highlight'] },
   {
-    label: 'Accents',
-    tokens: ['accent-warm', 'accent-warm-text', 'masked', 'warning', 'error', 'line-number'],
+    label: 'Backgrounds',
+    tokens: ['bg', 'bg-alt', 'row-bg', 'bg-secondary', 'bg-deep', 'panel-header', 'border', 'bg-primary'],
+  },
+  {
+    label: 'Text',
+    tokens: [
+      'text',
+      'text-muted',
+      'text-faint',
+      'text-heading',
+      'text-highlight',
+      'text-primary',
+      'masked',
+      'warning',
+      'error',
+      'line-number',
+    ],
   },
   {
     label: 'Effects',
-    tokens: ['hover', 'tint-hover', 'overlay-soft', 'scrollbar', 'shadow', 'btn-primary-hover'],
+    tokens: ['secondary-hover', 'tint-hover', 'overlay-soft', 'scrollbar', 'shadow', 'primary-hover'],
   },
 ]
 export const TOKEN_NAMES: string[] = TOKEN_GROUPS.flatMap((g) => g.tokens)

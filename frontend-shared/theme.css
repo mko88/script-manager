@@ -5,67 +5,77 @@
    generic, reusable classes and the color palette live here. */
 
 :root {
+  /* Backgrounds */
   --sm-bg: #1b2636;
   --sm-bg-alt: #1f2c3d;
   --sm-row-bg: #243145;
-  --sm-button-bg: #283850;
+  --sm-bg-secondary: #283850;
   --sm-bg-deep: #14202f;
   --sm-panel-header: #253449;
   --sm-border: #3a4a63;
+  --sm-bg-primary: #e8a33d;
+
+  /* Text */
   --sm-text: #d7dee8;
   --sm-text-muted: #a9b6c8;
   --sm-text-faint: #6b7a90;
   --sm-text-heading: #7fd4ff;
-  --sm-accent-warm: #e8a33d;
-  --sm-accent-warm-text: #1b2636;
+  --sm-text-highlight: #6ee7d8;
+  --sm-text-primary: #1b2636;
+  --sm-masked: #b9c3d1;
   --sm-warning: #e8a33d;
-  --sm-hover: #2b3b52;
+  --sm-error: #e0645c;
+  --sm-line-number: #4a5b74;
+
+  /* Effects */
+  --sm-secondary-hover: #2b3b52;
   --sm-tint-hover: #1f3346;
   --sm-overlay-soft: rgba(255, 255, 255, 0.08);
   --sm-scrollbar: rgba(255, 255, 255, 0.14);
   --sm-shadow: rgba(0, 0, 0, 0.4);
-  --sm-btn-primary-hover: #f0b25a;
-  --sm-text-highlight: #6ee7d8;
-  --sm-masked: #b9c3d1;
-  --sm-error: #e0645c;
-  --sm-line-number: #4a5b74;
+  --sm-primary-hover: #f0b25a;
 }
 
 /* Light theme — toggled by setting data-theme="light" on <html> (see
    frontend-shared/theme.ts). Every token below is deliberately re-picked
    for contrast on a light ground, not just lightness-inverted: a pale
    accent that reads fine on the dark palette's near-black background
-   (--sm-text-heading, --sm-accent-warm, --sm-text-highlight, --sm-error) would be
-   low-contrast on white, so those four are darkened instead. --sm-accent-warm-text
+   (--sm-text-heading, --sm-bg-primary, --sm-text-highlight, --sm-error) would be
+   low-contrast on white, so those four are darkened instead. --sm-text-primary
    and --sm-warning are independent tokens, not var()-aliases of --sm-bg/
-   --sm-accent-warm — they just start out equal to them (own values, not
+   --sm-bg-primary — they just start out equal to them (own values, not
    references) so nothing looks different yet; each can be recolored on its
-   own without dragging the page background or the accent-warm hue along. */
+   own without dragging the page background or the primary hue along. */
 :root[data-theme="light"] {
+  /* Backgrounds */
   --sm-bg: #eef1f6;
   --sm-bg-alt: #ffffff;
   --sm-row-bg: #f5f7fa;
-  --sm-button-bg: #e5eaf1;
+  --sm-bg-secondary: #e5eaf1;
   --sm-bg-deep: #e4e9f0;
   --sm-panel-header: #e7ecf3;
   --sm-border: #c7d0dc;
+  --sm-bg-primary: #a8660a;
+
+  /* Text */
   --sm-text: #1c2733;
   --sm-text-muted: #55647a;
   --sm-text-faint: #8996a8;
   --sm-text-heading: #0d7fb8;
-  --sm-accent-warm: #a8660a;
-  --sm-accent-warm-text: #eef1f6;
+  --sm-text-highlight: #0f7d6e;
+  --sm-text-primary: #eef1f6;
+  --sm-masked: #46536a;
   --sm-warning: #a8660a;
-  --sm-hover: #e2e8f0;
+  --sm-error: #c0392b;
+  --sm-line-number: #94a1b5;
+
+  /* Effects */
+  --sm-secondary-hover: #e2e8f0;
   --sm-tint-hover: #dbe9f2;
   --sm-overlay-soft: rgba(0, 0, 0, 0.05);
   --sm-scrollbar: rgba(0, 0, 0, 0.09);
   --sm-shadow: rgba(30, 41, 59, 0.15);
-  --sm-btn-primary-hover: #8f5608;
-  --sm-text-highlight: #0f7d6e;
-  --sm-masked: #46536a;
-  --sm-error: #c0392b;
-  --sm-line-number: #94a1b5;
+  --sm-primary-hover: #8f5608;
 }
 
 html {
@@ -160,7 +170,7 @@ body {
 }
 
 .collapse-btn:hover {
-  background: var(--sm-hover);
+  background: var(--sm-secondary-hover);
 }
 
 .panel-body {
@@ -205,12 +215,12 @@ body {
 }
 
 .row:hover {
-  background: var(--sm-hover);
+  background: var(--sm-secondary-hover);
 }
 
 .row.selected {
-  background: var(--sm-accent-warm);
-  color: var(--sm-accent-warm-text);
+  background: var(--sm-bg-primary);
+  color: var(--sm-text-primary);
   font-weight: 700;
 }
 
@@ -222,7 +232,7 @@ body {
 }
 
 .chip {
-  background: var(--sm-button-bg);
+  background: var(--sm-bg-secondary);
   color: var(--sm-text-muted);
   border: 1px solid var(--sm-border);
   border-radius: 999px;
@@ -233,14 +243,14 @@ body {
 }
 
 .chip:hover {
-  background: var(--sm-hover);
+  background: var(--sm-secondary-hover);
   color: var(--sm-text);
 }
 
 .chip.active {
-  background: var(--sm-accent-warm);
-  border-color: var(--sm-accent-warm);
-  color: var(--sm-accent-warm-text);
+  background: var(--sm-bg-primary);
+  border-color: var(--sm-bg-primary);
+  color: var(--sm-text-primary);
   font-weight: 700;
 }
 
@@ -266,27 +276,27 @@ body {
   font-size: 0.8rem;
   font-family: inherit;
   border: 1px solid var(--sm-border);
-  background: var(--sm-button-bg);
+  background: var(--sm-bg-secondary);
   color: var(--sm-text);
 }
 
 .btn:hover,
 .copy-cmd-btn:hover {
-  background: var(--sm-hover);
+  background: var(--sm-secondary-hover);
 }
 
 .btn-primary,
 .run-cmd-btn {
-  background: var(--sm-accent-warm);
-  color: var(--sm-accent-warm-text);
-  border-color: var(--sm-accent-warm);
+  background: var(--sm-bg-primary);
+  color: var(--sm-text-primary);
+  border-color: var(--sm-bg-primary);
   font-weight: 700;
   padding: 5px 12px;
 }
 
 .btn-primary:hover,
 .run-cmd-btn:hover {
-  background: var(--sm-btn-primary-hover);
+  background: var(--sm-primary-hover);
 }
 
 /* Square padding for an icon-only .btn — the plain .btn/.btn-primary
@@ -406,9 +416,9 @@ select.sm-select {
 }
 
 .list-toolbar .btn.active {
-  background: var(--sm-accent-warm);
-  border-color: var(--sm-accent-warm);
-  color: var(--sm-accent-warm-text);
+  background: var(--sm-bg-primary);
+  border-color: var(--sm-bg-primary);
+  color: var(--sm-text-primary);
   font-weight: 700;
 }
 
@@ -459,7 +469,7 @@ select.sm-select {
 }
 
 .validation-issue.validation-error {
-  color: var(--sm-accent-warm);
+  color: var(--sm-bg-primary);
   font-weight: 700;
 }
 

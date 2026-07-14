@@ -179,7 +179,7 @@
     // Scans the whole declaration block's text rather than enumerating
     // style.item(i)/getPropertyValue() one property at a time — WebKitGTK
     // (this app's Linux target) doesn't reliably expose a shorthand like
-    // "background: var(--sm-accent-warm)" through per-property lookups
+    // "background: var(--sm-bg-primary)" through per-property lookups
     // the same way Chromium/WebView2 does; cssText sidesteps that engine
     // difference entirely.
     function collect(style: CSSStyleDeclaration) {
