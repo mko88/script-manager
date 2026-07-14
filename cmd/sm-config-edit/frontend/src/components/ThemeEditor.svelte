@@ -3,6 +3,7 @@
   import { TOKEN_GROUPS, readPaletteFor, setTheme, type CustomPalette, type Theme } from '@shared/theme'
   import CollapseToggle from '@shared/components/CollapseToggle.svelte'
   import Icon from '@shared/components/Icon.svelte'
+  import IconButton from '@shared/components/IconButton.svelte'
   import { t } from '../messages'
 
   // Two-way bound: this component both seeds from and writes back to the
@@ -326,13 +327,28 @@
           </label>
         </div>
         <div class="theme-editor-panel-actions">
-          <button class="btn" type="button" disabled={!isCustomSelected} on:click={() => resetFrom('dark')}>{t('themeEditor.resetToDark')}</button>
-          <button class="btn" type="button" disabled={!isCustomSelected} on:click={() => resetFrom('light')}>{t('themeEditor.resetToLight')}</button
-          >
-          <button class="btn" type="button" disabled={!isCustomSelected || isDraft} on:click={remove}>{t('themeEditor.deleteButton')}</button>
-          <button class="btn btn-primary" type="button" disabled={!canSave || saving} on:click={save}>
-            {saving ? t('themeEditor.saving') : t('themeEditor.saveButton')}
-          </button>
+          <div class="theme-editor-panel-actions-group">
+            <IconButton
+              title={t('themeEditor.deleteButton')}
+              disabled={!isCustomSelected || isDraft}
+              on:click={remove}
+            >
+              <Icon name="remove" />
+            </IconButton>
+            <IconButton
+              class="btn btn-primary icon-btn"
+              title={saving ? t('themeEditor.saving') : t('themeEditor.saveButton')}
+              disabled={!canSave || saving}
+              on:click={save}
+            >
+              <Icon name="save" />
+            </IconButton>
+          </div>
+          <div class="theme-editor-panel-actions-group">
+            <button class="btn" type="button" disabled={!isCustomSelected} on:click={() => resetFrom('dark')}>{t('themeEditor.resetToDark')}</button>
+            <button class="btn" type="button" disabled={!isCustomSelected} on:click={() => resetFrom('light')}>{t('themeEditor.resetToLight')}</button
+            >
+          </div>
         </div>
       </div>
     {/if}
@@ -409,25 +425,21 @@
           </div>
           <div class="theme-editor-preview-text-examples">
             <div class="theme-editor-preview-text-row">
-              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelHeading')}</span>
               <button type="button" class="theme-editor-preview-heading" on:click={onPreviewClick}
                 >{t('themeEditor.previewHeadingText')}</button
               >
             </div>
             <div class="theme-editor-preview-text-row">
-              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelNormal')}</span>
               <button type="button" class="theme-editor-preview-normal" on:click={onPreviewClick}
                 >{@html t('themeEditor.previewNormalHtml')}</button
               >
             </div>
             <div class="theme-editor-preview-text-row">
-              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelHighlighted')}</span>
               <button type="button" class="theme-editor-preview-highlighted" on:click={onPreviewClick}
                 >{t('themeEditor.previewHighlightedText')}</button
               >
             </div>
             <div class="theme-editor-preview-text-row">
-              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelMasked')}</span>
               <button
                 type="button"
                 class="theme-editor-preview-masked theme-editor-preview-hotspot"
@@ -435,7 +447,6 @@
               >
             </div>
             <div class="theme-editor-preview-text-row">
-              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelWarning')}</span>
               <button
                 type="button"
                 class="theme-editor-preview-warning theme-editor-preview-hotspot"
@@ -443,7 +454,6 @@
               >
             </div>
             <div class="theme-editor-preview-text-row">
-              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelError')}</span>
               <button
                 type="button"
                 class="theme-editor-preview-error theme-editor-preview-hotspot"
@@ -537,6 +547,13 @@
   }
 
   .theme-editor-panel-actions {
+    display: flex;
+    justify-content: space-between;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+
+  .theme-editor-panel-actions-group {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
@@ -790,15 +807,6 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
-  }
-
-  .theme-editor-preview-text-label {
-    flex: none;
-    width: 74px;
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: var(--sm-text-faint);
   }
 
   .theme-editor-preview-heading,
