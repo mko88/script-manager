@@ -299,7 +299,11 @@
         >
         {#if section === 'shell'}
           <p class="hint">{t('hint.shellCommandPrefix')}<code>pwsh -NoLogo -Command</code>.</p>
-          <StringListEditor bind:items={cfg.shell} placeholder={t('placeholder.shellCommand')} />
+          <StringListEditor
+            bind:items={cfg.shell}
+            placeholder={t('placeholder.shellCommand')}
+            confirmRemoveMessage={(value) => t('confirm.removeShellEntry', { value: value || t('fallback.unnamed') })}
+          />
         {:else if section === 'terminal'}
           <RadioGroup
             bind:value={cfg.terminal.mode}

@@ -279,6 +279,7 @@
   async function remove() {
     if (!isCustomSelected || isDraft) return
     const name = selectionAtLoad
+    if (!confirm(t('confirm.removeTheme', { name }))) return
     try {
       await deleteTheme(name)
       const nextThemes = { ...(themes ?? {}) }
