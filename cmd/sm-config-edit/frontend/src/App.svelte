@@ -25,6 +25,8 @@
     PreviewScriptFile,
     Save,
     OpenInEditor,
+    OpenDataFolder,
+    DataFolderPath,
     PreviewItem,
     PreviewAction,
     ValidateConfig,
@@ -97,11 +99,13 @@
   let selectedActionGroup = -1
   let selectedAction = -1
   let selectedDisplay = -1
+  let dataFolderPath = ''
 
   onMount(async () => {
     const state = await InitialState()
     applyState(state)
     knownTerminals = await KnownTerminals()
+    dataFolderPath = await DataFolderPath()
     initialized = true
   })
 
@@ -215,6 +219,15 @@
     }
   }
 
+  async function openDataFolder() {
+    if (!dataFolderPath) return
+    try {
+      await OpenDataFolder()
+    } catch (err) {
+      flash(t('toast.openDataFolderFailed', { error: String(err) }))
+    }
+  }
+
   // Standard New/Open/Save/Save As shortcuts — Ctrl on Windows/Linux, Cmd on
   // Mac. These are modifier combos, not text a focused input would ever
   // insert, so it's safe to handle them regardless of what's focused.
@@ -270,6 +283,13 @@
       aria={t('tooltip.saveAsAria')}
       disabled={hasBlockingError}
       on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></IconButton
+    >
+    <IconButton
+      class="btn icon-btn open-data-folder-btn"
+      disabled={!dataFolderPath}
+      title={dataFolderPath ? t('tooltip.openDataFolderTitle', { path: dataFolderPath }) : ''}
+      aria={t('tooltip.openDataFolderAria')}
+      on:click={openDataFolder}><Icon name="open" /></IconButton
     >
     <IconButton
       class="btn icon-btn open-in-editor-btn"
@@ -426,11 +446,13 @@
      same as .btn. */
 
   /* Takes over the far-right slot script-manager-gui's settings-btn
-     occupies — a peripheral, non-file-op action pinned opposite New/Open/
-     Save/Save As. :global — this class now renders inside IconButton's
-     own template (via its class prop), which Svelte's per-component CSS
-     scoping wouldn't otherwise reach. */
-  :global(.open-in-editor-btn) {
+     occupies — a peripheral, non-file-op action pair pinned opposite New/
+     Open/Save/Save As. The auto margin belongs on the first (leftmost) of
+     the two so both land at the far right together. :global — these
+     classes now render inside IconButton's own template (via its class
+     prop), which Svelte's per-component CSS scoping wouldn't otherwise
+     reach. */
+  :global(.open-data-folder-btn) {
     margin-left: auto;
   }
 

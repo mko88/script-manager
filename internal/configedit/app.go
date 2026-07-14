@@ -191,3 +191,10 @@ func (a *App) ValidateField(kind, value string) string {
 func (a *App) KnownTerminals() []string {
 	return terminal.Names()
 }
+
+// DataFolderPath returns the app-data directory (see internal/appdata), for
+// the "Open data folder" toolbar button's tooltip — "" if it couldn't be
+// resolved, same as OpenDataFolder's own no-op condition.
+func (a *App) DataFolderPath() string {
+	return a.appDataDir
+}
