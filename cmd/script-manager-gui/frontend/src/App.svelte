@@ -659,7 +659,7 @@
   .details-content :global(h1),
   .details-content :global(h2),
   .details-content :global(h3) {
-    color: var(--sm-accent);
+    color: var(--sm-text-heading);
     margin: 0.6em 0 0.3em;
   }
 
@@ -677,7 +677,7 @@
 
   .details-content :global(code) {
     background: var(--sm-bg-deep);
-    color: var(--sm-code);
+    color: var(--sm-text-highlight);
     padding: 1px 5px;
     border-radius: 3px;
     font-family: "SF Mono", Consolas, monospace;
@@ -689,7 +689,7 @@
 
   .details-content :global(code.copy-value:hover) {
     background: var(--sm-tint-hover);
-    outline: 1px solid var(--sm-code);
+    outline: 1px solid var(--sm-text-highlight);
   }
 
   .details-content :global(code.copy-value-masked) {
@@ -723,7 +723,7 @@
   .running-indicator {
     display: inline-block;
     margin-left: 6px;
-    color: var(--sm-accent);
+    color: var(--sm-text-heading);
     animation: running-pulse 1.5s ease-in-out infinite;
   }
   @keyframes running-pulse {

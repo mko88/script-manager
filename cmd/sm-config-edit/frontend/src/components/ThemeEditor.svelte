@@ -2,6 +2,7 @@
   import { onMount, tick } from 'svelte'
   import { TOKEN_GROUPS, readPaletteFor, setTheme, type CustomPalette, type Theme } from '@shared/theme'
   import CollapseToggle from '@shared/components/CollapseToggle.svelte'
+  import Icon from '@shared/components/Icon.svelte'
   import { t } from '../messages'
 
   // Two-way bound: this component both seeds from and writes back to the
@@ -180,14 +181,27 @@
   function onPreviewClick(e: MouseEvent) {
     filterForElement(e.currentTarget as Element)
   }
-  // The rendered example markdown comes from one {@html} block, so its
-  // clickable pieces (heading/body text/highlight, or whatever the
-  // message pack's markdown adds later) are told apart by delegating from
-  // a single listener on e.target — the actual sub-element clicked —
-  // rather than per-element on:click, since Svelte can't attach handlers
-  // inside raw HTML it didn't render itself.
-  function onMarkdownClick(e: MouseEvent) {
-    filterForElement(e.target as Element)
+  // The copy buttons now nest inside the cmd/output blocks (matching the
+  // real UI, where a copy button floats in a code block's corner) — a
+  // <button> can't nest inside another <button>, so the cmd/output blocks
+  // switched from <button> to a plain clickable <div> (same pattern as
+  // onPreviewBodyClick/onBackgroundClick above) for exactly this reason.
+  // Without stopping propagation here, a click on the copy button would
+  // also bubble to the wrapping block's own onPreviewClick, which runs
+  // after and would overwrite the copy button's own tokens.
+  function onCopyBtnClick(e: MouseEvent) {
+    e.stopPropagation()
+    filterForElement(e.currentTarget as Element)
+  }
+  // --sm-scrollbar styles a ::-webkit-scrollbar-thumb pseudo-element — not
+  // a real DOM node, so tokensForElement (which works by testing
+  // el.matches(rule.selectorText)) can never discover it no matter what's
+  // clicked. Set the filter directly instead. (There's no separate hover
+  // token: ::-webkit-scrollbar-thumb:hover's background-color didn't
+  // actually take effect in testing, so the thumb's hover state is left to
+  // the browser/OS default instead of a custom one that doesn't apply.)
+  function onScrollbarClick() {
+    fieldFilter = 'scrollbar'
   }
 
   // The pane itself carries --sm-bg (the page-level background the panel
@@ -343,13 +357,17 @@
               <label class="field">
                 <span class="token-name">--sm-{name}</span>
                 <div class="color-field">
-                  <input
-                    type="color"
-                    value={isHexValue(palette[name]) ? palette[name] : '#7fd4ff'}
-                    disabled={!isCustomSelected}
-                    on:input={(e) => (palette[name] = e.currentTarget.value)}
-                    title={t('themeEditor.pickColor')}
-                  />
+                  <span class="color-swatch-wrap">
+                    <span class="color-swatch" style="background: {palette[name]}"></span>
+                    <input
+                      type="color"
+                      class="color-swatch-input"
+                      value={isHexValue(palette[name]) ? palette[name] : '#7fd4ff'}
+                      disabled={!isCustomSelected}
+                      on:input={(e) => (palette[name] = e.currentTarget.value)}
+                      title={t('themeEditor.pickColor')}
+                    />
+                  </span>
                   <input type="text" bind:value={palette[name]} disabled={!isCustomSelected} />
                 </div>
               </label>
@@ -389,16 +407,62 @@
               >{t('themeEditor.previewButtonPrimary')}</button
             >
           </div>
-          <button
-            type="button"
-            class="theme-editor-preview-markdown theme-editor-preview-hotspot"
-            on:click={onMarkdownClick}>{@html t('themeEditor.previewMarkdownHtml')}</button
-          >
-          <button
-            type="button"
-            class="theme-editor-preview-cmd theme-editor-preview-hotspot"
-            on:click={onPreviewClick}
-          >
+          <div class="theme-editor-preview-text-examples">
+            <div class="theme-editor-preview-text-row">
+              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelHeading')}</span>
+              <button type="button" class="theme-editor-preview-heading" on:click={onPreviewClick}
+                >{t('themeEditor.previewHeadingText')}</button
+              >
+            </div>
+            <div class="theme-editor-preview-text-row">
+              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelNormal')}</span>
+              <button type="button" class="theme-editor-preview-normal" on:click={onPreviewClick}
+                >{@html t('themeEditor.previewNormalHtml')}</button
+              >
+            </div>
+            <div class="theme-editor-preview-text-row">
+              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelHighlighted')}</span>
+              <button type="button" class="theme-editor-preview-highlighted" on:click={onPreviewClick}
+                >{t('themeEditor.previewHighlightedText')}</button
+              >
+            </div>
+            <div class="theme-editor-preview-text-row">
+              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelMasked')}</span>
+              <button
+                type="button"
+                class="theme-editor-preview-masked theme-editor-preview-hotspot"
+                on:click={onPreviewClick}>{t('themeEditor.previewMasked')}</button
+              >
+            </div>
+            <div class="theme-editor-preview-text-row">
+              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelWarning')}</span>
+              <button
+                type="button"
+                class="theme-editor-preview-warning theme-editor-preview-hotspot"
+                on:click={onPreviewClick}>{t('themeEditor.previewWarning')}</button
+              >
+            </div>
+            <div class="theme-editor-preview-text-row">
+              <span class="theme-editor-preview-text-label">{t('themeEditor.previewLabelError')}</span>
+              <button
+                type="button"
+                class="theme-editor-preview-error theme-editor-preview-hotspot"
+                on:click={onPreviewClick}>{t('themeEditor.previewError')}</button
+              >
+            </div>
+          </div>
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <div class="theme-editor-preview-cmd theme-editor-preview-hotspot" on:click={onPreviewClick}>
+            <button
+              type="button"
+              class="theme-editor-preview-copy-btn theme-editor-preview-copy-btn-corner"
+              title={t('themeEditor.previewCopyButtonLabel')}
+              aria-label={t('themeEditor.previewCopyButtonLabel')}
+              on:click={onCopyBtnClick}
+            >
+              <Icon name="copy" />
+            </button>
             <div class="theme-editor-preview-cmd-line">
               <span class="theme-editor-preview-cmd-no">1</span>
               <span>{t('themeEditor.previewCommandLine1')}</span>
@@ -407,32 +471,33 @@
               <span class="theme-editor-preview-cmd-no">2</span>
               <span>{t('themeEditor.previewCommandLine2')}</span>
             </div>
-          </button>
-          <button
-            type="button"
-            class="theme-editor-preview-output-body theme-editor-preview-hotspot"
-            on:click={onPreviewClick}>{t('themeEditor.previewOutputLine')}</button
-          >
-          <button
-            type="button"
-            class="theme-editor-preview-error theme-editor-preview-hotspot"
-            on:click={onPreviewClick}>{t('themeEditor.previewError')}</button
-          >
-          <button
-            type="button"
-            class="theme-editor-preview-warning theme-editor-preview-hotspot"
-            on:click={onPreviewClick}>{t('themeEditor.previewWarning')}</button
-          >
-          <button
-            type="button"
-            class="theme-editor-preview-masked theme-editor-preview-hotspot"
-            on:click={onPreviewClick}>{t('themeEditor.previewMasked')}</button
-          >
-          <button
-            type="button"
-            class="theme-editor-preview-toast theme-editor-preview-hotspot"
-            on:click={onPreviewClick}>{t('themeEditor.previewToast')}</button
-          >
+          </div>
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <div class="theme-editor-preview-output-body theme-editor-preview-hotspot" on:click={onPreviewClick}>
+            <button
+              type="button"
+              class="theme-editor-preview-copy-btn theme-editor-preview-copy-btn-corner"
+              title={t('themeEditor.previewCopyButtonLabel')}
+              aria-label={t('themeEditor.previewCopyButtonLabel')}
+              on:click={onCopyBtnClick}
+            >
+              <Icon name="copy" />
+            </button>
+            {t('themeEditor.previewOutputLine')}
+          </div>
+          <div class="theme-editor-preview-toast-row">
+            <button
+              type="button"
+              class="theme-editor-preview-toast theme-editor-preview-hotspot"
+              on:click={onPreviewClick}>{t('themeEditor.previewToast')}</button
+            >
+            <div class="theme-editor-preview-scrollbar-box">
+              <button type="button" class="theme-editor-preview-scrollbar-text" on:click={onScrollbarClick}
+                >{t('themeEditor.previewScrollbarLabel')}</button
+              >
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -525,15 +590,44 @@
     gap: 8px;
   }
 
-  .color-field input[type="color"] {
+  /* input[type="color"] only accepts a 6-digit hex — it silently ignores
+     anything else (rgba(), named colors, …), so its own native swatch
+     would always show the same fallback color for every non-hex token
+     (--sm-scrollbar, --sm-overlay-soft, --sm-shadow, …) rather than the
+     value actually in effect. .color-swatch is a plain div instead, which
+     CSS's background property renders correctly for any valid color
+     including alpha — laid under the real <input>, which is kept but made
+     fully transparent (not display:none — it must stay a real, clickable
+     element for the native picker to still open on click) so picking still
+     works for hex-editable tokens without misrepresenting the rest. */
+  .color-swatch-wrap {
+    position: relative;
     flex: none;
     width: 40px;
     height: 30px;
-    padding: 2px;
+  }
+
+  .color-swatch {
+    position: absolute;
+    inset: 0;
+    border-radius: 3px;
+    border: 1px solid var(--sm-border);
+    pointer-events: none;
+  }
+
+  .color-swatch-input {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: none;
+    opacity: 0;
     cursor: pointer;
   }
 
-  .color-field input[type="color"]:disabled {
+  .color-swatch-input:disabled {
     cursor: default;
   }
 
@@ -553,7 +647,7 @@
     width: 100%;
     background: none;
     border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--sm-code) 35%, var(--sm-border));
+    border-bottom: 1px solid color-mix(in srgb, var(--sm-text-highlight) 35%, var(--sm-border));
     padding: 0 0 6px;
     margin: 0 0 6px;
     cursor: pointer;
@@ -565,7 +659,7 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.04em;
-    color: var(--sm-code);
+    color: var(--sm-text-highlight);
   }
 
   .collapse-glyph {
@@ -613,17 +707,24 @@
     gap: 10px;
   }
 
-  /* Every preview element is a real <button> — not just for the ones that
-     already look like one (.row, .chip, .btn, all originally designed as
-     buttons, so they need no reset at all) but also plain text/block ones
-     (markdown, command, output, error, masked, toast) that need their
-     native button chrome neutralized. Only the display-affecting/font/
-     alignment properties are reset here — each element's own class still
-     owns its padding/margin/color/background, so this can't clobber them
-     regardless of stylesheet order. */
+  /* Every preview element is a real <button> (or, for .theme-editor-preview-cmd/
+     -output-body, a plain clickable <div> — see onCopyBtnClick's comment for
+     why) — not just for the ones that already look like one (.row, .chip,
+     .btn, all originally designed as buttons, so they need no reset at all)
+     but also plain text/block ones (command, output, error, masked, toast)
+     that need their native button chrome neutralized. Only the display-
+     affecting/font/alignment properties are reset here — each element's own
+     class still owns its padding/margin/color/background, so this can't
+     clobber them regardless of stylesheet order. box-sizing: border-box
+     keeps width: 100% meaning "100% of the parent" even for the elements
+     among these (like .theme-editor-preview-output-body) that also carry
+     their own horizontal padding — without it, that padding would add to
+     the 100% instead of eating into it, making just that one element wider
+     than its siblings. */
   .theme-editor-preview-hotspot {
     display: block;
     width: 100%;
+    box-sizing: border-box;
     text-align: left;
     font-family: inherit;
     cursor: pointer;
@@ -670,39 +771,81 @@
     align-self: flex-start;
   }
 
-  /* {@html}-inserted content isn't scoped by Svelte, so styling anything
-     inside .theme-editor-preview-markdown needs :global() — same reasoning
-     as .details-preview's own goldmark-rendered output in App.svelte. */
-  .theme-editor-preview-markdown {
+  /* One row per text style, in a fixed order (Heading, Normal, Highlighted,
+     Masked, Warning, Error) so every text-related token has its own
+     unambiguous, individually clickable example instead of the old single
+     paragraph that mixed several of them together. align-items: flex-start
+     (rather than the column default of stretch) keeps each row shrink-wrapped
+     to its own content — see the .theme-editor-preview-chips/-buttons comment
+     above for why that matters for blank-space clicks. */
+  .theme-editor-preview-text-examples {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    align-items: flex-start;
+    align-self: flex-start;
+  }
+
+  .theme-editor-preview-text-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+
+  .theme-editor-preview-text-label {
+    flex: none;
+    width: 74px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--sm-text-faint);
+  }
+
+  .theme-editor-preview-heading,
+  .theme-editor-preview-normal,
+  .theme-editor-preview-highlighted {
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  .theme-editor-preview-heading {
+    color: var(--sm-text-heading);
+    font-size: 0.95rem;
+    font-weight: 700;
+  }
+
+  .theme-editor-preview-normal {
     font-size: 0.85rem;
     color: var(--sm-text);
   }
 
-  .theme-editor-preview-markdown :global(h1),
-  .theme-editor-preview-markdown :global(h2),
-  .theme-editor-preview-markdown :global(h3) {
-    color: var(--sm-accent);
-    margin: 0 0 0.3em;
-  }
+  /* {@html}-inserted content isn't scoped by Svelte, so styling the
+     <strong>/<em> tags inside .theme-editor-preview-normal's message would
+     need :global() — not needed here since neither gets its own color
+     override, they just inherit the button's own var(--sm-text) above. */
 
-  .theme-editor-preview-markdown :global(p) {
-    margin: 0;
-    /* Same value as .theme-editor-preview-markdown's own color above —
-       redeclared here so a direct click on the paragraph (not the
-       heading/code) resolves --sm-text via tokensForElement, which only
-       matches an element's own rules, not an inherited ancestor one. */
-    color: var(--sm-text);
-  }
-
-  .theme-editor-preview-markdown :global(code) {
+  .theme-editor-preview-highlighted {
     background: var(--sm-bg-deep);
-    color: var(--sm-code);
+    color: var(--sm-text-highlight);
     padding: 1px 5px;
     border-radius: 3px;
     font-family: "SF Mono", Consolas, monospace;
+    font-size: 0.78rem;
+  }
+
+  /* Same hover treatment as the real .details-content code.copy-value:hover
+     it mirrors — the only difference is this preview element isn't
+     copyable itself, it just demonstrates the token pair. */
+  .theme-editor-preview-highlighted:hover {
+    background: var(--sm-tint-hover);
+    outline: 1px solid var(--sm-text-highlight);
   }
 
   .theme-editor-preview-cmd {
+    position: relative;
     background: var(--sm-bg-deep);
     border-radius: 4px;
     padding: 8px 0;
@@ -726,6 +869,7 @@
   }
 
   .theme-editor-preview-output-body {
+    position: relative;
     background: var(--sm-bg-deep);
     border-radius: 4px;
     margin: 0;
@@ -771,5 +915,92 @@
     padding: 8px 16px;
     font-size: 0.85rem;
     box-shadow: 0 4px 12px var(--sm-shadow);
+  }
+
+  /* Mirrors script-manager-gui's .cmd-copy-btn(:hover) — the only real
+     consumer of --sm-overlay-soft — floated into the corner of the cmd/
+     output blocks below, same as .cmd-line-copy-btn/.cmd-output-copy-btn
+     do in the real Command pane. */
+  .theme-editor-preview-copy-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: none;
+    padding: 3px 5px;
+    border-radius: 4px;
+    color: var(--sm-text-muted);
+    cursor: pointer;
+  }
+
+  .theme-editor-preview-copy-btn:hover {
+    background: var(--sm-overlay-soft);
+    color: var(--sm-text);
+  }
+
+  .theme-editor-preview-copy-btn-corner {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+  }
+
+  .theme-editor-preview-toast-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    align-self: flex-start;
+  }
+
+  /* --sm-scrollbar styles a real ::-webkit-scrollbar-thumb here, not a
+     lookalike — the inner text is forced wider than the box via min-width,
+     so a horizontal scrollbar is always present regardless of the box's own
+     width (overflow-y stays hidden since only the horizontal bar is being
+     demonstrated, and a horizontal one reads more clearly here than the
+     app's usual thin vertical ones). The scrollbar itself still can't be
+     clicked (see onScrollbarClick above), so the click target is the label
+     text sitting inside the scrolling area. A fixed width (rather than
+     shrink-wrapped or stretched like its neighbors) keeps the box's own
+     size — and so the visible length of track behind the thumb — stable
+     regardless of how wide the toast next to it happens to be. No :hover
+     rule on the thumb — ::-webkit-scrollbar-thumb:hover's background-color
+     doesn't actually take effect, so the thumb's hover is left to the
+     browser/OS default rather than a custom color that wouldn't show. */
+  .theme-editor-preview-scrollbar-box {
+    flex: none;
+    width: 180px;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    background: var(--sm-bg-deep);
+    border-radius: 4px;
+    padding: 10px;
+    box-sizing: border-box;
+    scrollbar-color: var(--sm-scrollbar) transparent;
+  }
+
+  .theme-editor-preview-scrollbar-box::-webkit-scrollbar {
+    height: 10px;
+  }
+
+  .theme-editor-preview-scrollbar-box::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .theme-editor-preview-scrollbar-box::-webkit-scrollbar-thumb {
+    background-color: var(--sm-scrollbar);
+    border-radius: 5px;
+  }
+
+  .theme-editor-preview-scrollbar-text {
+    display: inline-block;
+    min-width: 480px;
+    text-align: left;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: 0.85rem;
+    color: var(--sm-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
   }
 </style>
