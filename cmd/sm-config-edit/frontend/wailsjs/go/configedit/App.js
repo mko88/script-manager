@@ -14,6 +14,10 @@ export function BrowseScriptFile() {
   return window['go']['configedit']['App']['BrowseScriptFile']();
 }
 
+export function DataFolderPath() {
+  return window['go']['configedit']['App']['DataFolderPath']();
+}
+
 export function DeleteTheme(arg1) {
   return window['go']['configedit']['App']['DeleteTheme'](arg1);
 }
@@ -44,6 +48,10 @@ export function KnownTerminals() {
 
 export function NewBlank() {
   return window['go']['configedit']['App']['NewBlank']();
+}
+
+export function OpenDataFolder() {
+  return window['go']['configedit']['App']['OpenDataFolder']();
 }
 
 export function OpenInEditor() {

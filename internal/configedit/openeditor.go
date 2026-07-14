@@ -37,3 +37,18 @@ func (a *App) OpenInEditor() error {
 	}
 	return nil
 }
+
+// OpenDataFolder opens the app-data directory (see internal/appdata) with
+// the operating system's default file manager — openFileCmd's "start"/
+// "xdg-open" launch a directory's default handler exactly the same way it
+// does a file's. A no-op if the directory couldn't be resolved
+// (appdata.Dir() returned "", e.g. os.UserConfigDir() failed).
+func (a *App) OpenDataFolder() error {
+	if a.appDataDir == "" {
+		return nil
+	}
+	if err := openFileCmd(a.appDataDir).Start(); err != nil {
+		return fmt.Errorf("failed to open %s: %w", a.appDataDir, err)
+	}
+	return nil
+}

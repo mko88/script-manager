@@ -9,6 +9,8 @@ export function BrowseSaveAs():Promise<string>;
 
 export function BrowseScriptFile():Promise<string>;
 
+export function DataFolderPath():Promise<string>;
+
 export function DeleteTheme(arg1:string):Promise<void>;
 
 export function GetDefaultMessages(arg1:string):Promise<Record<string, any>>;
@@ -24,6 +26,8 @@ export function InitialState():Promise<configedit.StateDTO>;
 export function KnownTerminals():Promise<Array<string>>;
 
 export function NewBlank():Promise<configedit.StateDTO>;
+
+export function OpenDataFolder():Promise<void>;
 
 export function OpenInEditor():Promise<void>;
 
