@@ -56,23 +56,39 @@ func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup
 	}
 	merged := a.mergedItem(item)
 
+	if len(a.cfg.Shell) == 0 {
+		return nil, nil, fmt.Errorf("no shell configured")
+	}
+
 	if act.Script != "" {
 		expandedScript, err := action.Expand(act.Script, merged)
 		if err != nil {
 			return nil, nil, fmt.Errorf("script path template error: %w", err)
 		}
-		cmd = exec.Command(expandedScript)
+		// Same action.WrapScriptFile/action.ScriptArgv route RunAction
+		// (terminal launch) already uses for script-mode actions — a bare
+		// exec.Command(path) only works if the OS can run the file directly (a
+		// shebang line on POSIX, a native .exe/.bat/.cmd on Windows); a .ps1
+		// isn't natively executable, so Windows fails it with "%1 is not a
+		// valid Win32 application" while the terminal path (which already goes
+		// through the shell) works fine for the exact same script. No
+		// stayOpen epilogue, matching the Cmd branch below: there's no
+		// interactive terminal for a "press Enter to close" prompt to wait in.
+		wrapped := action.WrapScriptFile(action.ShellBasename(a.cfg.Shell[0]), expandedScript, false)
+		scriptPath, err := action.WriteTempScript(a.cfg.Shell[0], wrapped)
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to write temp script: %w", err)
+		}
+		shellArgv := action.ScriptArgv(a.cfg.Shell, scriptPath, false)
+		cmd = exec.Command(shellArgv[0], shellArgv[1:]...)
 		if a.appDataDir != "" {
 			cmd.Dir = a.appDataDir
 		}
 		cmd.Env = action.Env(merged)
 		setProcessGroup(cmd)
-		return cmd, func() {}, nil
+		return cmd, func() { os.Remove(scriptPath) }, nil
 	}
 
-	if len(a.cfg.Shell) == 0 {
-		return nil, nil, fmt.Errorf("no shell configured")
-	}
 	expandedCmd, err := action.Expand(act.Cmd, merged)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cmd template error: %w", err)
@@ -80,13 +96,13 @@ func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup
 	// No stayOpen epilogue: there's no interactive terminal for a "press
 	// Enter to close" prompt to wait in, and NoWait's terminal-window
 	// semantics don't apply to a run that never opens one.
-	script := wrapScript(shellBasename(a.cfg.Shell[0]), expandedCmd, false)
-	scriptPath, err := writeTempScript(a.cfg.Shell[0], script)
+	script := wrapScript(action.ShellBasename(a.cfg.Shell[0]), expandedCmd, false)
+	scriptPath, err := action.WriteTempScript(a.cfg.Shell[0], script)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to write temp script: %w", err)
 	}
 
-	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, false)
+	shellArgv := action.ScriptArgv(a.cfg.Shell, scriptPath, false)
 	cmd = exec.Command(shellArgv[0], shellArgv[1:]...)
 	if a.appDataDir != "" {
 		cmd.Dir = a.appDataDir

@@ -14,10 +14,6 @@ import (
 	"script-manager/internal/terminal"
 )
 
-// tempScriptPattern matches the temp files RunAction writes; see
-// cleanupTempScripts for their lifecycle.
-const tempScriptPattern = "script-manager-action-*"
-
 // cleanupTempScriptMinAge is how old a matched file must be before
 // cleanupTempScripts will remove it. NewApp spawns the sweep in the
 // background (not to slow down startup waiting on a directory scan) — with
@@ -38,7 +34,7 @@ const cleanupTempScriptMinAge = 2 * time.Second
 // so nothing lingers across restarts, however old it is.
 func cleanupTempScripts() {
 	cutoff := time.Now().Add(-cleanupTempScriptMinAge)
-	for _, pattern := range []string{tempScriptPattern, inlineOutPattern} {
+	for _, pattern := range []string{action.TempScriptPattern, inlineOutPattern} {
 		matches, err := filepath.Glob(filepath.Join(os.TempDir(), pattern))
 		if err != nil {
 			continue
@@ -94,8 +90,8 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 		if err != nil {
 			return fmt.Errorf("script path template error: %w", err)
 		}
-		wrapped := wrapScriptFile(shellBasename(a.cfg.Shell[0]), expandedScript, !act.NoWait)
-		scriptPath, err = writeTempScript(a.cfg.Shell[0], wrapped)
+		wrapped := action.WrapScriptFile(action.ShellBasename(a.cfg.Shell[0]), expandedScript, !act.NoWait)
+		scriptPath, err = action.WriteTempScript(a.cfg.Shell[0], wrapped)
 		if err != nil {
 			return fmt.Errorf("failed to write temp script: %w", err)
 		}
@@ -104,13 +100,13 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 		if err != nil {
 			return fmt.Errorf("cmd template error: %w", err)
 		}
-		wrapped := wrapScript(shellBasename(a.cfg.Shell[0]), expandedCmd, !act.NoWait)
-		scriptPath, err = writeTempScript(a.cfg.Shell[0], wrapped)
+		wrapped := wrapScript(action.ShellBasename(a.cfg.Shell[0]), expandedCmd, !act.NoWait)
+		scriptPath, err = action.WriteTempScript(a.cfg.Shell[0], wrapped)
 		if err != nil {
 			return fmt.Errorf("failed to write temp script: %w", err)
 		}
 	}
-	shellArgv := buildShellArgv(a.cfg.Shell, scriptPath, !act.NoWait)
+	shellArgv := action.ScriptArgv(a.cfg.Shell, scriptPath, !act.NoWait)
 
 	cmd := exec.Command(term.Path(), term.Args(title, a.appDataDir, shellArgv)...)
 	if a.appDataDir != "" {
@@ -166,115 +162,8 @@ func wrapScript(shellBase, script string, stayOpen bool) string {
 	}
 }
 
-// wrapScriptFile is wrapScript's counterpart for script-mode actions: it
-// wraps a direct invocation of scriptPath instead of an expanded command
-// string — no interpreter, no extra flags, the file is expected to already
-// be natively runnable. Self-delete placement follows the exact same
-// reasoning as wrapScript. pwsh/cmd's stay-open behavior still comes
-// entirely from buildShellArgv's -NoExit/-k flags, unchanged; only the
-// POSIX default branch needs its own pause epilogue baked in here too,
-// since bash has no -NoExit equivalent for running a script file directly.
-func wrapScriptFile(shellBase, scriptPath string, stayOpen bool) string {
-	switch shellBase {
-	case "pwsh", "powershell":
-		return "Remove-Item -LiteralPath $PSCommandPath -Force -ErrorAction SilentlyContinue\n" +
-			"& " + psQuote(scriptPath) + "\n"
-	case "cmd":
-		// call, not a bare invocation: if scriptPath is itself a .bat/.cmd,
-		// a bare call would transfer control away and never run the
-		// self-delete line after it.
-		return "call \"" + scriptPath + "\"\r\n" + "del \"%~f0\"\r\n"
-	default:
-		var b strings.Builder
-		b.WriteString("rm -f -- \"$0\"\n")
-		b.WriteString(shQuote(scriptPath))
-		b.WriteString("\n")
-		if stayOpen {
-			b.WriteString("__status=$?\n")
-			b.WriteString("printf '\\n[exit status %s] Press Enter to close...' \"$__status\"\n")
-			b.WriteString("read -r __line\n")
-		}
-		return b.String()
-	}
-}
-
-// psQuote/shQuote wrap a path in single quotes for their respective shells,
-// escaping any embedded single quote (doubled for PowerShell, '\'' for
-// POSIX shells) — paths containing spaces are the common case this guards
-// against.
-func psQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
-func shQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
-
-// writeTempScript writes script to a new temp file with an extension the
-// target shell recognizes, and returns its path. Running the script from a
-// file — rather than inlining it as a single -Command/-c argument — avoids
-// depending on the terminal launcher's reconstruction of the argv surviving
-// embedded newlines and quotes, which is unreliable for anything beyond a
-// trivial one-liner. script is expected to already be wrapped by wrapScript,
-// so it deletes this very file once the shell starts executing it; note the
-// expanded command (including any masked values) is on disk in plain text
-// until then.
-func writeTempScript(shellBin, script string) (string, error) {
-	ext := ".txt"
-	switch shellBasename(shellBin) {
-	case "pwsh", "powershell":
-		ext = ".ps1"
-	case "cmd":
-		ext = ".bat"
-	case "bash", "sh", "zsh", "dash", "ksh":
-		ext = ".sh"
-	}
-	f, err := os.CreateTemp("", tempScriptPattern+ext)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
-	if _, err := f.WriteString(script); err != nil {
-		return "", err
-	}
-	return f.Name(), nil
-}
-
-func shellBasename(shellBin string) string {
-	return strings.TrimSuffix(strings.ToLower(filepath.Base(shellBin)), ".exe")
-}
-
-// buildShellArgv returns the full argv (shell binary + args) that runs
-// scriptPath, for the given shell. When stayOpen is true it uses a
-// shell-specific flag so the tab remains open (and the output visible) after
-// the script finishes, rather than closing immediately.
-func buildShellArgv(shell []string, scriptPath string, stayOpen bool) []string {
-	switch shellBasename(shell[0]) {
-	case "pwsh", "powershell":
-		argv := []string{shell[0]}
-		for _, a := range shell[1:] {
-			if strings.EqualFold(a, "-command") {
-				continue
-			}
-			argv = append(argv, a)
-		}
-		if stayOpen {
-			argv = append(argv, "-NoExit")
-		}
-		return append(argv, "-File", scriptPath)
-	case "cmd":
-		flag := "/c"
-		if stayOpen {
-			flag = "/k"
-		}
-		return []string{shell[0], flag, scriptPath}
-	default:
-		// POSIX shells: -c makes the next argument a command *string*, which
-		// would try to execute the script path as a program (and fail without
-		// an exec bit). Strip it so the path is read as a script file, the
-		// same way the -Command strip works for pwsh above.
-		argv := []string{shell[0]}
-		for _, a := range shell[1:] {
-			if a == "-c" {
-				continue
-			}
-			argv = append(argv, a)
-		}
-		return append(argv, scriptPath)
-	}
-}
+// wrapScriptFile, writeTempScript, psQuote, and shQuote moved to
+// script-manager/internal/action (as WrapScriptFile/WriteTempScript) so
+// internal/ui's TUI could share the same script-mode wrapping the GUI
+// already used — see action.WrapScriptFile's doc comment for the full
+// reasoning.

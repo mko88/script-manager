@@ -2,87 +2,12 @@ package gui
 
 import (
 	"os"
-	"path/filepath"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
+
+	"script-manager/internal/action"
 )
-
-func TestShellBasename(t *testing.T) {
-	// Backslash paths are deliberately absent: filepath.Base splits them only
-	// when the test itself runs on Windows, and these tests run on Linux.
-	tests := map[string]string{
-		"pwsh.exe":                   "pwsh",
-		"cmd.exe":                    "cmd",
-		"/usr/bin/bash":              "bash",
-		"PowerShell.EXE":             "powershell",
-		"C:/Program Files/pwsh/pwsh": "pwsh",
-	}
-	for in, want := range tests {
-		if got := shellBasename(in); got != want {
-			t.Errorf("shellBasename(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
-func TestBuildShellArgv(t *testing.T) {
-	tests := []struct {
-		name     string
-		shell    []string
-		stayOpen bool
-		want     []string
-	}{
-		{
-			name:     "pwsh strips -Command, adds -NoExit and -File",
-			shell:    []string{"pwsh.exe", "-NoLogo", "-Command"},
-			stayOpen: true,
-			want:     []string{"pwsh.exe", "-NoLogo", "-NoExit", "-File", "s.ps1"},
-		},
-		{
-			name:     "pwsh without stayOpen",
-			shell:    []string{"pwsh.exe", "-Command"},
-			stayOpen: false,
-			want:     []string{"pwsh.exe", "-File", "s.ps1"},
-		},
-		{
-			name:     "cmd stayOpen uses /k",
-			shell:    []string{"cmd.exe", "/c"},
-			stayOpen: true,
-			want:     []string{"cmd.exe", "/k", "s.ps1"},
-		},
-		{
-			name:     "cmd transient uses /c",
-			shell:    []string{"cmd.exe"},
-			stayOpen: false,
-			want:     []string{"cmd.exe", "/c", "s.ps1"},
-		},
-		{
-			name:     "posix shells strip -c and get the script appended",
-			shell:    []string{"bash", "-c"},
-			stayOpen: true,
-			want:     []string{"bash", "s.sh"},
-		},
-		{
-			name:     "posix shells keep other flags",
-			shell:    []string{"/usr/bin/zsh", "--no-rcs"},
-			stayOpen: false,
-			want:     []string{"/usr/bin/zsh", "--no-rcs", "s.sh"},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			script := "s.ps1"
-			if strings.HasSuffix(tt.want[len(tt.want)-1], ".sh") {
-				script = "s.sh"
-			}
-			got := buildShellArgv(tt.shell, script, tt.stayOpen)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("buildShellArgv = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
 
 func TestWrapScript(t *testing.T) {
 	t.Run("posix shells self-delete then run", func(t *testing.T) {
@@ -130,98 +55,8 @@ func TestWrapScript(t *testing.T) {
 	})
 }
 
-func TestWrapScriptFile(t *testing.T) {
-	t.Run("posix shells self-delete then invoke the script path", func(t *testing.T) {
-		got := wrapScriptFile("bash", "/opt/deploy.sh", false)
-		if !strings.HasPrefix(got, "rm -f -- \"$0\"\n") {
-			t.Errorf("missing self-delete prologue: %q", got)
-		}
-		if !strings.Contains(got, "/opt/deploy.sh") {
-			t.Errorf("missing script invocation: %q", got)
-		}
-		if strings.Contains(got, "read -r") {
-			t.Errorf("noWait script must not wait for a key: %q", got)
-		}
-	})
-	t.Run("posix stayOpen waits for Enter after the script", func(t *testing.T) {
-		got := wrapScriptFile("bash", "/opt/deploy.sh", true)
-		if !strings.Contains(got, "read -r") {
-			t.Errorf("stayOpen script must wait for a key: %q", got)
-		}
-		if idx := strings.Index(got, "deploy.sh"); idx > strings.Index(got, "read -r") {
-			t.Errorf("wait epilogue must come after the script invocation: %q", got)
-		}
-	})
-	t.Run("pwsh self-deletes via PSCommandPath and uses the call operator", func(t *testing.T) {
-		got := wrapScriptFile("pwsh", "C:\\scripts\\deploy.ps1", true)
-		if !strings.HasPrefix(got, "Remove-Item -LiteralPath $PSCommandPath") {
-			t.Errorf("missing self-delete prologue: %q", got)
-		}
-		if !strings.Contains(got, "& '") {
-			t.Errorf("missing call-operator invocation: %q", got)
-		}
-		if strings.Contains(got, "read -r") {
-			t.Errorf("pwsh stays open via -NoExit, not a read epilogue: %q", got)
-		}
-	})
-	t.Run("cmd calls the script then self-deletes after", func(t *testing.T) {
-		got := wrapScriptFile("cmd", "C:\\scripts\\deploy.bat", true)
-		if !strings.HasPrefix(got, `call "C:\scripts\deploy.bat"`) {
-			t.Errorf("cmd script must call the script first: %q", got)
-		}
-		delIdx := strings.Index(got, `del "%~f0"`)
-		if delIdx < 0 {
-			t.Fatalf("missing self-delete: %q", got)
-		}
-		if delIdx < strings.Index(got, "call") {
-			t.Errorf("self-delete must come after the call: %q", got)
-		}
-	})
-}
-
-func TestPsQuoteShQuote(t *testing.T) {
-	if got := psQuote(`C:\a b\c'd.ps1`); got != `'C:\a b\c''d.ps1'` {
-		t.Errorf("psQuote = %q", got)
-	}
-	if got := shQuote(`/a b/c'd.sh`); got != `'/a b/c'\''d.sh'` {
-		t.Errorf("shQuote = %q", got)
-	}
-}
-
-func TestWriteTempScript(t *testing.T) {
-	tests := []struct {
-		shell   string
-		wantExt string
-	}{
-		{"pwsh.exe", ".ps1"},
-		{"powershell.exe", ".ps1"},
-		{"cmd.exe", ".bat"},
-		{"/usr/bin/bash", ".sh"},
-		{"zsh", ".sh"},
-		{"fish", ".txt"},
-	}
-	for _, tt := range tests {
-		path, err := writeTempScript(tt.shell, "echo hi")
-		if err != nil {
-			t.Fatalf("writeTempScript(%q): %v", tt.shell, err)
-		}
-		t.Cleanup(func() { os.Remove(path) })
-
-		if got := filepath.Ext(path); got != tt.wantExt {
-			t.Errorf("writeTempScript(%q) ext = %q, want %q", tt.shell, got, tt.wantExt)
-		}
-		if !strings.Contains(filepath.Base(path), "script-manager-action-") {
-			t.Errorf("temp script %q does not match cleanup pattern", path)
-		}
-		data, err := os.ReadFile(path)
-		if err != nil || string(data) != "echo hi" {
-			t.Errorf("temp script content = %q, err %v", data, err)
-		}
-	}
-}
-
 func TestCleanupTempScriptsIgnoresAge(t *testing.T) {
-	f, err := os.CreateTemp("", tempScriptPattern+".ps1")
+	f, err := os.CreateTemp("", action.TempScriptPattern+".ps1")
 	if err != nil {
 		t.Fatal(err)
 	}

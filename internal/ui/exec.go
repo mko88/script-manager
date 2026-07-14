@@ -24,17 +24,36 @@ type actionFinishedMsg struct{ err error }
 func (a *App) execAction(act config.Action) tea.Cmd {
 	merged := a.MergedItem()
 
+	if len(a.cfg.Shell) == 0 {
+		return a.flashMessage("No shell configured", 3*time.Second)
+	}
+
 	var cmd *exec.Cmd
+	var cleanupPath string
 	if act.Script != "" {
 		expandedScript, err := action.Expand(act.Script, merged)
 		if err != nil {
 			return a.flashMessage("Script path template error: "+err.Error(), 3*time.Second)
 		}
-		cmd = exec.Command(expandedScript)
-	} else {
-		if len(a.cfg.Shell) == 0 {
-			return a.flashMessage("No shell configured", 3*time.Second)
+		// Same wrapper-file route the GUI uses for script-mode actions,
+		// rather than either exec'ing the path directly (only works if the
+		// OS can run the file natively — a plain .ps1 fails on Windows with
+		// "%1 is not a valid Win32 application") or passing it straight to
+		// action.ScriptArgv (which would make e.g. bash treat a Python
+		// script's contents as bash source instead of respecting its own
+		// shebang). The wrapper's self-delete makes explicit cleanup here
+		// only a fallback for the rare case the shell never actually starts
+		// reading it. No stayOpen epilogue: this app already prompts for a
+		// keypress itself below, once the process exits.
+		wrapped := action.WrapScriptFile(action.ShellBasename(a.cfg.Shell[0]), expandedScript, false)
+		scriptPath, err := action.WriteTempScript(a.cfg.Shell[0], wrapped)
+		if err != nil {
+			return a.flashMessage("Failed to write temp script: "+err.Error(), 3*time.Second)
 		}
+		cleanupPath = scriptPath
+		argv := action.ScriptArgv(a.cfg.Shell, scriptPath, false)
+		cmd = exec.Command(argv[0], argv[1:]...)
+	} else {
 		expanded, err := action.Expand(act.Cmd, merged)
 		if err != nil {
 			return a.flashMessage("Command template error: "+err.Error(), 3*time.Second)
@@ -45,10 +64,11 @@ func (a *App) execAction(act config.Action) tea.Cmd {
 	cmd.Env = action.Env(merged)
 
 	proc := &actionProcess{
-		cmd:      cmd,
-		title:    act.Title,
-		itemName: fmt.Sprint(merged[config.KeyName]),
-		wait:     !act.NoWait,
+		cmd:         cmd,
+		title:       act.Title,
+		itemName:    fmt.Sprint(merged[config.KeyName]),
+		wait:        !act.NoWait,
+		cleanupPath: cleanupPath,
 	}
 	return tea.Exec(proc, func(err error) tea.Msg { return actionFinishedMsg{err} })
 }
@@ -61,6 +81,11 @@ type actionProcess struct {
 	title    string
 	itemName string
 	wait     bool
+	// cleanupPath is a script-mode action's temp wrapper file, "" for a
+	// cmd-mode action (which never writes one). The wrapper already deletes
+	// itself once the shell starts reading it — this is only the fallback
+	// for whatever that missed (e.g. the shell never actually started).
+	cleanupPath string
 
 	stdin  io.Reader
 	stdout io.Writer
@@ -78,6 +103,9 @@ func (p *actionProcess) Run() error {
 	fmt.Fprintf(p.stdout, "\n%s\n  %s  ›  %s\n%s\n\n", sep, p.title, p.itemName, sep)
 
 	err := p.cmd.Run()
+	if p.cleanupPath != "" {
+		os.Remove(p.cleanupPath)
+	}
 	if err != nil {
 		// Report here so the user sees it before the keypress prompt; the
 		// error also travels back via actionFinishedMsg for the status bar.
