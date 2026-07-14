@@ -13,6 +13,7 @@ import (
 	"script-manager/internal/appdata"
 	"script-manager/internal/config"
 	"script-manager/internal/exepath"
+	"script-manager/internal/scriptsource"
 
 	"github.com/atotto/clipboard"
 	"github.com/yuin/goldmark"
@@ -183,8 +184,14 @@ type ActionDetailDTO struct {
 	Description string `json:"description"`
 	Cmd         string `json:"cmd"`
 	Script      string `json:"script"`
-	NoWait      bool   `json:"noWait"`
-	Interactive bool   `json:"interactive"`
+	// ScriptContent is the Script file's own text, read fresh on every call
+	// (scriptsource.Read, shared with sm-config-edit's Action editor
+	// preview) — empty with ScriptError set if it couldn't be read (e.g. a
+	// path that doesn't resolve, or an oversized/binary file).
+	ScriptContent string `json:"scriptContent"`
+	ScriptError   string `json:"scriptError"`
+	NoWait        bool   `json:"noWait"`
+	Interactive   bool   `json:"interactive"`
 }
 
 func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
@@ -198,12 +205,23 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 	}
 	act := actions[actionIndex]
 	merged := a.mergedItem(item)
+	script := action.Preview(act.Script, merged)
+	var scriptContent, scriptErr string
+	if script != "" {
+		if content, err := scriptsource.Read(script); err != nil {
+			scriptErr = err.Error()
+		} else {
+			scriptContent = content
+		}
+	}
 	return ActionDetailDTO{
-		Description: action.Preview(act.Description, merged),
-		Cmd:         action.Preview(act.Cmd, merged),
-		Script:      action.Preview(act.Script, merged),
-		NoWait:      act.NoWait,
-		Interactive: act.Interactive,
+		Description:   action.Preview(act.Description, merged),
+		Cmd:           action.Preview(act.Cmd, merged),
+		Script:        script,
+		ScriptContent: scriptContent,
+		ScriptError:   scriptErr,
+		NoWait:        act.NoWait,
+		Interactive:   act.Interactive,
 	}
 }
 

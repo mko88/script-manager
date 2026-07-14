@@ -225,6 +225,20 @@ export namespace configedit {
 	        this.path = source["path"];
 	    }
 	}
+	export class ScriptPreviewDTO {
+	    content: string;
+	    error: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new ScriptPreviewDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.content = source["content"];
+	        this.error = source["error"];
+	    }
+	}
 	export class StateDTO {
 	    config: ConfigDTO;
 	    path: string;

@@ -2,6 +2,8 @@
   import { t } from '../messages'
   import RadioGroup from './RadioGroup.svelte'
   import CheckboxChipList from './CheckboxChipList.svelte'
+  import ScriptSource from '@shared/components/ScriptSource.svelte'
+  import type { configedit } from '../../wailsjs/go/models'
 
   // Shared by the global Actions section and an item's Custom Actions list —
   // both edit the same []Action-shaped data (internal/configedit.ActionDTO).
@@ -22,6 +24,9 @@
   export let allActionGroups: string[] = []
   // Opens a native file picker and returns the chosen path ("" if cancelled).
   export let browseScriptFile: () => Promise<string>
+  // Reads path's content and returns it as syntax-highlighted HTML (or an
+  // error, e.g. "no such file") for the script-file source preview below.
+  export let previewScriptFile: (path: string) => Promise<configedit.ScriptPreviewDTO>
 
   // cmd and script are mutually exclusive. mode starts derived from which
   // one is currently populated, but from then on is tracked as its own
@@ -35,6 +40,7 @@
   $: if (action !== modeFor) {
     modeFor = action
     mode = action.script ? 'script' : 'cmd'
+    scriptPreview = null
   }
   function setMode(next: 'cmd' | 'script') {
     if (next === mode) return
@@ -45,6 +51,22 @@
   async function browseScript() {
     const path = await browseScriptFile()
     if (path) action.script = path
+  }
+
+  // Debounced the same way ItemsEditor's live preview is (250ms) — this
+  // fires on every keystroke in the path field, not just on Browse.
+  let scriptPreview: configedit.ScriptPreviewDTO | null = null
+  let scriptPreviewTimer: ReturnType<typeof setTimeout>
+  $: if (mode === 'script') scheduleScriptPreview(action.script)
+  function scheduleScriptPreview(path: string) {
+    clearTimeout(scriptPreviewTimer)
+    if (!path) {
+      scriptPreview = null
+      return
+    }
+    scriptPreviewTimer = setTimeout(async () => {
+      scriptPreview = await previewScriptFile(path)
+    }, 250)
   }
 </script>
 
@@ -82,6 +104,11 @@
         <button class="btn" type="button" on:click={browseScript}>{t('button.browse')}</button>
       </div>
     </label>
+    {#if scriptPreview?.error}
+      <div class="validation-issue validation-error">{scriptPreview.error}</div>
+    {:else if scriptPreview?.content}
+      <ScriptSource content={scriptPreview.content} />
+    {/if}
   {/if}
   {#if allActionGroups.length > 0}
     <div class="field">
@@ -137,6 +164,9 @@
     min-width: 0;
     font-family: "SF Mono", Consolas, monospace;
   }
+  /* The script-source preview itself comes from the shared
+     @shared/components/ScriptSource.svelte, used identically by
+     script-manager-gui's Command pane — no local styling needed here. */
   .field-checkbox {
     display: flex;
     align-items: center;

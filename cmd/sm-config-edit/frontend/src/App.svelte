@@ -22,6 +22,7 @@
     BrowseOpen,
     BrowseSaveAs,
     BrowseScriptFile,
+    PreviewScriptFile,
     Save,
     OpenInEditor,
     PreviewItem,
@@ -343,7 +344,13 @@
             bind:selectedActionGroup
           />
         {:else if section === 'actions'}
-          <ActionsEditor bind:actions={cfg.actions} bind:selectedAction {allActionGroups} browseScriptFile={BrowseScriptFile} />
+          <ActionsEditor
+            bind:actions={cfg.actions}
+            bind:selectedAction
+            {allActionGroups}
+            browseScriptFile={BrowseScriptFile}
+            previewScriptFile={PreviewScriptFile}
+          />
         {:else if section === 'items'}
           <ItemsEditor
             bind:items={cfg.items}
@@ -356,6 +363,7 @@
             previewAction={PreviewAction}
             validateField={ValidateField}
             browseScriptFile={BrowseScriptFile}
+            previewScriptFile={PreviewScriptFile}
           />
         {:else if section === 'theme'}
           <ThemeEditor

@@ -7,6 +7,7 @@
   import Icon from '@shared/components/Icon.svelte'
   import CollapseToggle from '@shared/components/CollapseToggle.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
+  import ScriptSource from '@shared/components/ScriptSource.svelte'
   import Panel from './components/Panel.svelte'
   import GroupFilter from './components/GroupFilter.svelte'
   import { t } from './messages'
@@ -523,22 +524,18 @@
               </div>
             {/if}
             {#if actionDetail.script}
-              <div class="cmd-line">
-                <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
-                <div class="cmd-line-row">
-                  <span class="cmd-line-text">{t('text.scriptLabel')}{actionDetail.script}</span>
-                </div>
-              </div>
+              <p class="cmd-desc">{t('text.scriptLabel')}{actionDetail.script}</p>
+              {#if actionDetail.scriptError}
+                <p class="cmd-error">{actionDetail.scriptError}</p>
+              {:else}
+                <ScriptSource content={actionDetail.scriptContent}>
+                  <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
+                </ScriptSource>
+              {/if}
             {:else if actionDetail.cmd}
-              <div class="cmd-line">
+              <ScriptSource content={actionDetail.cmd}>
                 <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
-                {#each actionDetail.cmd.replace(/\n+$/, '').split('\n') as line, i (i)}
-                  <div class="cmd-line-row">
-                    <span class="cmd-line-no">{i + 1}</span>
-                    <span class="cmd-line-text">{line}</span>
-                  </div>
-                {/each}
-              </div>
+              </ScriptSource>
             {/if}
           {:else}
             <div class="empty">{t('empty.selectActionToPreview')}</div>
@@ -706,6 +703,11 @@
     white-space: pre-wrap;
   }
 
+  .cmd-error {
+    margin: 0 0 8px;
+    color: var(--sm-error);
+  }
+
   .cmd-output {
     position: relative;
     background: var(--sm-bg-deep);
@@ -748,21 +750,15 @@
     margin: 0 0 8px;
   }
 
-  .cmd-line {
-    position: relative;
-    background: var(--sm-bg-deep);
-    border-radius: 4px;
-    padding: 8px 0;
-    margin: 0 0 8px;
-    color: var(--sm-text);
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.85rem;
-  }
-
   /* Minimal, borderless copy button meant to sit inside a code block —
      .cmd-line-copy-btn and .cmd-output-copy-btn both float it in the
      top-right corner, the placement docs sites commonly use for a code
-     block's copy action. */
+     block's copy action. .cmd-line-copy-btn positions against
+     ScriptSource's own position:relative card (@shared/components/
+     ScriptSource.svelte) — it's passed into that component's default slot,
+     not rendered as a sibling here, but stays :global() since Svelte scopes
+     slotted content to the component that fills the slot (this one), not
+     the one that declares it. */
   :global(.cmd-copy-btn) {
     display: flex;
     align-items: center;
@@ -782,27 +778,6 @@
     position: absolute;
     top: 4px;
     right: 4px;
-  }
-
-  .cmd-line-row {
-    display: flex;
-    gap: 10px;
-    padding: 0 8px;
-  }
-
-  .cmd-line-no {
-    flex: none;
-    width: 1.6em;
-    text-align: right;
-    color: var(--sm-line-number);
-    user-select: none;
-  }
-
-  .cmd-line-text {
-    flex: 1;
-    min-width: 0;
-    white-space: pre-wrap;
-    word-break: break-word;
   }
 
   .cmd-actions {

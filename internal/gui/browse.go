@@ -37,8 +37,8 @@ func (a *App) BrowseConfig() (string, error) {
 }
 
 // siblingBinaryName returns the OS-appropriate executable name for a binary
-// expected to live alongside this one — the inverse of shellBasename's .exe
-// stripping.
+// expected to live alongside this one — the inverse of action.ShellBasename's
+// .exe stripping.
 func siblingBinaryName(base string) string {
 	if runtime.GOOS == "windows" {
 		return base + ".exe"
