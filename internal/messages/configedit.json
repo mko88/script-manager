@@ -18,7 +18,8 @@
     "removeCustomAction": "Remove custom action \"{name}\"? This can't be undone.",
     "removeField": "Remove field \"{key}\"? This can't be undone.",
     "removeShellEntry": "Remove shell command entry \"{value}\"? This can't be undone.",
-    "removeTheme": "Delete theme \"{name}\"? This can't be undone."
+    "removeTheme": "Delete theme \"{name}\"? This can't be undone.",
+    "resetTheme": "Reset the working colors to {target}? Unsaved changes will be lost."
   },
   "nav": {
     "items": "Items",
@@ -175,14 +176,15 @@
   },
   "themeEditor": {
     "currentThemeLabel": "Current theme: ",
-    "newThemeOption": "+ New theme",
     "newThemeDefaultName": "Custom",
     "themeNamePlaceholder": "Theme name",
+    "addButton": "Add new theme",
+    "copyButton": "Copy theme",
     "deleteButton": "Delete",
+    "resetButton": "Reset",
+    "resetTargetSaved": "the last saved version",
     "resetToDark": "Reset to Dark",
     "resetToLight": "Reset to Light",
-    "saveButton": "Save",
-    "saving": "Saving…",
     "saved": "Theme saved",
     "saveFailed": "Save failed: {error}",
     "deleted": "Theme deleted",
