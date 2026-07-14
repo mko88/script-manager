@@ -6,11 +6,17 @@
   // string[] this way.
   export let items: string[] = []
   export let placeholder = ''
+  // Opt-in per usage: most lists here (Terminal argv, an Action's Groups)
+  // are reordered/pruned freely and a confirm would just be friction, but
+  // Shell's entries are load-bearing enough to warrant one. Unset means no
+  // confirmation, matching every other list here's existing behavior.
+  export let confirmRemoveMessage: ((value: string) => string) | null = null
 
   function add() {
     items = [...items, '']
   }
   function remove(i: number) {
+    if (confirmRemoveMessage && !confirm(confirmRemoveMessage(items[i]))) return
     items = items.filter((_, idx) => idx !== i)
   }
 </script>

@@ -14,7 +14,11 @@
     "removeAction": "Remove action \"{name}\"? This can't be undone.",
     "removeActionGroup": "Remove action group \"{name}\"? This can't be undone.{refSuffix}",
     "removeActionGroupRefSuffix": " It's referenced by {count} action/item field{plural} — those references will be removed too.",
-    "removeDisplay": "Remove display \"{name}\"? This can't be undone."
+    "removeDisplay": "Remove display \"{name}\"? This can't be undone.",
+    "removeCustomAction": "Remove custom action \"{name}\"? This can't be undone.",
+    "removeField": "Remove field \"{key}\"? This can't be undone.",
+    "removeShellEntry": "Remove shell command entry \"{value}\"? This can't be undone.",
+    "removeTheme": "Delete theme \"{name}\"? This can't be undone."
   },
   "nav": {
     "items": "Items",
@@ -147,7 +151,7 @@
   "button": {
     "removeCustomAction": "Remove custom action",
     "addCustomAction": "+ Add custom action",
-    "addField": "+ Add field",
+    "addField": "+ Add environment variable",
     "add": "+ Add",
     "browse": "Browse…"
   },

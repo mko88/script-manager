@@ -32,6 +32,8 @@
     fields = [...fields, { key: '', kind: 'string', value: '', secret: false }]
   }
   function remove(i: number) {
+    const key = fields[i]?.key || t('fallback.unnamed')
+    if (!confirm(t('confirm.removeField', { key }))) return
     fields = fields.filter((_, idx) => idx !== i)
     errors = {}
   }

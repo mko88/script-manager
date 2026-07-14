@@ -80,6 +80,11 @@
   function removeCustomAction(itemIdx: number, i: number) {
     items[itemIdx].customActions = items[itemIdx].customActions.filter((_, idx) => idx !== i)
   }
+  function confirmRemoveCustomAction(itemIdx: number, i: number) {
+    const action = items[itemIdx].customActions[i]
+    const name = action?.title || action?.id || t('fallback.untitled')
+    if (confirm(t('confirm.removeCustomAction', { name }))) removeCustomAction(itemIdx, i)
+  }
 
   // Reordering is opt-in: off by default, toggled per-visit via the
   // reorder-mode button in the toolbar (not persisted — reopening the
@@ -210,7 +215,7 @@
               {browseScriptFile}
               {previewScriptFile}
             />
-            <button class="btn" type="button" on:click={() => removeCustomAction(selectedItem, j)}
+            <button class="btn" type="button" on:click={() => confirmRemoveCustomAction(selectedItem, j)}
               >{t('button.removeCustomAction')}</button
             >
           </div>
