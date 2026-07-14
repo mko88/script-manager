@@ -22,6 +22,8 @@ export namespace gui {
 	    description: string;
 	    cmd: string;
 	    script: string;
+	    scriptContent: string;
+	    scriptError: string;
 	    noWait: boolean;
 	    interactive: boolean;
 	
@@ -34,6 +36,8 @@ export namespace gui {
 	        this.description = source["description"];
 	        this.cmd = source["cmd"];
 	        this.script = source["script"];
+	        this.scriptContent = source["scriptContent"];
+	        this.scriptError = source["scriptError"];
 	        this.noWait = source["noWait"];
 	        this.interactive = source["interactive"];
 	    }

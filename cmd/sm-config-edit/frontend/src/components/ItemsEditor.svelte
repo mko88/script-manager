@@ -36,6 +36,7 @@
   ) => Promise<configedit.ActionPreviewDTO>
   export let validateField: (kind: string, value: string) => Promise<string>
   export let browseScriptFile: () => Promise<string>
+  export let previewScriptFile: (path: string) => Promise<configedit.ScriptPreviewDTO>
 
   $: allActionIds = actions.map((a) => a.id).filter((id) => id)
 
@@ -202,7 +203,13 @@
         <span>{t('field.customActions')}</span>
         {#each items[selectedItem].customActions as _, j (j)}
           <div class="nested-action">
-            <ActionForm bind:action={items[selectedItem].customActions[j]} showId={false} {allActionGroups} {browseScriptFile} />
+            <ActionForm
+              bind:action={items[selectedItem].customActions[j]}
+              showId={false}
+              {allActionGroups}
+              {browseScriptFile}
+              {previewScriptFile}
+            />
             <button class="btn" type="button" on:click={() => removeCustomAction(selectedItem, j)}
               >{t('button.removeCustomAction')}</button
             >

@@ -58,6 +58,10 @@ export function PreviewItem(arg1, arg2, arg3, arg4) {
   return window['go']['configedit']['App']['PreviewItem'](arg1, arg2, arg3, arg4);
 }
 
+export function PreviewScriptFile(arg1) {
+  return window['go']['configedit']['App']['PreviewScriptFile'](arg1);
+}
+
 export function Save(arg1, arg2) {
   return window['go']['configedit']['App']['Save'](arg1, arg2);
 }
