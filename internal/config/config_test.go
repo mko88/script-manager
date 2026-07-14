@@ -268,6 +268,67 @@ func TestLoadFromWithError(t *testing.T) {
 	})
 }
 
+func TestLoadOrCreateSeedsDefaultWhenNothingExists(t *testing.T) {
+	dir := t.TempDir()
+	missing := filepath.Join(dir, "config.yaml")
+	defaultPath := filepath.Join(dir, "appdata-config.yaml")
+
+	cfg, err := loadOrCreate([]string{missing}, defaultPath, "shell: [bash, -c]\n")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.SourcePath != defaultPath {
+		t.Errorf("SourcePath = %q, want %q (should load the freshly created default)", cfg.SourcePath, defaultPath)
+	}
+	if len(cfg.Shell) != 2 || cfg.Shell[0] != "bash" {
+		t.Errorf("expected the written default's content to be loaded back, got shell %v", cfg.Shell)
+	}
+	if data, readErr := os.ReadFile(defaultPath); readErr != nil || string(data) != "shell: [bash, -c]\n" {
+		t.Errorf("default file on disk = %q, %v; want the exact default content written", data, readErr)
+	}
+}
+
+func TestLoadOrCreateLeavesBrokenCandidateAlone(t *testing.T) {
+	dir := t.TempDir()
+	broken := filepath.Join(dir, "config.yaml")
+	// Duplicate mapping key: a genuine YAML syntax error, not just "missing".
+	if err := os.WriteFile(broken, []byte("env:\n  a: 1\n  a: 2\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	defaultPath := filepath.Join(dir, "appdata-config.yaml")
+
+	cfg, err := loadOrCreate([]string{broken}, defaultPath, "shell: [bash, -c]\n")
+	if err == nil {
+		t.Fatal("expected the broken candidate's parse error, not a silently created default")
+	}
+	if cfg.SourcePath != "" {
+		t.Errorf("SourcePath = %q, want empty — a broken existing file must not be papered over", cfg.SourcePath)
+	}
+	if _, statErr := os.Stat(defaultPath); !os.IsNotExist(statErr) {
+		t.Error("default file should not have been created when a candidate exists but fails to parse")
+	}
+}
+
+func TestLoadOrCreateDoesNothingWhenAlreadyLoaded(t *testing.T) {
+	dir := t.TempDir()
+	real := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(real, []byte("shell: [zsh]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	defaultPath := filepath.Join(dir, "appdata-config.yaml")
+
+	cfg, err := loadOrCreate([]string{real}, defaultPath, "shell: [bash, -c]\n")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if cfg.SourcePath != real {
+		t.Errorf("SourcePath = %q, want %q (the real file should win, no default needed)", cfg.SourcePath, real)
+	}
+	if _, statErr := os.Stat(defaultPath); !os.IsNotExist(statErr) {
+		t.Error("default file should not have been created when a real candidate already loaded successfully")
+	}
+}
+
 func TestParseCustomActionsScript(t *testing.T) {
 	raw := []interface{}{
 		map[string]interface{}{"title": "Deploy", "script": "./deploy.sh"},

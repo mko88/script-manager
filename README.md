@@ -93,7 +93,8 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 ## Usage
 
 ```bash
-# Auto-detect config.yaml next to the binary or in the working directory
+# Auto-detect config.yaml next to the binary, in the working directory, or
+# in the app-data directory
 ./bin/script-manager
 
 # Explicit config file
@@ -103,6 +104,8 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 ## Configuration
 
 Place `config.yaml` in the same directory as the binary (or pass it with `-config`). On Windows, `config-win.yaml` takes precedence when present — next to the binary or in the working directory — and `config.yaml` is used as the fallback. If the preferred file exists but fails to parse (e.g. a YAML syntax error), it's skipped in favor of the next candidate and the load error is shown once at startup — a status bar message in the TUI, a toast in the GUI — so a broken `config-win.yaml` falling back to `config.yaml` doesn't go unnoticed.
+
+If neither is found next to the binary or in the working directory, the app-data directory (`%AppData%\script-manager` on Windows, `~/.config/script-manager` on Linux — the same place the GUI apps' theme/messages already live) is checked too, same filename precedence. If nothing is found there either — no config file exists anywhere, which is the case on a genuinely first-ever run — a minimal starter config (an OS-appropriate `shell:`, one example item, and one action that just echoes a greeting) is written to the app-data directory and loaded from there, so the app always has something real to run instead of starting empty. All three binaries (`script-manager`, `script-manager-gui`, `sm-config-edit`) share this exact same auto-detect-and-seed behavior. An explicit `-config` path is never auto-created if missing — only auto-detection falls back this far.
 
 Rather than hand-writing this file, you can use the [Config Editor](#config-editor) (`cmd/sm-config-edit`) to create or edit it through forms.
 
@@ -246,7 +249,7 @@ Both list every merged variable under its exported (uppercase) name, sorted alph
 
 #### Showing which config file is loaded
 
-The literal placeholder `#CONFIG_FILE#` expands to the full path of the config file actually in use — handy for confirming which of several candidates (`config-win.yaml` vs. `config.yaml`, next to the binary vs. in the working directory) won:
+The literal placeholder `#CONFIG_FILE#` expands to the full path of the config file actually in use — handy for confirming which of several candidates (`config-win.yaml` vs. `config.yaml`; next to the binary, in the working directory, or in the app-data directory) won, or for spotting an auto-created starter config by its app-data path:
 
 ```yaml
 details: |
