@@ -134,7 +134,7 @@
       ><Icon name={allMessageGroupsCollapsed ? 'expand-all' : 'collapse-all'} /></IconButton
     >
     <IconButton title={t('messagesEditor.restoreDefaults')} on:click={restoreDefaults}><Icon name="restore" /></IconButton>
-    <IconButton class="btn btn-primary icon-btn" title={t('messagesEditor.saveButton')} on:click={saveMessagesSection}><Icon name="save" /></IconButton>
+    <IconButton title={t('messagesEditor.saveButton')} on:click={saveMessagesSection}><Icon name="save" /></IconButton>
   </div>
 </div>
 <input

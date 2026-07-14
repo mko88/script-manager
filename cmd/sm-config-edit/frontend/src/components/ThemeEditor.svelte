@@ -91,6 +91,51 @@
     setActiveTheme(selectedThemeName).catch(() => {})
   }
 
+  // The toolbar's "+" button — same draft-staging path as picking the old
+  // "+ New theme" dropdown entry, just triggered directly now that entry
+  // is gone (it only reappears, dynamically, once a draft is in progress;
+  // see the template). Disabled while already drafting, since calling this
+  // again would silently reset the in-progress draft's name/palette.
+  function addTheme() {
+    selectedThemeName = NEW_THEME_ENTRY
+    onThemeSelect()
+  }
+
+  // Duplicates whatever's currently loaded — built-in, saved custom, or an
+  // in-progress draft — into a new unsaved draft, "<name> - copy", the same
+  // one-step-duplicate shape Displays' Copy display button already uses.
+  // Unlike addTheme, this doesn't go through onThemeSelect: that would
+  // reset editedName/palette to fresh draft defaults instead of preserving
+  // what's being copied.
+  function copyTheme() {
+    const baseName = editedName.trim() || activeThemeLabel
+    const copiedPalette = { ...palette }
+    selectionAtLoad = ''
+    editedName = `${baseName} - copy`
+    palette = copiedPalette
+    selectedThemeName = NEW_THEME_ENTRY
+  }
+
+  // Applies before resetFrom/resetToSaved actually replace the working
+  // palette — all three silently discard whatever's currently unsaved, so
+  // they share one confirm message parameterized by what they're resetting
+  // to.
+  function confirmResetFrom(base: 'dark' | 'light') {
+    const target = base === 'dark' ? t('theme.dark') : t('theme.light')
+    if (confirm(t('confirm.resetTheme', { target }))) resetFrom(base)
+  }
+
+  // Reverts the working palette back to this theme's last-saved state,
+  // discarding any in-progress edits — only meaningful for an existing
+  // saved custom theme (same disabled condition as Delete: a draft has no
+  // saved state yet, and Dark/Light's fields aren't editable to begin
+  // with).
+  function resetToSaved() {
+    if (!isCustomSelected || isDraft) return
+    if (!confirm(t('confirm.resetTheme', { target: t('themeEditor.resetTargetSaved') }))) return
+    loadSelection(selectionAtLoad)
+  }
+
   const THEME_PANEL_KEY = 'sm-config-edit:themePanel'
   let themePanelCollapsed = false
 
@@ -108,7 +153,6 @@
   }
 
   let collapsedGroups = new Set<string>()
-  let saving = false
 
   function toggleGroup(label: string) {
     const next = new Set(collapsedGroups)
@@ -253,10 +297,12 @@
     .map(([name, value]) => `--sm-${name}: ${value}`)
     .join('; ')
 
-  async function save() {
+  // Exported so App.svelte's global Ctrl+S handler can reach it via
+  // bind:this — the panel's own Save button is gone now that Ctrl+S covers
+  // it, but the underlying action still needs a callable entry point.
+  export async function save() {
     if (!canSave) return
     const name = editedName.trim()
-    saving = true
     try {
       await saveTheme(name, selectionAtLoad, palette)
       const nextThemes: Record<string, CustomPalette> = { ...(themes ?? {}) }
@@ -271,8 +317,6 @@
       flash(t('themeEditor.saved'))
     } catch (err) {
       flash(t('themeEditor.saveFailed', { error: String(err) }))
-    } finally {
-      saving = false
     }
   }
 
@@ -304,6 +348,29 @@
     </header>
     {#if !themePanelCollapsed}
       <div class="panel-body theme-editor-panel-body">
+        <div class="theme-editor-panel-actions">
+          <div class="theme-editor-panel-actions-group">
+            <IconButton title={t('themeEditor.addButton')} disabled={isDraft} on:click={addTheme}>
+              <Icon name="add" />
+            </IconButton>
+            <IconButton title={t('themeEditor.copyButton')} on:click={copyTheme}>
+              <Icon name="copy" />
+            </IconButton>
+            <IconButton
+              title={t('themeEditor.deleteButton')}
+              disabled={!isCustomSelected || isDraft}
+              on:click={remove}
+            >
+              <Icon name="remove" />
+            </IconButton>
+          </div>
+          <div class="theme-editor-panel-actions-group">
+            <button class="btn" type="button" disabled={!isCustomSelected || isDraft} on:click={resetToSaved}>{t('themeEditor.resetButton')}</button>
+            <button class="btn" type="button" disabled={!isCustomSelected} on:click={() => confirmResetFrom('dark')}>{t('themeEditor.resetToDark')}</button>
+            <button class="btn" type="button" disabled={!isCustomSelected} on:click={() => confirmResetFrom('light')}>{t('themeEditor.resetToLight')}</button
+            >
+          </div>
+        </div>
         <div class="theme-editor-panel-row">
           <label class="field theme-editor-panel-select">
             <span>{t('theme.selectTitle')}</span>
@@ -313,7 +380,9 @@
               {#each Object.keys(themes ?? {}) as name (name)}
                 <option value={name}>{name}</option>
               {/each}
-              <option value={NEW_THEME_ENTRY}>{t('themeEditor.newThemeOption')}</option>
+              {#if isDraft}
+                <option value={NEW_THEME_ENTRY}>{editedName || t('themeEditor.newThemeDefaultName')}</option>
+              {/if}
             </select>
           </label>
           <label class="field theme-editor-panel-name">
@@ -326,30 +395,6 @@
               bind:this={nameInputEl}
             />
           </label>
-        </div>
-        <div class="theme-editor-panel-actions">
-          <div class="theme-editor-panel-actions-group">
-            <IconButton
-              class="btn btn-primary icon-btn"
-              title={saving ? t('themeEditor.saving') : t('themeEditor.saveButton')}
-              disabled={!canSave || saving}
-              on:click={save}
-            >
-              <Icon name="save" />
-            </IconButton>
-            <IconButton
-              title={t('themeEditor.deleteButton')}
-              disabled={!isCustomSelected || isDraft}
-              on:click={remove}
-            >
-              <Icon name="remove" />
-            </IconButton>
-          </div>
-          <div class="theme-editor-panel-actions-group">
-            <button class="btn" type="button" disabled={!isCustomSelected} on:click={() => resetFrom('dark')}>{t('themeEditor.resetToDark')}</button>
-            <button class="btn" type="button" disabled={!isCustomSelected} on:click={() => resetFrom('light')}>{t('themeEditor.resetToLight')}</button
-            >
-          </div>
         </div>
       </div>
     {/if}

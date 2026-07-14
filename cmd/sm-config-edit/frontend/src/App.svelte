@@ -59,6 +59,11 @@
   // switched, saved, or deleted there.
   let theme: Theme = getTheme()
   let themes: Record<string, CustomPalette> | null = getThemes()
+  // Only set while section === 'theme' (Svelte destroys the component,
+  // clearing this back to undefined, whenever the {:else if} branch below
+  // switches away) — lets the global Ctrl+S handler reach its exported
+  // save() without duplicating the theme-save flow up here.
+  let themeEditor: ThemeEditor | undefined
 
   let knownTerminals: string[] = []
   let validation: configedit.ValidationIssueDTO[] = []
@@ -227,7 +232,14 @@
       case 's':
         e.preventDefault()
         if (e.shiftKey) saveAsConfig()
-        else saveConfig()
+        else {
+          saveConfig()
+          // Only bound while the Theme section is mounted (see below) — a
+          // no-op otherwise, and a no-op even then unless there's an
+          // actual named custom theme/draft to save (same canSave guard
+          // the removed in-panel Save button used).
+          themeEditor?.save()
+        }
         break
     }
   }
@@ -248,7 +260,6 @@
     <IconButton title={t('tooltip.newTitle')} aria={t('tooltip.newAria')} on:click={newConfig}><ToolbarIcon mode="new" /></IconButton>
     <IconButton title={t('tooltip.openTitle')} aria={t('tooltip.openAria')} on:click={openConfig}><ToolbarIcon mode="open" /></IconButton>
     <IconButton
-      class="btn btn-primary icon-btn"
       title={t('tooltip.saveTitle')}
       aria={t('tooltip.saveAria')}
       disabled={hasBlockingError}
@@ -371,6 +382,7 @@
           />
         {:else if section === 'theme'}
           <ThemeEditor
+            bind:this={themeEditor}
             bind:theme
             bind:themes
             saveTheme={SaveTheme}
