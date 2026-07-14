@@ -330,19 +330,19 @@
         <div class="theme-editor-panel-actions">
           <div class="theme-editor-panel-actions-group">
             <IconButton
-              title={t('themeEditor.deleteButton')}
-              disabled={!isCustomSelected || isDraft}
-              on:click={remove}
-            >
-              <Icon name="remove" />
-            </IconButton>
-            <IconButton
               class="btn btn-primary icon-btn"
               title={saving ? t('themeEditor.saving') : t('themeEditor.saveButton')}
               disabled={!canSave || saving}
               on:click={save}
             >
               <Icon name="save" />
+            </IconButton>
+            <IconButton
+              title={t('themeEditor.deleteButton')}
+              disabled={!isCustomSelected || isDraft}
+              on:click={remove}
+            >
+              <Icon name="remove" />
             </IconButton>
           </div>
           <div class="theme-editor-panel-actions-group">

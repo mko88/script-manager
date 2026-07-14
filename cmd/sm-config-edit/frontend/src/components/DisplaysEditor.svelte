@@ -262,15 +262,7 @@
 </script>
 
 <div class="display-section">
-  <div class="display-select-row">
-    <label class="field display-select-field">
-      <span>{t('field.display')}</span>
-      <select bind:value={selectedDisplay}>
-        <option value={-1}>{t('option.selectDisplay')}</option>
-        {#each displays as d, i (i)}<option value={i}>{d.name || t('option.unnamedDisplay', { n: i + 1 })}</option
-          >{/each}
-      </select>
-    </label>
+  <div class="list-toolbar">
     <IconButton title={t('tooltip.addDisplay')} on:click={addDisplay}><Icon name="add" /></IconButton>
     <IconButton title={t('tooltip.copyDisplay')} disabled={selectedDisplay < 0} on:click={copyDisplay}><Icon name="copy" /></IconButton>
     <IconButton
@@ -280,12 +272,24 @@
     >
   </div>
 
-  {#if selectedDisplay >= 0 && displays[selectedDisplay]}
-    <label class="field">
-      <span>{t('field.name')}</span>
-      <input type="text" bind:value={displays[selectedDisplay].name} />
+  <div class="display-select-row">
+    <label class="field display-select-field">
+      <span>{t('field.display')}</span>
+      <select bind:value={selectedDisplay}>
+        <option value={-1}>{t('option.selectDisplay')}</option>
+        {#each displays as d, i (i)}<option value={i}>{d.name || t('option.unnamedDisplay', { n: i + 1 })}</option
+          >{/each}
+      </select>
     </label>
+    {#if selectedDisplay >= 0 && displays[selectedDisplay]}
+      <label class="field display-name-field">
+        <span>{t('field.name')}</span>
+        <input type="text" bind:value={displays[selectedDisplay].name} />
+      </label>
+    {/if}
+  </div>
 
+  {#if selectedDisplay >= 0 && displays[selectedDisplay]}
     <div class="display-toolbar">
       <div class="view-mode-group">
         <IconButton
@@ -410,6 +414,13 @@
     overflow: hidden;
   }
 
+  /* .list-toolbar's own margin-bottom (global, shared with Items/Action
+     Groups/Actions) would stack with this column's gap above — flex gap
+     already spaces it consistently with every other child here. */
+  .display-section > .list-toolbar {
+    margin-bottom: 0;
+  }
+
   .display-select-row {
     flex: none;
     display: flex;
@@ -419,6 +430,12 @@
 
   .display-select-field {
     flex: 0 1 320px;
+    margin-bottom: 0;
+  }
+
+  .display-name-field {
+    flex: 1 1 200px;
+    min-width: 0;
     margin-bottom: 0;
   }
 
