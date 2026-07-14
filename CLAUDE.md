@@ -115,17 +115,21 @@ While iterating:
   breakage mid-iteration; the real build.sh pass belongs at task boundaries
   (before verifying the change, before a commit), not after every edit.
 
-### Before committing
+### Before committing or pushing
 
 Don't commit on the strength of interim checks alone. If this session
 hasn't run a full build (`bash build.sh --full` / `.\build-container.ps1
 -Full`, both platforms, `--vet`/`--test`/`--check` all included) since the
-last code change, say so explicitly before creating the commit — offer to
-run it rather than assuming the interim checks already covered everything.
+last code change, say so explicitly before creating the commit.
 
-Exception: skip this when the diff is only build scripts, docs, or comments
-— no actual code logic changed, so a full build/test pass can't catch
-anything the change could have broken.
+Before running that (or any) build, always ask first and wait for the
+answer — never launch it automatically, even when offering to. The user
+may already know it's covered (e.g. just ran it, or the diff is trivial)
+and not want to wait on a redundant pass.
+
+Exception: skip asking when the diff is only build scripts, docs, or
+comments — no actual code logic changed, so a full build/test pass can't
+catch anything the change could have broken.
 
 ## Verifying GUI changes
 
