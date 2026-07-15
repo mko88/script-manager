@@ -450,10 +450,31 @@
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <div class="theme-editor-preview-body" on:click={onPreviewBodyClick}>
           <div class="list">
-            <button type="button" class="row selected" on:click={onPreviewClick}
-              >{t('themeEditor.previewSelectedRow')}</button
-            >
-            <button type="button" class="row" on:click={onPreviewClick}>{t('themeEditor.previewRow')}</button>
+            <!-- Rows are clickable <div>s, not <button>s, so the run-status
+                 dots (all three at once, as script-manager-gui's Items/
+                 Actions rows show one of at the right edge) can be their own
+                 nested click targets — same reason as the section header
+                 below. -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <div class="row selected" on:click={onPreviewClick}>
+              {t('themeEditor.previewSelectedRow')}
+              <span class="theme-editor-preview-row-dots">
+                <button type="button" class="status-running theme-editor-preview-dot" on:click={onNestedPreviewClick}>●</button>
+                <button type="button" class="status-ok theme-editor-preview-dot" on:click={onNestedPreviewClick}>●</button>
+                <button type="button" class="status-fail theme-editor-preview-dot" on:click={onNestedPreviewClick}>●</button>
+              </span>
+            </div>
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <div class="row" on:click={onPreviewClick}>
+              {t('themeEditor.previewRow')}
+              <span class="theme-editor-preview-row-dots">
+                <button type="button" class="status-running theme-editor-preview-dot" on:click={onNestedPreviewClick}>●</button>
+                <button type="button" class="status-ok theme-editor-preview-dot" on:click={onNestedPreviewClick}>●</button>
+                <button type="button" class="status-fail theme-editor-preview-dot" on:click={onNestedPreviewClick}>●</button>
+              </span>
+            </div>
           </div>
           <div class="theme-editor-preview-chips">
             <button type="button" class="chip active" on:click={onPreviewClick}
@@ -835,6 +856,27 @@
     padding: 0;
     margin: 0;
     cursor: pointer;
+    /* Buttons don't inherit font by default — the header dots get their
+       size from .status-dot, but the row dots size off their container. */
+    font: inherit;
+  }
+
+  /* Mirrors script-manager-gui's local flex-row + margin-left:auto layout
+     for its list dots (that override is scoped to App.svelte, so it can't
+     reach here — same stand-in situation as the corner copy buttons). The
+     1rem dot size matches the real rows' dots, overriding nothing shared:
+     the .status-* classes only set color. */
+  .theme-editor-preview .row {
+    display: flex;
+    align-items: center;
+  }
+  .theme-editor-preview-row-dots {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+    padding-left: 8px;
+    font-size: 1rem;
+    line-height: 1;
   }
 
   /* .panel-title is already display:flex (global, theme.css) and already
