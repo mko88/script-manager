@@ -431,6 +431,8 @@ Builds both platforms by default. Produces:
 - `bin/sm-config-edit` — Linux amd64 Config Editor (only if the `wails` CLI is installed; skipped otherwise)
 - `bin/sm-config-edit.exe` — Windows amd64 Config Editor, cross-compiled (only if `mingw-w64` is installed; skipped otherwise)
 
+The TUI and the two GUI apps build as parallel jobs; each job's log is printed as one block when it finishes, so output for one app appears all at once rather than interleaved.
+
 Pass `--windows` or `--linux` to build only that platform — `--windows` for routine use on a Windows host (which never runs the Linux binaries), `--linux` when only a Linux binary is needed (e.g. Xvfb-based visual testing of the GUI apps):
 
 ```bash
