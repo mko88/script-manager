@@ -60,6 +60,32 @@ Branch name format: `YYYYMMDD-feature`, where `YYYYMMDD` is today's date and
 
 After any change that affects user-facing behaviour — keybindings, layout, panes, CLI flags, config format, or build instructions — update README.md before closing the task. Do not wait to be asked.
 
+### README style: user guide, not engineering notes
+
+The README is a guide for someone *using* the apps. Document what the app
+does and how to use it — not how it's implemented or why it was built that
+way.
+
+Belongs in the README:
+- How to launch, configure, and operate the apps: keybindings, flags,
+  config keys and their effects, search/precedence orders users rely on.
+- Behaviour a user acts on or must know to avoid surprises — e.g. the
+  "comments are lost on save" warning, the secrets-in-temp-scripts note,
+  "changes take effect on next launch".
+- Just enough of a feature's mechanics to use it (e.g. "click a preview
+  element to filter the field list") — not how the mechanic works inside.
+
+Does NOT belong (put it in CLAUDE.md or a code comment instead, or drop it):
+- "We do X because of Y" implementation rationale — temp-script
+  self-deletion ordering, why a helper avoids some API, CSS or
+  pseudo-element workarounds, component-reuse notes.
+- Internal identifiers users never type: theme token names, package or
+  component names, CSS selectors.
+- Change history ("previously this used…", token/field renames) — the
+  README describes the current state only.
+- Build internals that don't change how the build is invoked (e.g. that
+  build.sh parallelizes its jobs).
+
 ## Building binaries
 
 Always use `./build.sh` to compile — never run `go build` manually.
