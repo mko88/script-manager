@@ -29,6 +29,7 @@ export const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
       'text-highlight',
       'section-title',
       'text-primary',
+      'text-tab',
       'masked',
       'warning',
       'error',
