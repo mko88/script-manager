@@ -23,6 +23,7 @@
   --sm-text-highlight: #6ee7d8;
   --sm-section-title: #6ee7d8;
   --sm-text-primary: #1b2636;
+  --sm-text-tab: #e8a33d;
   --sm-masked: #b9c3d1;
   --sm-warning: #e8a33d;
   --sm-error: #e0645c;
@@ -69,6 +70,7 @@
   --sm-text-highlight: #0f7d6e;
   --sm-section-title: #0f7d6e;
   --sm-text-primary: #eef1f6;
+  --sm-text-tab: #a8660a;
   --sm-masked: #46536a;
   --sm-warning: #a8660a;
   --sm-error: #c0392b;

@@ -490,6 +490,11 @@
               >{t('themeEditor.previewButtonPrimary')}</button
             >
           </div>
+          <div class="theme-editor-preview-tabs">
+            <button type="button" class="theme-editor-preview-tab" on:click={onPreviewClick}
+              >{t('themeEditor.previewTabTitle')}</button
+            >
+          </div>
           <div class="theme-editor-preview-text-examples">
             <div class="theme-editor-preview-text-row">
               <button type="button" class="theme-editor-preview-heading" on:click={onPreviewClick}
@@ -859,6 +864,22 @@
     /* Buttons don't inherit font by default — the header dots get their
        size from .status-dot, but the row dots size off their container. */
     font: inherit;
+  }
+
+  /* Stand-in for the messages editor's active tab (.messages-tab.active),
+     whose styling is scoped to MessagesEditor.svelte and unreachable from
+     here — same situation as the corner copy buttons — so the text-tab
+     token stays click-discoverable in the preview. */
+  .theme-editor-preview-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid var(--sm-text-tab);
+    padding: 6px 4px 8px;
+    color: var(--sm-text-tab);
+    font-size: 0.85rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
   }
 
   /* Mirrors script-manager-gui's local flex-row + margin-left:auto layout

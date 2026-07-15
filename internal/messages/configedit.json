@@ -201,6 +201,7 @@
     "previewChip": "Chip",
     "previewButton": "Button",
     "previewButtonPrimary": "Primary",
+    "previewTabTitle": "Tab title",
     "previewHeadingText": "Example heading",
     "previewNormalHtml": "Normal text, <strong>bold</strong>, <em>italic</em>.",
     "previewHighlightedText": "Highlighted text",
