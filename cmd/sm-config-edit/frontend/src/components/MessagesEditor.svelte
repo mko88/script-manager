@@ -7,8 +7,9 @@
   // The Messages section: edits either app's runtime message-override file
   // (script-manager-gui.messages.json / sm-config-edit.messages.json),
   // flattened into dotted-key rows for a simple key+text-input editor — the
-  // same dotted paths t() itself resolves. Independent of the config's own
-  // dirty/save flow: a different file, a different Save action.
+  // same dotted paths t() itself resolves. A different file from the config
+  // itself, but saved by the same global Save (toolbar / Ctrl+S) via the
+  // exported save() below.
 
   // The actual Wails bindings, passed straight through like FieldGrid's
   // validateField prop — this component doesn't import bindings itself.
@@ -19,6 +20,11 @@
   type MessagesTarget = 'gui' | 'configedit'
   let messagesTarget: MessagesTarget = 'gui'
   let messagesRows: { key: string; value: string }[] = []
+  // Shipped default per dotted key, for the current target — drives the
+  // per-row restore button (shown only where the value differs).
+  let messagesDefaults = new Map<string, string>()
+  // Serialized rows as last loaded/saved — save() no-ops while they match.
+  let savedSnapshot = ''
   let messagesError = ''
   let messagesSearch = ''
   // Which category groups are collapsed, by name — not reset on target
@@ -83,21 +89,42 @@
   async function loadMessages(target: MessagesTarget) {
     messagesError = ''
     try {
-      messagesRows = flattenMessages(await getEditableMessages(target))
+      const [editable, defaults] = await Promise.all([
+        getEditableMessages(target),
+        getDefaultMessages(target),
+      ])
+      messagesRows = flattenMessages(editable)
+      messagesDefaults = new Map(flattenMessages(defaults).map((r) => [r.key, r.value]))
+      savedSnapshot = JSON.stringify(messagesRows)
     } catch (err) {
       messagesRows = []
+      messagesDefaults = new Map()
+      savedSnapshot = ''
       messagesError = String(err)
     }
   }
 
-  async function saveMessagesSection() {
+  // Exported so App.svelte's global Save (toolbar button / Ctrl+S) can reach
+  // it via bind:this — the section has no Save button of its own. A no-op
+  // when the form matches what's already on disk, so a routine config save
+  // doesn't flash the "restart {app}" reminder for nothing.
+  export async function save() {
+    if (messagesError || JSON.stringify(messagesRows) === savedSnapshot) return
     try {
       await saveMessages(messagesTarget, unflattenMessages(messagesRows))
+      savedSnapshot = JSON.stringify(messagesRows)
       const app = messagesTarget === 'gui' ? t('messagesEditor.targetGui') : t('messagesEditor.targetConfigEdit')
       flash(t('messagesEditor.saved', { app }))
     } catch (err) {
       flash(t('messagesEditor.saveFailed', { error: String(err) }))
     }
+  }
+
+  function restoreRow(row: { key: string; value: string }) {
+    const def = messagesDefaults.get(row.key)
+    if (def === undefined) return
+    row.value = def
+    messagesRows = messagesRows
   }
 
   // Resets the in-memory form to the target's compiled defaults — Save is
@@ -134,7 +161,6 @@
       ><Icon name={allMessageGroupsCollapsed ? 'expand-all' : 'collapse-all'} /></IconButton
     >
     <IconButton title={t('messagesEditor.restoreDefaults')} on:click={restoreDefaults}><Icon name="restore" /></IconButton>
-    <IconButton title={t('messagesEditor.saveButton')} on:click={saveMessagesSection}><Icon name="save" /></IconButton>
   </div>
 </div>
 <input
@@ -161,7 +187,16 @@
           {#each group.rows as row (row.key)}
             <label class="field messages-row">
               <span class="messages-row-key">{row.key}</span>
-              <input type="text" bind:value={row.value} />
+              <span class="messages-row-value">
+                <input type="text" bind:value={row.value} />
+                {#if messagesDefaults.has(row.key) && row.value !== messagesDefaults.get(row.key)}
+                  <IconButton
+                    class="btn icon-btn messages-row-restore"
+                    title={t('messagesEditor.restoreRow', { default: messagesDefaults.get(row.key) ?? '' })}
+                    on:click={() => restoreRow(row)}><Icon name="restore" /></IconButton
+                  >
+                {/if}
+              </span>
             </label>
           {/each}
         {/if}
@@ -235,5 +270,21 @@
   .messages-row-key {
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.75rem;
+  }
+
+  .messages-row-value {
+    display: flex;
+    align-items: stretch;
+    gap: 4px;
+  }
+
+  .messages-row-value input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .messages-row-value :global(.messages-row-restore) {
+    flex: none;
+    padding: 0 8px;
   }
 </style>

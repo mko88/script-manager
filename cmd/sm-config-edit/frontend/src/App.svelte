@@ -61,11 +61,12 @@
   // switched, saved, or deleted there.
   let theme: Theme = getTheme()
   let themes: Record<string, CustomPalette> | null = getThemes()
-  // Only set while section === 'theme' (Svelte destroys the component,
-  // clearing this back to undefined, whenever the {:else if} branch below
-  // switches away) — lets the global Ctrl+S handler reach its exported
-  // save() without duplicating the theme-save flow up here.
+  // Only set while their section is mounted (Svelte destroys the component,
+  // clearing these back to undefined, whenever the {:else if} branch below
+  // switches away) — lets the global Save reach each section's exported
+  // save() without duplicating its save flow up here.
   let themeEditor: ThemeEditor | undefined
+  let messagesEditor: MessagesEditor | undefined
 
   let knownTerminals: string[] = []
   let validation: configedit.ValidationIssueDTO[] = []
@@ -201,6 +202,17 @@
     if (target) await doSave(target)
   }
 
+  // Global Save (toolbar button and Ctrl+S): saves the config, plus whatever
+  // the mounted section owns outside config.yaml — the Theme section's
+  // working theme, the Messages section's override file. Each editor ref is
+  // only bound while its section is mounted, and each save() has its own
+  // "anything to save?" guard, so these are no-ops the rest of the time.
+  async function saveAll() {
+    await saveConfig()
+    themeEditor?.save()
+    messagesEditor?.save()
+  }
+
   async function saveAsConfig() {
     if (hasBlockingError) {
       flash(t('toast.fixBlockingErrors'))
@@ -245,14 +257,7 @@
       case 's':
         e.preventDefault()
         if (e.shiftKey) saveAsConfig()
-        else {
-          saveConfig()
-          // Only bound while the Theme section is mounted (see below) — a
-          // no-op otherwise, and a no-op even then unless there's an
-          // actual named custom theme/draft to save (same canSave guard
-          // the removed in-panel Save button used).
-          themeEditor?.save()
-        }
+        else saveAll()
         break
     }
   }
@@ -276,7 +281,7 @@
       title={t('tooltip.saveTitle')}
       aria={t('tooltip.saveAria')}
       disabled={hasBlockingError}
-      on:click={saveConfig}><ToolbarIcon mode="save" /></IconButton
+      on:click={saveAll}><ToolbarIcon mode="save" /></IconButton
     >
     <IconButton
       title={t('tooltip.saveAsTitle')}
@@ -412,6 +417,7 @@
           />
         {:else if section === 'messages'}
           <MessagesEditor
+            bind:this={messagesEditor}
             getEditableMessages={GetEditableMessages}
             getDefaultMessages={GetDefaultMessages}
             saveMessages={SaveMessages}
