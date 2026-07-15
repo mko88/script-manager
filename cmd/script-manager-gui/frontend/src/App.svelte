@@ -85,6 +85,16 @@
       .filter((s) => s.running && s.itemIndex === selectedItem)
       .map((s) => s.actionIndex),
   )
+  // Last finished exit code per action of the selected item, for the
+  // persistent green/red dot on action rows — the store keeps every pair
+  // ever run this session, so this survives switching items/actions. While
+  // a pair is running again its exitCode is null, so the row falls back to
+  // the pulsing running indicator until the new result replaces the old.
+  $: lastExitCodeByActionForSelectedItem = new Map(
+    Object.values($inlineStates)
+      .filter((s) => !s.running && s.exitCode !== null && s.itemIndex === selectedItem)
+      .map((s) => [s.actionIndex, s.exitCode as number]),
+  )
 
   $: filteredActions =
     selectedGroups.size === 0
@@ -422,7 +432,12 @@
             class="row"
             class:selected={action.index === selectedActionIndex}
             on:click={() => selectAction(action.index)}
-          >{action.title}{#if runningActionIndicesForSelectedItem.has(action.index)}<span class="running-indicator" title={t('tooltip.actionRunningAction')}>●</span>{/if}</button>
+          >{action.title}{#if runningActionIndicesForSelectedItem.has(action.index)}<span class="running-indicator" title={t('tooltip.actionRunningAction')}>●</span>{:else if lastExitCodeByActionForSelectedItem.has(action.index)}<span
+              class="exit-indicator"
+              class:status-ok={lastExitCodeByActionForSelectedItem.get(action.index) === 0}
+              class:status-fail={lastExitCodeByActionForSelectedItem.get(action.index) !== 0}
+              title={t('tooltip.actionLastExitCode', { code: String(lastExitCodeByActionForSelectedItem.get(action.index)) })}>●</span
+            >{/if}</button>
         {/each}
         {#if selectedItem >= 0 && filteredActions.length === 0}
           <div class="empty">
@@ -758,9 +773,23 @@
     top: 4px;
     right: 4px;
   }
+  /* The list dots (running pulse / last exit code) sit at the row's right
+     edge: rows go flex here — the shared .row stays display:block for the
+     config editor's use — so margin-left:auto can push the dot over
+     regardless of label length. The exit dot's ok/fail colors come from
+     the shared .status-ok/.status-fail classes (@shared/theme.css). */
+  .list .row {
+    display: flex;
+    align-items: center;
+  }
+  .running-indicator,
+  .exit-indicator {
+    margin-left: auto;
+    padding-left: 8px;
+    font-size: 1rem;
+    line-height: 1;
+  }
   .running-indicator {
-    display: inline-block;
-    margin-left: 6px;
     color: var(--sm-run-active);
     animation: running-pulse 1.5s ease-in-out infinite;
   }

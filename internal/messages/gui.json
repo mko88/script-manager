@@ -56,6 +56,7 @@
     "collapse": "Collapse",
     "actionRunningItem": "An action is running",
     "actionRunningAction": "Running",
+    "actionLastExitCode": "Last exit code: {code}",
     "expandGroupFilter": "Expand group filter",
     "collapseGroupFilter": "Collapse group filter",
     "expandMissingWarning": "Expand missing-values warning",
