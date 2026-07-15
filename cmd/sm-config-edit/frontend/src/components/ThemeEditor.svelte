@@ -226,15 +226,15 @@
   function onPreviewClick(e: MouseEvent) {
     filterForElement(e.currentTarget as Element)
   }
-  // The copy buttons now nest inside the cmd/output blocks (matching the
-  // real UI, where a copy button floats in a code block's corner) — a
-  // <button> can't nest inside another <button>, so the cmd/output blocks
-  // switched from <button> to a plain clickable <div> (same pattern as
-  // onPreviewBodyClick/onBackgroundClick above) for exactly this reason.
-  // Without stopping propagation here, a click on the copy button would
-  // also bubble to the wrapping block's own onPreviewClick, which runs
-  // after and would overwrite the copy button's own tokens.
-  function onCopyBtnClick(e: MouseEvent) {
+  // For preview elements that nest inside another clickable preview element
+  // (the copy buttons floating in the cmd/output blocks' corners, the
+  // status dots in the section header) — a <button> can't nest inside
+  // another <button>, so those wrapping blocks are plain clickable <div>s
+  // (same pattern as onPreviewBodyClick/onBackgroundClick above) for
+  // exactly this reason. Without stopping propagation here, a click on the
+  // inner element would also bubble to the wrapper's own onPreviewClick,
+  // which runs after and would overwrite the inner element's own tokens.
+  function onNestedPreviewClick(e: MouseEvent) {
     e.stopPropagation()
     filterForElement(e.currentTarget as Element)
   }
@@ -507,6 +507,34 @@
               >
             </div>
           </div>
+          <!-- An empty collapsible-section header, as script-manager-gui's
+               Command pane renders them — the title/border preview
+               --sm-section-title, and the three status dots (running /
+               exit 0 / non-zero exit) are all shown at once so each
+               indicator color can be previewed without running anything. -->
+          <!-- svelte-ignore a11y-no-static-element-interactions -->
+          <!-- svelte-ignore a11y-click-events-have-key-events -->
+          <div class="messages-group-header theme-editor-preview-section" on:click={onPreviewClick}>
+            <span class="messages-group-title">{t('themeEditor.previewSectionTitle')}</span>
+            <span class="output-status">
+              {t('themeEditor.previewStatusRunning')}<button
+                type="button"
+                class="status-dot status-running theme-editor-preview-dot"
+                on:click={onNestedPreviewClick}>●</button
+              >
+              {t('themeEditor.previewStatusOk')}<button
+                type="button"
+                class="status-dot status-ok theme-editor-preview-dot"
+                on:click={onNestedPreviewClick}>●</button
+              >
+              {t('themeEditor.previewStatusFail')}<button
+                type="button"
+                class="status-dot status-fail theme-editor-preview-dot"
+                on:click={onNestedPreviewClick}>●</button
+              >
+            </span>
+            <span class="collapse-glyph">▾</span>
+          </div>
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <div class="theme-editor-preview-cmd theme-editor-preview-hotspot" on:click={onPreviewClick}>
@@ -515,7 +543,7 @@
               class="theme-editor-preview-copy-btn theme-editor-preview-copy-btn-corner"
               title={t('themeEditor.previewCopyButtonLabel')}
               aria-label={t('themeEditor.previewCopyButtonLabel')}
-              on:click={onCopyBtnClick}
+              on:click={onNestedPreviewClick}
             >
               <Icon name="copy" />
             </button>
@@ -536,7 +564,7 @@
               class="theme-editor-preview-copy-btn theme-editor-preview-copy-btn-corner"
               title={t('themeEditor.previewCopyButtonLabel')}
               aria-label={t('themeEditor.previewCopyButtonLabel')}
-              on:click={onCopyBtnClick}
+              on:click={onNestedPreviewClick}
             >
               <Icon name="copy" />
             </button>
@@ -699,35 +727,11 @@
     min-width: 0;
   }
 
-  .messages-group {
-    margin-bottom: 14px;
-  }
-
-  .messages-group-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    width: 100%;
-    background: none;
-    border: none;
-    border-bottom: 1px solid color-mix(in srgb, var(--sm-text-highlight) 35%, var(--sm-border));
-    padding: 0 0 6px;
-    margin: 0 0 6px;
-    cursor: pointer;
-    font-family: inherit;
-  }
-
-  .messages-group-title {
-    font-size: 0.75rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: var(--sm-text-highlight);
-  }
-
-  .collapse-glyph {
-    color: var(--sm-text-muted);
-  }
+  /* .messages-group(-header/-title) and .collapse-glyph come from the
+     shared design system (@shared/theme.css) — a scoped copy here would
+     shadow the shared rules and pin the headers to whatever tokens the
+     copy referenced (that's exactly how they missed the
+     --sm-section-title introduction). */
 
   /* The preview pane is a self-contained little "app" — every --sm-* token
      is overridden inline (see previewStyle) from the working palette, not
@@ -800,6 +804,31 @@
   .theme-editor-preview-hotspot:hover {
     outline: 1px dashed var(--sm-border);
     outline-offset: 2px;
+  }
+
+  /* Not .theme-editor-preview-hotspot — that sets display:block, which
+     would override the shared .messages-group-header's display:flex this
+     header's layout depends on. Just the hotspot's click affordance,
+     re-stated. */
+  .theme-editor-preview-section {
+    cursor: pointer;
+  }
+
+  .theme-editor-preview-section:hover {
+    outline: 1px dashed var(--sm-border);
+    outline-offset: 2px;
+  }
+
+  /* The status dots stay <button>s (nested in the clickable header <div>,
+     same reason as the copy buttons — see onNestedPreviewClick); only the
+     native chrome needs resetting, their color/size come from the shared
+     .status-* classes. */
+  .theme-editor-preview-dot {
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
   }
 
   /* .panel-title is already display:flex (global, theme.css) and already

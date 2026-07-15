@@ -72,6 +72,7 @@
   $: currentInline = selectedItem >= 0 && selectedActionIndex >= 0 ? $inlineStates[inlineKey(selectedItem, selectedActionIndex)] : undefined
   $: inlineRunning = currentInline?.running ?? false
   $: inlineOutput = currentInline?.output ?? ''
+  $: inlineExitCode = currentInline?.exitCode ?? null
 
   // Which items/actions to show a running indicator for — every entry
   // still running, cross-referenced by itemIndex for the Items list and by
@@ -265,6 +266,8 @@
   let commandCollapsed = false
   let groupChipsCollapsed = true
   let detailsWarningCollapsed = true
+  let cmdSectionCollapsed = false
+  let outputSectionCollapsed = false
 
   onMount(() => {
     // Defaults here are the effective first-run values, not necessarily the
@@ -281,6 +284,8 @@
       commandCollapsed,
       groupChipsCollapsed,
       detailsWarningCollapsed,
+      cmdSectionCollapsed,
+      outputSectionCollapsed,
     } = loadPersisted(LAYOUT_KEY, {
       leftWidth: 320,
       itemsHeight: 340,
@@ -291,6 +296,8 @@
       commandCollapsed: false,
       groupChipsCollapsed: false,
       detailsWarningCollapsed: true,
+      cmdSectionCollapsed: false,
+      outputSectionCollapsed: false,
     }))
   })
 
@@ -305,6 +312,8 @@
       commandCollapsed,
       groupChipsCollapsed,
       detailsWarningCollapsed,
+      cmdSectionCollapsed,
+      outputSectionCollapsed,
     })
   }
 
@@ -503,40 +512,67 @@
                 {/if}
               </div>
             {/if}
-            {#if inlineOutput}
-              <div class="cmd-output">
-                <IconButton
-                  class="cmd-copy-btn cmd-output-copy-btn"
-                  title={t('tooltip.copyOutput')}
-                  on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></IconButton
-                >
-                <pre class="cmd-output-body" bind:this={inlineOutputEl}>{inlineOutput}</pre>
+            {#if inlineRunning || inlineOutput || inlineExitCode !== null}
+              <div class="messages-group">
+                <button class="messages-group-header" type="button" on:click={() => { outputSectionCollapsed = !outputSectionCollapsed; saveLayout() }}>
+                  <span class="messages-group-title">{t('section.output')}</span>
+                  <span class="output-status">
+                    {#if inlineRunning}
+                      {t('text.running')}<span class="status-dot status-running">●</span>
+                    {:else if inlineExitCode !== null}
+                      {t('text.exitCode', { code: String(inlineExitCode) })}<span
+                        class="status-dot"
+                        class:status-ok={inlineExitCode === 0}
+                        class:status-fail={inlineExitCode !== 0}>●</span
+                      >
+                    {/if}
+                  </span>
+                  <span class="collapse-glyph">{outputSectionCollapsed ? '▸' : '▾'}</span>
+                </button>
+                {#if !outputSectionCollapsed && inlineOutput}
+                  <div class="cmd-output">
+                    <IconButton
+                      class="cmd-copy-btn cmd-output-copy-btn"
+                      title={t('tooltip.copyOutput')}
+                      on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></IconButton
+                    >
+                    <pre class="cmd-output-body" bind:this={inlineOutputEl}>{inlineOutput}</pre>
+                  </div>
+                {/if}
               </div>
             {/if}
-            {#if actionDetail.description}
-              <p class="cmd-desc">{actionDetail.description}</p>
-            {/if}
-            {#if selectedActionGroups.length > 0}
-              <div class="cmd-groups">
-                {#each selectedActionGroups as group (group)}
-                  <span class="chip chip-static" style={groupChipStyle(groupColors, group, false)}>{group}</span>
-                {/each}
-              </div>
-            {/if}
-            {#if actionDetail.script}
-              <p class="cmd-desc">{t('text.scriptLabel')}{actionDetail.script}</p>
-              {#if actionDetail.scriptError}
-                <p class="cmd-error">{actionDetail.scriptError}</p>
-              {:else}
-                <ScriptSource content={actionDetail.scriptContent}>
-                  <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
-                </ScriptSource>
+            <div class="messages-group">
+              <button class="messages-group-header" type="button" on:click={() => { cmdSectionCollapsed = !cmdSectionCollapsed; saveLayout() }}>
+                <span class="messages-group-title">{t('section.command')}</span>
+                <span class="collapse-glyph">{cmdSectionCollapsed ? '▸' : '▾'}</span>
+              </button>
+              {#if !cmdSectionCollapsed}
+                {#if actionDetail.description}
+                  <p class="cmd-desc">{actionDetail.description}</p>
+                {/if}
+                {#if selectedActionGroups.length > 0}
+                  <div class="cmd-groups">
+                    {#each selectedActionGroups as group (group)}
+                      <span class="chip chip-static" style={groupChipStyle(groupColors, group, false)}>{group}</span>
+                    {/each}
+                  </div>
+                {/if}
+                {#if actionDetail.script}
+                  <p class="cmd-desc">{t('text.scriptLabel')}{actionDetail.script}</p>
+                  {#if actionDetail.scriptError}
+                    <p class="cmd-error">{actionDetail.scriptError}</p>
+                  {:else}
+                    <ScriptSource content={actionDetail.scriptContent}>
+                      <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
+                    </ScriptSource>
+                  {/if}
+                {:else if actionDetail.cmd}
+                  <ScriptSource content={actionDetail.cmd}>
+                    <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
+                  </ScriptSource>
+                {/if}
               {/if}
-            {:else if actionDetail.cmd}
-              <ScriptSource content={actionDetail.cmd}>
-                <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
-              </ScriptSource>
-            {/if}
+            </div>
           {:else}
             <div class="empty">{t('empty.selectActionToPreview')}</div>
           {/if}
@@ -725,9 +761,13 @@
   .running-indicator {
     display: inline-block;
     margin-left: 6px;
-    color: var(--sm-text-heading);
+    color: var(--sm-run-active);
     animation: running-pulse 1.5s ease-in-out infinite;
   }
+  /* .output-status, .status-dot, .status-running/.status-ok/.status-fail
+     (the OUTPUT section header's run status) come from the shared design
+     system (@shared/theme.css) — also reused by the config editor's theme
+     preview. */
   @keyframes running-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }

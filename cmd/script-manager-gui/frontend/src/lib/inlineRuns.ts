@@ -14,6 +14,10 @@ export type InlineState = {
   actionIndex: number
   output: string
   running: boolean
+  // null until the run has actually finished (still running, or it never
+  // started) — the backend's ExitCode field is only meaningful once
+  // Running is false, so it's withheld here until then.
+  exitCode: number | null
 }
 
 export const inlineStates = writable<Record<string, InlineState>>({})
@@ -47,7 +51,11 @@ const INLINE_POLL_INTERVAL_MS = 300
 async function pollInlineStatus(itemIndex: number, actionIndex: number, onUpdate: (itemIndex: number, actionIndex: number) => void) {
   for (;;) {
     const status = await GetInlineStatus(itemIndex, actionIndex)
-    setInlineState(itemIndex, actionIndex, { output: status.output, running: status.running })
+    setInlineState(itemIndex, actionIndex, {
+      output: status.output,
+      running: status.running,
+      exitCode: status.running ? null : status.exitCode,
+    })
     onUpdate(itemIndex, actionIndex)
     if (status.running) {
       await new Promise((resolve) => setTimeout(resolve, INLINE_POLL_INTERVAL_MS))
@@ -62,12 +70,12 @@ async function pollInlineStatus(itemIndex: number, actionIndex: number, onUpdate
 // it's still running is rejected (a no-op); different pairs may overlap.
 export async function startInlineRun(itemIndex: number, actionIndex: number, onUpdate: (itemIndex: number, actionIndex: number) => void) {
   if (get(inlineStates)[inlineKey(itemIndex, actionIndex)]?.running) return
-  setInlineState(itemIndex, actionIndex, { output: '', running: true })
+  setInlineState(itemIndex, actionIndex, { output: '', running: true, exitCode: null })
   try {
     await RunActionInline(itemIndex, actionIndex)
     pollInlineStatus(itemIndex, actionIndex, onUpdate)
   } catch (err) {
-    setInlineState(itemIndex, actionIndex, { output: '', running: false })
+    setInlineState(itemIndex, actionIndex, { output: '', running: false, exitCode: null })
     flash(t('toast.runFailed', { error: String(err) }))
   }
 }

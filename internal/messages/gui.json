@@ -20,6 +20,10 @@
     "details": "Details",
     "command": "Command"
   },
+  "section": {
+    "command": "Command",
+    "output": "Output"
+  },
   "empty": {
     "noItems": "No items configured",
     "noActionsForGroups": "No actions in the selected group{plural}",
@@ -66,6 +70,8 @@
     "allGroupsChip": "All",
     "separator": " · ",
     "groupCount": "({count})",
-    "scriptLabel": "Script: "
+    "scriptLabel": "Script: ",
+    "running": "Running…",
+    "exitCode": "Exit code: {code}"
   }
 }

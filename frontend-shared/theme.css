@@ -21,10 +21,14 @@
   --sm-text-faint: #6b7a90;
   --sm-text-heading: #7fd4ff;
   --sm-text-highlight: #6ee7d8;
+  --sm-section-title: #6ee7d8;
   --sm-text-primary: #1b2636;
   --sm-masked: #b9c3d1;
   --sm-warning: #e8a33d;
   --sm-error: #e0645c;
+  --sm-run-active: #7fd4ff;
+  --sm-run-ok: #5fd68b;
+  --sm-run-error: #e0645c;
   --sm-line-number: #4a5b74;
 
   /* Effects */
@@ -63,10 +67,14 @@
   --sm-text-faint: #8996a8;
   --sm-text-heading: #0d7fb8;
   --sm-text-highlight: #0f7d6e;
+  --sm-section-title: #0f7d6e;
   --sm-text-primary: #eef1f6;
   --sm-masked: #46536a;
   --sm-warning: #a8660a;
   --sm-error: #c0392b;
+  --sm-run-active: #0d7fb8;
+  --sm-run-ok: #1e8a4a;
+  --sm-run-error: #c0392b;
   --sm-line-number: #94a1b5;
 
   /* Effects */
@@ -488,7 +496,7 @@ select.sm-select {
   width: 100%;
   background: none;
   border: none;
-  border-bottom: 1px solid color-mix(in srgb, var(--sm-text-highlight) 35%, var(--sm-border));
+  border-bottom: 1px solid color-mix(in srgb, var(--sm-section-title) 35%, var(--sm-border));
   padding: 0 0 6px;
   margin: 0 0 6px;
   cursor: pointer;
@@ -500,11 +508,47 @@ select.sm-select {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--sm-text-highlight);
+  color: var(--sm-section-title);
 }
 
 .collapse-glyph {
   color: var(--sm-text-muted);
+}
+
+/* Run-status indicator inside a section header (script-manager-gui's OUTPUT
+   section; also mirrored in the config editor's theme preview). The header
+   is display:flex space-between, so margin-left:auto parks this against the
+   collapse glyph rather than centered between title and glyph. */
+.output-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding-right: 10px;
+  font-size: 0.75rem;
+  color: var(--sm-text);
+}
+
+.status-dot {
+  font-size: 0.7rem;
+}
+
+.status-running {
+  color: var(--sm-run-active);
+  animation: sm-status-pulse 1.5s ease-in-out infinite;
+}
+
+.status-ok {
+  color: var(--sm-run-ok);
+}
+
+.status-fail {
+  color: var(--sm-run-error);
+}
+
+@keyframes sm-status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
 }
 
 /* goldmark-rendered live-preview content (the config editor's Items and
