@@ -516,7 +516,13 @@
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <div class="messages-group-header theme-editor-preview-section" on:click={onPreviewClick}>
             <span class="messages-group-title">{t('themeEditor.previewSectionTitle')}</span>
-            <span class="output-status">
+            <!-- Clickable itself, not just its dot buttons: the label text
+                 nodes ("Running…"/"Exit code: X") would otherwise bubble to
+                 the header div and filter for section-title instead of the
+                 labels' own text color. -->
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <!-- svelte-ignore a11y-click-events-have-key-events -->
+            <span class="output-status" on:click={onNestedPreviewClick}>
               {t('themeEditor.previewStatusRunning')}<button
                 type="button"
                 class="status-dot status-running theme-editor-preview-dot"
