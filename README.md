@@ -2,9 +2,9 @@
 
 A tool for organising and running shell scripts across a list of configurable items, driven by a single YAML config. It ships two separate interfaces that both read the same `config.yaml`:
 
-- **TUI** (`cmd/script-manager`) — a terminal UI built with [Bubble Tea](https://github.com/charmbracelet/bubbletea). Browse items and actions, and run actions directly in the same terminal session.
-- **GUI** (`cmd/script-manager-gui`) — a desktop app built with [Wails](https://wails.io). Browse items and actions in a resizable, mouse-driven window; actions run in a separate terminal window (see [GUI](#gui)).
-- **Config Editor** (`cmd/sm-config-edit`) — a second Wails desktop app for creating a new `config.yaml` or editing an existing one through forms, instead of hand-writing YAML (see [Config Editor](#config-editor)).
+- **TUI** (`script-manager`) — a terminal UI. Browse items and actions, and run actions directly in the same terminal session.
+- **GUI** (`script-manager-gui`) — a desktop app. Browse items and actions in a resizable, mouse-driven window; actions run in a separate terminal window (see [GUI](#gui)).
+- **Config Editor** (`sm-config-edit`) — a second desktop app for creating a new `config.yaml` or editing an existing one through forms, instead of hand-writing YAML (see [Config Editor](#config-editor)).
 
 # Disclaimer
 
@@ -17,7 +17,7 @@ This app is 100% vibe-coded by Claude. No human has read most of this code, and 
 - **Config-driven** — define items, display templates, and actions in a YAML file; no code changes needed
 - **Free-form items** — each item is a key/value map; any field can be used in templates or passed as an environment variable to actions
 - **Template expansion** — action commands are Go templates, so you can interpolate item fields directly into commands
-- **Cross-platform** — ships a Linux binary and a Windows binary; on Windows, `config-win.yaml` is preferred when present, falling back to `config.yaml`
+- **Cross-platform** — Windows and Linux binaries for all three apps
 - **Scrollable panes** — all four panes are independently scrollable when focused
 - **Command preview** — the expanded command for the selected action is shown in a dedicated pane with clipboard copy support
 - **State preserved** — returns to the same position after an action completes
@@ -104,7 +104,7 @@ The items list shrinks to show only the selected item. Navigate and run actions,
 
 Place `config.yaml` next to the binary, or pass a path with `-config`. On Windows, `config-win.yaml` takes precedence over `config.yaml` when both exist. Without `-config`, the file is looked for next to the binary, then in the working directory, then in the app-data directory (`%AppData%\script-manager` on Windows, `~/.config/script-manager` on Linux). If a candidate file fails to parse, the next one is used and the error is shown once at startup.
 
-On a first-ever run with no config anywhere, a minimal starter config (one example item and action) is created in the app-data directory, so the app starts with something real to run. All three binaries (`script-manager`, `script-manager-gui`, `sm-config-edit`) resolve the config the same way.
+On a first-ever run with no config anywhere, a minimal starter config (one example item and action) is created in the app-data directory. All three binaries (`script-manager`, `script-manager-gui`, `sm-config-edit`) resolve the config the same way.
 
 Rather than hand-writing this file, you can use the [Config Editor](#config-editor) (`cmd/sm-config-edit`) to create or edit it through forms.
 
@@ -194,11 +194,11 @@ By default every item sees all global actions. To restrict which actions appear 
 | `actionGroups` | list of group names | include global actions whose `group` matches |
 | `customActions` | list of action objects | append item-specific actions (same fields as global actions) |
 
-If none of these keys are set the full action list is shown. When `actions` and `actionGroups` are both set, matches from each are included in that order without duplicates. `customActions` are always appended last.
+If none of these keys are set the full action list is shown. When several keys are set, their matches combine without duplicates, with `customActions` last.
 
 #### Naming and coloring groups
 
-The top-level `actionGroups:` list is optional: give a group a `title` and/or a `color` and the GUI shows that friendlier label and a colored chip instead of the bare ID. Configs without this list keep working exactly as before.
+The top-level `actionGroups:` list is optional: give a group a `title` and/or a `color` and the GUI shows that friendlier label and a colored chip instead of the bare ID.
 
 ### Templates
 
@@ -284,13 +284,13 @@ actions:
 
 ## GUI
 
-`cmd/script-manager-gui/` is a desktop GUI that reads the **same `config.yaml`** as the TUI:
+`script-manager-gui` is a desktop app that reads the **same `config.yaml`** as the TUI:
 
 - Items pane → Actions pane → Details pane, exactly as configured in `display.list` / `display.details`
-- Actions can be filtered by group with a row of chips below the Actions list header. Multiple groups can be selected at once — an action must belong to *all* selected groups to show; clicking "All" clears the filter. Each chip shows how many actions would match, and chips can be sorted by name (`A-Z`) or by count (`#`), in either direction. The chip row is collapsible (▾/▸); collapsed, it shows the selected groups as text. A group with a `color` in the `actionGroups:` catalog shows it as the chip background
-- Markdown details rendering (tables, `<br>`, bold/italic, etc.) with masked (`{{mask ...}}`) values click-to-copy without ever displaying the secret
-- Command preview (expanded template) for the selected action, with a copy button and the action's groups shown as colored chips. The pane is split into collapsible sections: **COMMAND** holds the description, chips, and the command/script source; **OUTPUT** appears above it once a "Run here" run has started, its header showing "Running…" while the command runs and then the exit code (green dot for 0, red otherwise)
-- All four panes are collapsible (▾/▸ in each header) and resizable (drag the dividers between panes); sizes and collapsed state persist across restarts. Collapsed, the Items and Actions headers show the current selection (e.g. "Actions · Test output")
+- Actions can be filtered by group with a row of chips below the Actions list header. Multiple groups can be selected at once — an action must belong to *all* selected groups to show; clicking "All" clears the filter
+- Markdown details rendering, with masked (`{{mask ...}}`) values click-to-copy without ever displaying the secret
+- Command preview (expanded template) for the selected action, with a copy button. An **OUTPUT** section appears once a "Run here" run has started (see below)
+- All four panes are collapsible and resizable by dragging the dividers; sizes persist across restarts
 - `F5` reloads the config from disk in place — same semantics as the TUI, with errors shown as a toast
 
 ### Running actions (Windows and Linux)
@@ -325,7 +325,7 @@ On both platforms:
 - The action's `noWait` flag controls whether the terminal stays open after the command finishes: `false` (default) keeps it open so you can read the output; `true` closes it automatically — same intent as the TUI's `noWait`
 - The starting directory is the app-data directory (`%AppData%\script-manager` on Windows, `~/.config/script-manager` on Linux), so relative paths in a `cmd:` template — or files the script writes with a relative path — land in a reliably writable location
 
-The expanded command runs via a temporary script file that is cleaned up automatically once the run starts (or on the next GUI launch for anything left over).
+The expanded command runs via a temporary script file that is cleaned up automatically.
 
 > **Note on secrets:** the temp script contains the *fully expanded* command. If a `cmd:` template interpolates a value you hide with `{{mask ...}}` in the Details pane, that value sits in plain text in the OS temp directory for the brief window before cleanup. Avoid putting secrets in `cmd:` templates on shared machines.
 
@@ -333,11 +333,11 @@ The **Run** terminal window is independent once launched — no output streams b
 
 #### Running a command without a terminal ("Run here")
 
-For a command that doesn't need interactive input, the **Run here** button next to **Run** executes it directly and streams the output — stdout and stderr interleaved — live into the Command pane's **OUTPUT** section. A **Cancel** button appears while it's running and terminates the whole process tree; **Copy output** copies whatever's been captured so far, even mid-run. Like **Run**, the working directory is the app-data directory. Stdin is disconnected, so a command that unexpectedly prompts for input fails fast instead of hanging.
+For a command that doesn't need interactive input, the **Run here** button next to **Run** executes it directly and streams the output live into the Command pane's **OUTPUT** section, with **Cancel** and **Copy output** buttons alongside. Like **Run**, the working directory is the app-data directory. Stdin is disconnected, so a command that unexpectedly prompts for input fails fast instead of hanging.
 
 An action's `interactive: true` (see the config example above) hides **Run here** entirely for that action — it can only be run via **Run**, in a real terminal.
 
-Different actions can run inline at the same time. A pulsing dot marks items and actions with a run in progress; once a run finishes, the action keeps a steady dot showing its last result — green for exit code 0, red otherwise, with the exact code in the tooltip. Switching back to a running (or finished) action picks its output back up; only starting the same action again while it's already running is rejected.
+Different actions can run inline at the same time. A dot marks items and actions with a run in progress or finished — green for exit code 0, red otherwise — and switching back to an action picks its output back up.
 
 #### Toolbar
 
@@ -345,7 +345,7 @@ Three controls above the panes: **Load config** browses for a different YAML fil
 
 #### Theme
 
-Both GUI apps default to the dark theme. The active theme is shared between the two apps via the app-data directory: switching, saving, renaming, or deleting a theme in one carries over to the other — live in `script-manager-gui` if it's already running. Switching themes and creating, renaming, or deleting custom ones all happen in the Config Editor's **Theme** section (see below); `script-manager-gui` simply reflects whatever's active.
+Both GUI apps default to the dark theme. The active theme is shared between the two apps, and themes are managed in the Config Editor's **Theme** section (see below); `script-manager-gui` simply reflects whatever's active.
 
 Launch it the same way as the TUI:
 
@@ -365,32 +365,21 @@ go install github.com/wailsapp/wails/v2/cmd/wails@latest
 sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config nodejs npm
 ```
 
-This devcontainer already has all of this preinstalled — see `.devcontainer/setup.sh`. Nothing needs to be installed on your host machine to build any target, including Windows, from here.
+This devcontainer already has all of this preinstalled — nothing needs to be installed on your host machine to build any target, including Windows, from here.
 
-The Windows GUI binary can be cross-compiled from Linux — only the `mingw-w64` C cross-compiler is needed at build time:
-
-```bash
-# one-time: sudo apt install gcc-mingw-w64-x86-64
-
-cd cmd/script-manager-gui
-GOOS=windows GOARCH=amd64 CGO_ENABLED=1 \
-  CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ \
-  wails build -platform windows/amd64
-```
-
-macOS is the one target that has to be built on macOS.
+The Windows GUI binaries are cross-compiled from Linux; only the `mingw-w64` C cross-compiler is needed at build time (`sudo apt install gcc-mingw-w64-x86-64`). macOS is the one target that has to be built on macOS.
 
 ## Config Editor
 
-`cmd/sm-config-edit/` is a second desktop app for creating or editing `config.yaml` through forms instead of hand-writing YAML.
+`sm-config-edit` is a second desktop app for creating or editing `config.yaml` through forms instead of hand-writing YAML.
 
-- **New / Open / Save / Save As** (Ctrl+N/O/S/Shift+S). On launch it auto-detects the same config file the TUI/GUI would; finding nothing just starts blank. Save (toolbar button or Ctrl+S) also saves the Theme section's working theme or the Messages section's changes while that section is open. Two buttons at the toolbar's far right: **Open data folder** opens the app-data directory in your file manager, and **Open in default editor** opens the current config file in whatever your OS associates with it.
-- **Sections**: Items, Action Groups, Actions, Displays, Environment, Shell, Terminal, Theme, Messages — one form per top-level `config.yaml` concern (Theme and Messages are extras that live outside `config.yaml` — see below). An item's reserved keys (`name`, `display`, `actions`, `actionGroups`, `customActions`) get dedicated widgets; everything else is a per-item "Environment" grid where each value is edited as a string, multiline text, number, bool, or raw YAML snippet (auto-picked from the value's shape), with a lock button to mark a field secret — auto-enabled when the key ends in "Secret", "Password", or "Key". Secret fields never reveal their value (or even its length) until focused. Every action form has a **Command** / **Script file** switch; Script file mode has a **Browse…** button and shows a live, line-numbered preview of the file's source. Removing anything asks for confirmation first.
-- **Reordering**: Items, Action Groups, and Actions can be drag-and-drop reordered — the order is what ends up in `config.yaml` and what the TUI/GUI display. Toggle reorder mode with the grip icon button first; the list animates live as you drag to show where the row would land.
-- **Live preview**: with an item selected, its rendered list label, details, and any action's expanded command update as you type — no save needed. The Displays section previews against any item via a "Preview item" dropdown, with four view modes (Edit / Preview / Split ↔ / Split ↕) and a draggable divider. Above the Details template, an **Insert env…** dropdown inserts any available variable as `{{.key}}` at the cursor (pre-masked if the key looks like a secret), and **B** / *I* / `` ` `` / padlock buttons wrap the current selection in bold, italic, highlight, or `{{mask ...}}` markup — all undoable with Ctrl+Z like normal typing.
+- **New / Open / Save / Save As** (Ctrl+N/O/S/Shift+S). On launch it auto-detects the same config file the TUI/GUI would; finding nothing just starts blank. Save also covers the Theme and Messages sections while one of them is open. Toolbar buttons on the far right open the app-data directory in your file manager or the config file in your default editor.
+- **Sections**: Items, Action Groups, Actions, Displays, Environment, Shell, Terminal, Theme, Messages — one form per top-level `config.yaml` concern (Theme and Messages live outside `config.yaml` — see below). Item fields get type-appropriate editors, with a lock button to mark a field secret (auto-enabled for key names like "Password"); secret values stay hidden until focused. Actions switch between **Command** and **Script file** mode; Script file mode has a **Browse…** button and a preview of the file's source.
+- **Reordering**: Items, Action Groups, and Actions can be drag-and-drop reordered (toggle with the grip icon button) — the order is what ends up in `config.yaml` and what the TUI/GUI display.
+- **Live preview**: with an item selected, its rendered list label, details, and any action's expanded command update as you type — no save needed. The Displays section previews templates against any item, with edit/preview/split view modes; an **Insert env…** dropdown inserts any available variable at the cursor, and formatting buttons wrap the selection in bold, italic, highlight, or `{{mask ...}}` markup.
 - **Validation**: duplicate global action IDs block Save; duplicate item names and an item referencing a display/action/group that doesn't exist are shown as non-blocking warnings.
-- **Themes** *(Theme section)*: pick a theme from the dropdown to apply it immediately, everywhere. **Add** starts a fresh custom theme seeded from Dark, **Copy** duplicates the current one, **Delete** removes a saved custom theme, and **Reset** / **Reset to Dark** / **Reset to Light** revert the working colors (each with a confirmation). The built-in Dark/Light themes are read-only. Every color the apps use is editable — grouped into Backgrounds / Text / Effects, each row a color picker plus a free-text field accepting any CSS color — with a live preview panel showing real UI elements (lists, chips, buttons, text styles, run-status dots, toasts, scrollbars). Click any preview element to filter the field list to just the colors that element uses — the fastest way to answer "which field changes this?". **Ctrl+S** saves the theme under its name; saved themes apply immediately and are shared with `script-manager-gui` (see [Theme](#theme) above).
-- **Messages**: every piece of UI text in *either* GUI app — toasts, tooltips, labels, empty states — can be customized. A tab per app picks which one you're editing (no need to have run the other app first); a search box filters by key or text; each category is a collapsible heading. A message whose text differs from its shipped default shows a small restore button next to its textbox (with the default text in the tooltip) to reset just that one message. **Restore defaults** resets every field back to the app's shipped text (confirmation first, still needs a save to persist). There's no separate Save button — the global Save (toolbar button or Ctrl+S) writes the changes, which take effect the next time the edited app is launched. Customizations are stored per app in the app-data directory and survive upgrades — new messages are added and removed ones cleaned up automatically.
+- **Themes** *(Theme section)*: pick a theme from the dropdown to apply it immediately, everywhere; **Add** / **Copy** / **Delete** / **Reset** manage custom themes (the built-in Dark/Light are read-only). Every color the apps use is editable, with a live preview panel — click any preview element to filter the field list to just the colors it uses. Saved themes are shared with `script-manager-gui` (see [Theme](#theme) above).
+- **Messages**: every piece of UI text in *either* GUI app — toasts, tooltips, labels, empty states — can be customized. A tab per app picks which one you're editing, and a search box filters by key or text. A customized message gets a restore button to reset just that one; **Restore defaults** resets everything. Changes are written by the global Save and take effect the next time the edited app is launched; customizations survive upgrades.
 
 **Important:** saving always re-serializes the whole file — comments and the original file's exact formatting/key order are **not preserved**. Editing a hand-crafted `config.yaml` with inline comments through this tool will lose those comments on save.
 
