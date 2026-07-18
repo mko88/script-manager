@@ -379,22 +379,50 @@ select.sm-select {
 }
 
 /* Color value editor: a native picker swatch next to a free-text field, so
-   any CSS color can be typed, not just what the native picker supports. */
+   any CSS color can be typed, not just what the native picker supports.
+   input[type="color"] only accepts a 6-digit hex — it silently ignores
+   anything else (rgba(), named colors, …), so its own native swatch would
+   always show the same fallback color for any non-hex value rather than
+   the value actually in effect. .color-swatch is a plain div instead,
+   which CSS's background property renders correctly for any valid color
+   including alpha — laid under the real <input>, which is kept but made
+   fully transparent (not display:none — it must stay a real, clickable
+   element for the native picker to still open on click) so picking still
+   works for hex-editable values without misrepresenting the rest. */
 .color-field {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.color-field input[type="color"] {
+.color-swatch-wrap {
+  position: relative;
   flex: none;
   width: 40px;
   height: 30px;
-  padding: 2px;
+}
+
+.color-swatch {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  border: 1px solid var(--sm-border);
+  pointer-events: none;
+}
+
+.color-swatch-input {
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  opacity: 0;
   cursor: pointer;
 }
 
-.color-field input[type="color"]:disabled {
+.color-swatch-input:disabled {
   cursor: default;
 }
 

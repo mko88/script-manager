@@ -699,64 +699,13 @@
   }
 
   /* .field/.field input/.field select (including the select-arrow
-     override and its light-theme variant) come from the shared design
+     override and its light-theme variant) and .color-field/.color-swatch*
+     (including the non-hex-token rationale) come from the shared design
      system (@shared/theme.css) — not redefined here. */
 
   .token-name {
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.75rem;
-  }
-
-  .color-field {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  /* input[type="color"] only accepts a 6-digit hex — it silently ignores
-     anything else (rgba(), named colors, …), so its own native swatch
-     would always show the same fallback color for every non-hex token
-     (--sm-scrollbar, --sm-overlay-soft, --sm-shadow, …) rather than the
-     value actually in effect. .color-swatch is a plain div instead, which
-     CSS's background property renders correctly for any valid color
-     including alpha — laid under the real <input>, which is kept but made
-     fully transparent (not display:none — it must stay a real, clickable
-     element for the native picker to still open on click) so picking still
-     works for hex-editable tokens without misrepresenting the rest. */
-  .color-swatch-wrap {
-    position: relative;
-    flex: none;
-    width: 40px;
-    height: 30px;
-  }
-
-  .color-swatch {
-    position: absolute;
-    inset: 0;
-    border-radius: 3px;
-    border: 1px solid var(--sm-border);
-    pointer-events: none;
-  }
-
-  .color-swatch-input {
-    position: absolute;
-    inset: 0;
-    box-sizing: border-box;
-    width: 100%;
-    height: 100%;
-    padding: 0;
-    border: none;
-    opacity: 0;
-    cursor: pointer;
-  }
-
-  .color-swatch-input:disabled {
-    cursor: default;
-  }
-
-  .color-field input[type="text"] {
-    flex: 1 1 auto;
-    min-width: 0;
   }
 
   /* .messages-group(-header/-title) and .collapse-glyph come from the
