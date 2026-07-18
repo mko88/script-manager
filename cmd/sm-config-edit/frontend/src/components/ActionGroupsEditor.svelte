@@ -129,14 +129,18 @@
       <div class="field">
         <span>{t('field.color')}</span>
         <div class="color-field">
-          <input
-            type="color"
-            value={/^#[0-9a-fA-F]{6}$/.test(actionGroups[selectedActionGroup].color)
-              ? actionGroups[selectedActionGroup].color
-              : '#7fd4ff'}
-            on:input={(e) => (actionGroups[selectedActionGroup].color = e.currentTarget.value)}
-            title={t('tooltip.pickColor')}
-          />
+          <span class="color-swatch-wrap">
+            <span class="color-swatch" style="background: {actionGroups[selectedActionGroup].color}"></span>
+            <input
+              type="color"
+              class="color-swatch-input"
+              value={/^#[0-9a-fA-F]{6}$/.test(actionGroups[selectedActionGroup].color)
+                ? actionGroups[selectedActionGroup].color
+                : '#7fd4ff'}
+              on:input={(e) => (actionGroups[selectedActionGroup].color = e.currentTarget.value)}
+              title={t('tooltip.pickColor')}
+            />
+          </span>
           <input
             type="text"
             bind:value={actionGroups[selectedActionGroup].color}
