@@ -66,6 +66,14 @@ export function RunActionInline(arg1, arg2) {
   return window['go']['gui']['App']['RunActionInline'](arg1, arg2);
 }
 
+export function SetAlwaysOnTop(arg1) {
+  return window['go']['gui']['App']['SetAlwaysOnTop'](arg1);
+}
+
 export function SetTheme(arg1) {
   return window['go']['gui']['App']['SetTheme'](arg1);
+}
+
+export function SetWindowOpacity(arg1) {
+  return window['go']['gui']['App']['SetWindowOpacity'](arg1);
 }

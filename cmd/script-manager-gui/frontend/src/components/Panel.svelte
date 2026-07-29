@@ -14,10 +14,22 @@
   export let style = ''
   let className = ''
   export { className as class }
+
+  // Clicking anywhere on the header toggles collapse, not just the
+  // chevron — except a click on the chevron itself, which CollapseToggle
+  // below already handles on its own; toggling again here would just flip
+  // it straight back.
+  function onHeaderClick(e: MouseEvent) {
+    if ((e.target as HTMLElement).closest('.collapse-btn')) return
+    collapsed = !collapsed
+    onToggle?.()
+  }
 </script>
 
 <section class="panel {className}" {style}>
-  <header class="panel-title">
+  <!-- svelte-ignore a11y-click-events-have-key-events -->
+  <!-- svelte-ignore a11y-no-static-element-interactions -->
+  <header class="panel-title" on:click={onHeaderClick}>
     <span class="panel-title-text" class:wrap={titleWrap}>
       {title}<slot name="title-extra" />
     </span>
@@ -27,3 +39,9 @@
     <slot />
   {/if}
 </section>
+
+<style>
+  .panel-title {
+    cursor: pointer;
+  }
+</style>

@@ -290,7 +290,7 @@ actions:
 - Actions can be filtered by group with a row of chips below the Actions list header. Multiple groups can be selected at once — an action must belong to *all* selected groups to show; clicking "All" clears the filter
 - Markdown details rendering, with masked (`{{mask ...}}`) values click-to-copy without ever displaying the secret
 - Command preview (expanded template) for the selected action, with a copy button. An **OUTPUT** section appears once a "Run here" run has started (see below)
-- All four panes are collapsible and resizable by dragging the dividers; sizes persist across restarts
+- All four panes are collapsible (click anywhere on a pane's header, not just the chevron) and resizable by dragging the dividers; sizes persist across restarts. Selecting an item expands Details and collapses Command; selecting an action does the reverse
 - `F5` reloads the config from disk in place — same semantics as the TUI, with errors shown as a toast
 
 ### Running actions (Windows and Linux)
@@ -341,7 +341,11 @@ Different actions can run inline at the same time. A dot marks items and actions
 
 #### Toolbar
 
-Three controls above the panes: **Load config** browses for a different YAML file and switches to it; **Refresh config** re-reads the current file (same as F5); the gearbox icon (**Ctrl+E**) launches the [Config Editor](#config-editor) pointed at the currently loaded config file.
+`script-manager-gui` has no native title bar — the toolbar above the panes doubles as the window's drag handle: click and drag any empty part of it to move the window, same as dragging a normal title bar. Double-click doesn't maximize; use the maximize button instead.
+
+Controls on the toolbar: **Load config** browses for a different YAML file and switches to it; **Refresh config** re-reads the current file (same as F5); the pin icon toggles keeping the window always on top of other windows; the checkerboard icon opens an opacity slider (20-100%) that fades the whole window, including its content, so whatever's behind it shows through; the gearbox icon (**Ctrl+E**) launches the [Config Editor](#config-editor) pointed at the currently loaded config file. Always-on-top and the chosen opacity are both remembered across restarts. Window opacity is Windows-only for now — the slider has no visible effect on Linux/macOS builds.
+
+At the far right, minimize/maximize/close buttons replace the native window controls that the missing title bar would otherwise have provided.
 
 #### Theme
 

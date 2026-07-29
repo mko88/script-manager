@@ -35,4 +35,8 @@ export function RunAction(arg1:number,arg2:number):Promise<void>;
 
 export function RunActionInline(arg1:number,arg2:number):Promise<void>;
 
+export function SetAlwaysOnTop(arg1:boolean):Promise<void>;
+
 export function SetTheme(arg1:string):Promise<void>;
+
+export function SetWindowOpacity(arg1:number):Promise<void>;

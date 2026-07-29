@@ -14,7 +14,7 @@
   import { buildGroupColors, groupChipStyle } from './lib/groupColors'
   import { inlineStates, inlineKey, startInlineRun, cancelInlineRun } from './lib/inlineRuns'
   import { dragColumn, dragRow, topStyle, bottomStyle } from './lib/panelLayout'
-  import { EventsOn } from '../wailsjs/runtime'
+  import { EventsOn, WindowMinimise, WindowToggleMaximise, Quit } from '../wailsjs/runtime'
   import {
     GetItems,
     GetActions,
@@ -27,6 +27,8 @@
     LaunchConfigEditor,
     RunAction,
     LoadError,
+    SetAlwaysOnTop,
+    SetWindowOpacity,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
 
@@ -122,6 +124,12 @@
     selectedActionIndex = -1
     selectedGroups = new Set()
     actionDetail = null
+    // Picking an item is about inspecting it, not the command from
+    // whatever action happened to be selected before — so Details takes
+    // over the space and Command steps aside until an action is chosen.
+    detailsCollapsed = false
+    commandCollapsed = true
+    saveLayout()
     actions = await GetActions(index)
     details = await GetItemDetails(index)
   }
@@ -136,6 +144,12 @@
   async function selectAction(index: number) {
     if (selectedItem < 0) return
     selectedActionIndex = index
+    // Mirrors selectItem above: picking an action is about running or
+    // inspecting its command, so Command takes over and Details steps
+    // aside.
+    detailsCollapsed = true
+    commandCollapsed = false
+    saveLayout()
     actionDetail = await GetActionDetail(selectedItem, index)
   }
 
@@ -256,6 +270,47 @@
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
       e.preventDefault()
       launchConfigEditor()
+    } else if (e.key === 'Escape' && opacityPopoverOpen) {
+      opacityPopoverOpen = false
+    }
+  }
+
+  // --- Window controls (pin-on-top / transparency toolbar buttons) ---
+  const WINDOW_KEY = 'script-manager-gui:window'
+  const MIN_OPACITY = 20
+
+  let alwaysOnTop = false
+  let opacity = 100
+  let opacityPopoverOpen = false
+  let opacityControlEl: HTMLElement
+
+  onMount(() => {
+    ;({ alwaysOnTop, opacity } = loadPersisted(WINDOW_KEY, { alwaysOnTop: false, opacity: 100 }))
+    SetAlwaysOnTop(alwaysOnTop)
+    SetWindowOpacity(opacity)
+  })
+
+  function toggleAlwaysOnTop() {
+    alwaysOnTop = !alwaysOnTop
+    SetAlwaysOnTop(alwaysOnTop)
+    savePersisted(WINDOW_KEY, { alwaysOnTop, opacity })
+  }
+
+  // Applies opacity live as the slider is dragged (on:input fires on every
+  // tick); commitOpacity below only persists once the drag settles, so
+  // dragging through several values doesn't spam localStorage writes.
+  function applyOpacity() {
+    SetWindowOpacity(opacity)
+  }
+
+  function commitOpacity() {
+    SetWindowOpacity(opacity)
+    savePersisted(WINDOW_KEY, { alwaysOnTop, opacity })
+  }
+
+  function onWindowClick(e: MouseEvent) {
+    if (opacityPopoverOpen && opacityControlEl && !opacityControlEl.contains(e.target as Node)) {
+      opacityPopoverOpen = false
     }
   }
 
@@ -360,18 +415,51 @@
 
 </script>
 
-<svelte:window on:keydown={onKeyDown} />
+<svelte:window on:keydown={onKeyDown} on:click={onWindowClick} />
 
 <div class="app-root">
   <header class="toolbar">
     <IconButton title={t('tooltip.loadConfig')} on:click={browseConfig}><Icon name="load" /></IconButton>
     <IconButton title={t('tooltip.refreshConfigTitle')} aria={t('tooltip.refreshConfigAria')} on:click={reloadConfig}><Icon name="refresh" /></IconButton>
     <IconButton
+      class="btn icon-btn toolbar-right-start"
+      title={t('tooltip.pinWindow')}
+      active={alwaysOnTop}
+      on:click={toggleAlwaysOnTop}><Icon name="pin" /></IconButton
+    >
+    <div class="opacity-control" bind:this={opacityControlEl}>
+      <IconButton
+        title={t('tooltip.windowTransparency')}
+        active={opacity < 100}
+        on:click={() => (opacityPopoverOpen = !opacityPopoverOpen)}><Icon name="transparency" /></IconButton
+      >
+      {#if opacityPopoverOpen}
+        <div class="opacity-popover">
+          <input
+            type="range"
+            min={MIN_OPACITY}
+            max="100"
+            step="5"
+            bind:value={opacity}
+            on:input={applyOpacity}
+            on:change={commitOpacity}
+            aria-label={t('tooltip.opacityLevel')}
+          />
+          <span class="opacity-value">{opacity}%</span>
+        </div>
+      {/if}
+    </div>
+    <IconButton
       class="btn icon-btn settings-btn"
       title={t('tooltip.openConfigEditorTitle')}
       aria={t('tooltip.openConfigEditorAria')}
       on:click={launchConfigEditor}><Icon name="settings" /></IconButton
     >
+    <div class="window-controls">
+      <IconButton title={t('tooltip.minimizeWindow')} on:click={() => WindowMinimise()}><Icon name="minimize" /></IconButton>
+      <IconButton title={t('tooltip.maximizeWindow')} on:click={() => WindowToggleMaximise()}><Icon name="maximize" /></IconButton>
+      <IconButton class="btn icon-btn window-close-btn" title={t('tooltip.closeWindow')} on:click={() => Quit()}><Icon name="cancel" /></IconButton>
+    </div>
   </header>
   <main class="app-shell" bind:this={shellEl}>
   <div class="col col-left" style="flex: 0 0 {leftWidth}px" bind:this={colLeftEl}>
@@ -607,6 +695,13 @@
   }
 
   .toolbar {
+    /* The window is frameless (main.go) — this bar is its only drag
+       handle. --wails-draggable is a CSS custom property Wails itself
+       watches for (not app-defined), and it inherits to every descendant
+       by default, so every clickable child below has to opt back out with
+       --wails-draggable: no-drag or it'd drag the window instead of
+       responding to clicks. */
+    --wails-draggable: drag;
     flex: none;
     display: flex;
     align-items: center;
@@ -619,13 +714,77 @@
   /* .icon-btn comes from the shared design system (@shared/theme.css),
      same as .btn. */
 
+  /* Opts every toolbar button (and the opacity popover, which nests a
+     range input) back out of the .toolbar drag region above — otherwise
+     clicking any of them would drag the window instead of activating it. */
+  .toolbar :global(.btn),
+  .toolbar .opacity-control {
+    --wails-draggable: no-drag;
+  }
+
   /* Takes over the slot the theme dropdown used to occupy at the far
-     right of the toolbar. */
+     right of the toolbar: pushes the pin/transparency/settings group as a
+     whole to the right edge, leaving load/refresh at the left. */
   /* :global — this class now renders inside IconButton's own template
      (via its class prop), which Svelte's per-component CSS scoping
      wouldn't otherwise reach. */
-  :global(.settings-btn) {
+  :global(.toolbar-right-start) {
     margin-left: auto;
+  }
+
+  /* Highlights the pin/transparency buttons while toggled on — .toolbar
+     isn't .list-toolbar, so it doesn't already get that shared rule's
+     .btn.active styling. */
+  .toolbar :global(.btn.active) {
+    background: var(--sm-bg-primary);
+    border-color: var(--sm-bg-primary);
+    color: var(--sm-text-primary);
+  }
+
+  .opacity-control {
+    position: relative;
+    display: flex;
+  }
+
+  .opacity-popover {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--sm-panel-header);
+    border: 1px solid var(--sm-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px var(--sm-shadow);
+    z-index: 20;
+  }
+
+  .opacity-popover input[type='range'] {
+    accent-color: var(--sm-text-heading);
+  }
+
+  .opacity-value {
+    font-size: 0.8rem;
+    color: var(--sm-text-muted);
+    min-width: 2.4em;
+    text-align: right;
+  }
+
+  /* Stands in for the native title-bar buttons the frameless window no
+     longer has — tighter gap than the rest of the toolbar, matching the
+     conventional Windows minimize/maximize/close grouping. */
+  .window-controls {
+    display: flex;
+    gap: 2px;
+    margin-left: 8px;
+  }
+
+  :global(.window-close-btn:hover) {
+    background: var(--sm-error);
+    border-color: var(--sm-error);
+    color: #fff;
   }
 
   .app-shell {
