@@ -27,6 +27,10 @@
     | 'preview'
     | 'split-v'
     | 'split-h'
+    | 'pin'
+    | 'transparency'
+    | 'minimize'
+    | 'maximize'
 </script>
 
 {#if name === 'load' || name === 'open'}
@@ -211,6 +215,31 @@
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
     <rect x="1.5" y="2.5" width="5.3" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.2" />
     <rect x="9.2" y="2.5" width="5.3" height="11" rx="1" fill="none" stroke="currentColor" stroke-width="1.2" />
+  </svg>
+{:else if name === 'pin'}
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <path
+      d="M8 14.2s-4.7-4.5-4.7-8.3A4.7 4.7 0 0 1 8 1.2a4.7 4.7 0 0 1 4.7 4.7c0 3.8-4.7 8.3-4.7 8.3z"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.1"
+      stroke-linejoin="round"
+    />
+    <circle cx="8" cy="6" r="1.7" fill="none" stroke="currentColor" stroke-width="1.1" />
+  </svg>
+{:else if name === 'transparency'}
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <rect x="1.5" y="1.5" width="13" height="13" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.1" />
+    <rect x="1.5" y="1.5" width="6.5" height="6.5" fill="currentColor" />
+    <rect x="8" y="8" width="6.5" height="6.5" fill="currentColor" />
+  </svg>
+{:else if name === 'minimize'}
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <line x1="3" y1="12" x2="13" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
+  </svg>
+{:else if name === 'maximize'}
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <rect x="3" y="3" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.2" />
   </svg>
 {:else}
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">

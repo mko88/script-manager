@@ -65,7 +65,13 @@
     "run": "Run in terminal",
     "cancel": "Cancel",
     "copyOutput": "Copy output",
-    "copyCommand": "Copy command"
+    "copyCommand": "Copy command",
+    "pinWindow": "Always on top",
+    "windowTransparency": "Transparent window",
+    "opacityLevel": "Window opacity",
+    "minimizeWindow": "Minimize",
+    "maximizeWindow": "Maximize / restore",
+    "closeWindow": "Close"
   },
   "text": {
     "allGroupsChip": "All",
