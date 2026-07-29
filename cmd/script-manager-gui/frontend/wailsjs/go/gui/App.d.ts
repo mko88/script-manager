@@ -25,6 +25,8 @@ export function GetMessages():Promise<Record<string, any>>;
 
 export function GetTheme():Promise<theme.State>;
 
+export function GetVersion():Promise<string>;
+
 export function LaunchConfigEditor():Promise<boolean>;
 
 export function LoadError():Promise<string>;

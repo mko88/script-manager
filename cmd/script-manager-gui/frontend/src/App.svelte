@@ -14,7 +14,7 @@
   import { buildGroupColors, groupChipStyle } from './lib/groupColors'
   import { inlineStates, inlineKey, startInlineRun, cancelInlineRun } from './lib/inlineRuns'
   import { dragColumn, dragRow, topStyle, bottomStyle } from './lib/panelLayout'
-  import { EventsOn, WindowMinimise, WindowToggleMaximise, Quit } from '../wailsjs/runtime'
+  import { EventsOn, WindowMinimise, WindowToggleMaximise, Quit, BrowserOpenURL } from '../wailsjs/runtime'
   import {
     GetItems,
     GetActions,
@@ -29,6 +29,7 @@
     LoadError,
     SetAlwaysOnTop,
     SetWindowOpacity,
+    GetVersion,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
 
@@ -270,8 +271,9 @@
     } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'e') {
       e.preventDefault()
       launchConfigEditor()
-    } else if (e.key === 'Escape' && opacityPopoverOpen) {
+    } else if (e.key === 'Escape' && (opacityPopoverOpen || aboutPopoverOpen)) {
       opacityPopoverOpen = false
+      aboutPopoverOpen = false
     }
   }
 
@@ -296,6 +298,11 @@
     savePersisted(WINDOW_KEY, { alwaysOnTop, opacity })
   }
 
+  function toggleOpacityPopover() {
+    opacityPopoverOpen = !opacityPopoverOpen
+    aboutPopoverOpen = false
+  }
+
   // Applies opacity live as the slider is dragged (on:input fires on every
   // tick); commitOpacity below only persists once the drag settles, so
   // dragging through several values doesn't spam localStorage writes.
@@ -312,6 +319,29 @@
     if (opacityPopoverOpen && opacityControlEl && !opacityControlEl.contains(e.target as Node)) {
       opacityPopoverOpen = false
     }
+    if (aboutPopoverOpen && aboutControlEl && !aboutControlEl.contains(e.target as Node)) {
+      aboutPopoverOpen = false
+    }
+  }
+
+  // --- About popover ---
+  const GITHUB_URL = 'https://github.com/mko88/script-manager'
+
+  let appVersion = ''
+  let aboutPopoverOpen = false
+  let aboutControlEl: HTMLElement
+
+  onMount(async () => {
+    appVersion = await GetVersion()
+  })
+
+  function toggleAboutPopover() {
+    aboutPopoverOpen = !aboutPopoverOpen
+    opacityPopoverOpen = false
+  }
+
+  function openGithub() {
+    BrowserOpenURL(GITHUB_URL)
   }
 
   // --- Resizable / collapsible panel layout (geometry: lib/panelLayout) ---
@@ -431,7 +461,7 @@
       <IconButton
         title={t('tooltip.windowTransparency')}
         active={opacity < 100}
-        on:click={() => (opacityPopoverOpen = !opacityPopoverOpen)}><Icon name="transparency" /></IconButton
+        on:click={toggleOpacityPopover}><Icon name="transparency" /></IconButton
       >
       {#if opacityPopoverOpen}
         <div class="opacity-popover">
@@ -446,6 +476,17 @@
             aria-label={t('tooltip.opacityLevel')}
           />
           <span class="opacity-value">{opacity}%</span>
+        </div>
+      {/if}
+    </div>
+    <div class="about-control" bind:this={aboutControlEl}>
+      <IconButton title={t('tooltip.aboutButton')} on:click={toggleAboutPopover}><Icon name="info" /></IconButton>
+      {#if aboutPopoverOpen}
+        <div class="about-popover">
+          <div class="about-title">{t('about.title')}</div>
+          <div class="about-version">{t('about.version', { version: appVersion })}</div>
+          <p class="about-description">{t('about.description')}</p>
+          <a class="about-github-link" href={GITHUB_URL} on:click|preventDefault={openGithub}>{t('about.githubLink')}</a>
         </div>
       {/if}
     </div>
@@ -714,11 +755,13 @@
   /* .icon-btn comes from the shared design system (@shared/theme.css),
      same as .btn. */
 
-  /* Opts every toolbar button (and the opacity popover, which nests a
-     range input) back out of the .toolbar drag region above — otherwise
-     clicking any of them would drag the window instead of activating it. */
+  /* Opts every toolbar button (and the opacity/about popovers, which nest
+     a range input and a link respectively) back out of the .toolbar drag
+     region above — otherwise clicking any of them would drag the window
+     instead of activating it. */
   .toolbar :global(.btn),
-  .toolbar .opacity-control {
+  .toolbar .opacity-control,
+  .toolbar .about-control {
     --wails-draggable: no-drag;
   }
 
@@ -770,6 +813,50 @@
     color: var(--sm-text-muted);
     min-width: 2.4em;
     text-align: right;
+  }
+
+  .about-control {
+    position: relative;
+    display: flex;
+  }
+
+  .about-popover {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 220px;
+    padding: 10px 12px;
+    background: var(--sm-panel-header);
+    border: 1px solid var(--sm-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px var(--sm-shadow);
+    z-index: 20;
+  }
+
+  .about-title {
+    font-weight: 700;
+    color: var(--sm-text-heading);
+  }
+
+  .about-version {
+    font-size: 0.75rem;
+    color: var(--sm-text-muted);
+  }
+
+  .about-description {
+    margin: 4px 0 0;
+    font-size: 0.8rem;
+    color: var(--sm-text);
+    line-height: 1.4;
+  }
+
+  .about-github-link {
+    margin-top: 4px;
+    color: var(--sm-text-heading);
+    font-size: 0.8rem;
   }
 
   /* Stands in for the native title-bar buttons the frameless window no

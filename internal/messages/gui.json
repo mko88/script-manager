@@ -71,7 +71,8 @@
     "opacityLevel": "Window opacity",
     "minimizeWindow": "Minimize",
     "maximizeWindow": "Maximize / restore",
-    "closeWindow": "Close"
+    "closeWindow": "Close",
+    "aboutButton": "About"
   },
   "text": {
     "allGroupsChip": "All",
@@ -80,5 +81,11 @@
     "scriptLabel": "Script: ",
     "running": "Running…",
     "exitCode": "Exit code: {code}"
+  },
+  "about": {
+    "title": "Script Manager",
+    "version": "Version {version}",
+    "description": "A tool for organising and running shell scripts across a list of configurable items, driven by a single YAML config.",
+    "githubLink": "View on GitHub"
   }
 }
