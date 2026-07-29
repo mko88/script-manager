@@ -31,6 +31,7 @@
     | 'transparency'
     | 'minimize'
     | 'maximize'
+    | 'info'
 </script>
 
 {#if name === 'load' || name === 'open'}
@@ -240,6 +241,12 @@
 {:else if name === 'maximize'}
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
     <rect x="3" y="3" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.2" />
+  </svg>
+{:else if name === 'info'}
+  <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+    <circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.1" />
+    <circle cx="8" cy="5.1" r="0.9" fill="currentColor" />
+    <line x1="8" y1="7.4" x2="8" y2="11.3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" />
   </svg>
 {:else}
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">

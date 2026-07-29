@@ -14,6 +14,7 @@ import (
 	"script-manager/internal/config"
 	"script-manager/internal/exepath"
 	"script-manager/internal/scriptsource"
+	"script-manager/internal/version"
 
 	"github.com/atotto/clipboard"
 	"github.com/yuin/goldmark"
@@ -228,4 +229,9 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 // CopyToClipboard writes value to the system clipboard.
 func (a *App) CopyToClipboard(value string) error {
 	return clipboard.WriteAll(value)
+}
+
+// GetVersion returns this app's version, for the About panel.
+func (a *App) GetVersion() string {
+	return version.Version
 }

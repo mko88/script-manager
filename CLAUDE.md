@@ -86,6 +86,15 @@ Does NOT belong (put it in CLAUDE.md or a code comment instead, or drop it):
 - Build internals that don't change how the build is invoked (e.g. that
   build.sh parallelizes its jobs).
 
+## Bumping the version
+
+`internal/version.Version` is the single version string, shown in
+`script-manager-gui`'s About panel (started at `1.0.0.0`). Bump it whenever
+a task adds new user-facing functionality — increment the second segment
+(e.g. `1.0.0.0` → `1.1.0.0`) and reset the segments after it to `0`. Skip
+the bump for pure refactors, docs, or bug fixes with no new functionality.
+Do this before closing the task, same as the README update below.
+
 ## Building binaries
 
 Always use `./build.sh` to compile — never run `go build` manually.

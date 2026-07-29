@@ -46,6 +46,10 @@ export function GetTheme() {
   return window['go']['gui']['App']['GetTheme']();
 }
 
+export function GetVersion() {
+  return window['go']['gui']['App']['GetVersion']();
+}
+
 export function LaunchConfigEditor() {
   return window['go']['gui']['App']['LaunchConfigEditor']();
 }
