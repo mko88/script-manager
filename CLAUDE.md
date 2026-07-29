@@ -89,10 +89,23 @@ Does NOT belong (put it in CLAUDE.md or a code comment instead, or drop it):
 ## Bumping the version
 
 `internal/version.Version` is the single version string, shown in
-`script-manager-gui`'s About panel (started at `1.0.0.0`). Bump it whenever
-a task adds new user-facing functionality — increment the second segment
-(e.g. `1.0.0.0` → `1.1.0.0`) and reset the segments after it to `0`. Skip
-the bump for pure refactors, docs, or bug fixes with no new functionality.
+`script-manager-gui`'s About panel — `Major.Minor.Patch.Build` (started at
+`1.0.0.0`). Bump exactly one segment per merge to `main`, resetting every
+segment after it to `0`:
+
+- **Major** — by hand only, for a big rewrite or breaking change. Never
+  bump this automatically.
+- **Minor** — new user-facing functionality (e.g. `1.0.0.0` → `1.1.0.0`).
+- **Patch** — a bug fix to shipped behavior (e.g. `1.1.0.0` → `1.1.1.0`).
+- **Build** — every other merge that touches a shipped binary and isn't a
+  Minor or Patch case above — refactors, dependency bumps, anything under
+  `cmd/`, `internal/` (excluding `_test.go` files), or a frontend app's
+  `src/`/`frontend-shared` (e.g. `1.1.0.0` → `1.1.0.1`).
+
+Skip all of the above for a merge that touches nothing compiled into a
+binary — a docs-only (`README.md`, `CLAUDE.md`), comment-only, or test-only
+change.
+
 Do this before closing the task, same as the README update below.
 
 ## Building binaries
