@@ -106,6 +106,11 @@ Skip all of the above for a merge that touches nothing compiled into a
 binary — a docs-only (`README.md`, `CLAUDE.md`), comment-only, or test-only
 change.
 
+Whenever you bump the version, add a matching entry to `CHANGELOG.md` in
+the same commit: a new `## Major.Minor.Patch.Build` heading (newest on
+top) with a bullet list of what changed, prefixed with which binary it
+affects (e.g. `` `script-manager-gui`: `` ) when it isn't obvious.
+
 Do this before closing the task, same as the README update below.
 
 ## Building binaries
