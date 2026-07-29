@@ -3,4 +3,4 @@ package version
 
 // Version is the current release version, shown in script-manager-gui's
 // About panel.
-const Version = "1.0.0.0"
+const Version = "1.1.0.0"
