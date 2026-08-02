@@ -345,6 +345,8 @@ Different actions can run inline at the same time. A dot marks items and actions
 
 Controls on the toolbar: **Load config** browses for a different YAML file and switches to it; **Refresh config** re-reads the current file (same as F5); the pin icon toggles keeping the window always on top of other windows; the checkerboard icon opens an opacity slider (20-100%) that fades the whole window, including its content, so whatever's behind it shows through; the "i" icon opens an **About** panel with the app's version, a short description, and a link to the project's GitHub page (opened in your system browser); the gearbox icon (**Ctrl+E**) launches the [Config Editor](#config-editor) pointed at the currently loaded config file. Always-on-top and the chosen opacity are both remembered across restarts. Window opacity is Windows-only for now — the slider has no visible effect on Linux/macOS builds.
 
+The opacity popover also has a **Shrink on focus loss** checkbox, enabled only while the pin (always-on-top) is on. With it checked, clicking away to another window fades this one down to a small badge — the app icon plus the current item count — parked at the vertical center of the screen's right edge. Click the badge to restore the window's previous size, position, and opacity.
+
 At the far right, minimize/maximize/close buttons replace the native window controls that the missing title bar would otherwise have provided.
 
 #### Theme

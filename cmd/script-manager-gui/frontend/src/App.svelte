@@ -14,7 +14,18 @@
   import { buildGroupColors, groupChipStyle } from './lib/groupColors'
   import { inlineStates, inlineKey, startInlineRun, cancelInlineRun } from './lib/inlineRuns'
   import { dragColumn, dragRow, topStyle, bottomStyle } from './lib/panelLayout'
-  import { EventsOn, WindowMinimise, WindowToggleMaximise, Quit, BrowserOpenURL } from '../wailsjs/runtime'
+  import {
+    EventsOn,
+    WindowMinimise,
+    WindowToggleMaximise,
+    Quit,
+    BrowserOpenURL,
+    WindowGetPosition,
+    WindowGetSize,
+    WindowSetPosition,
+    WindowSetSize,
+    ScreenGetAll,
+  } from '../wailsjs/runtime'
   import {
     GetItems,
     GetActions,
@@ -286,8 +297,26 @@
   let opacityPopoverOpen = false
   let opacityControlEl: HTMLElement
 
+  // --- Shrink-on-blur: while pinned always-on-top, fades the window down
+  // to a small icon-sized badge near the screen's right edge whenever it
+  // loses OS focus, so it stays visible without competing for attention;
+  // clicking the badge restores the saved size, position, and opacity.
+  // Gated on alwaysOnTop itself (not just this checkbox) since without
+  // pinning, a shrunk window would just vanish behind whatever's focused.
+  const SMALL_WIDTH = 120
+  const SMALL_HEIGHT = 108
+  const SMALL_MARGIN = 24
+
+  let shrinkOnBlur = false
+  let isShrunk = false
+  let savedGeometry: { x: number; y: number; w: number; h: number } | null = null
+
   onMount(() => {
-    ;({ alwaysOnTop, opacity } = loadPersisted(WINDOW_KEY, { alwaysOnTop: false, opacity: 100 }))
+    ;({ alwaysOnTop, opacity, shrinkOnBlur } = loadPersisted(WINDOW_KEY, {
+      alwaysOnTop: false,
+      opacity: 100,
+      shrinkOnBlur: false,
+    }))
     SetAlwaysOnTop(alwaysOnTop)
     SetWindowOpacity(opacity)
   })
@@ -295,7 +324,8 @@
   function toggleAlwaysOnTop() {
     alwaysOnTop = !alwaysOnTop
     SetAlwaysOnTop(alwaysOnTop)
-    savePersisted(WINDOW_KEY, { alwaysOnTop, opacity })
+    savePersisted(WINDOW_KEY, { alwaysOnTop, opacity, shrinkOnBlur })
+    if (!alwaysOnTop && isShrunk) restoreFromShrink()
   }
 
   function toggleOpacityPopover() {
@@ -312,7 +342,45 @@
 
   function commitOpacity() {
     SetWindowOpacity(opacity)
-    savePersisted(WINDOW_KEY, { alwaysOnTop, opacity })
+    savePersisted(WINDOW_KEY, { alwaysOnTop, opacity, shrinkOnBlur })
+  }
+
+  function toggleShrinkOnBlur() {
+    savePersisted(WINDOW_KEY, { alwaysOnTop, opacity, shrinkOnBlur })
+    if (!shrinkOnBlur && isShrunk) restoreFromShrink()
+  }
+
+  // Native window blur fires when the OS moves focus to another window —
+  // reliable here because Wails hosts the whole UI in one real OS window,
+  // unlike a browser tab where "blur" can mean other things.
+  async function onWindowBlur() {
+    if (!alwaysOnTop || !shrinkOnBlur || isShrunk) return
+    isShrunk = true
+    const [pos, size] = await Promise.all([WindowGetPosition(), WindowGetSize()])
+    savedGeometry = { x: pos.x, y: pos.y, w: size.w, h: size.h }
+
+    // WindowSetPosition is relative to the monitor the window is currently
+    // on, so the small badge only needs that monitor's own width/height,
+    // not its absolute desktop offset.
+    const screens = await ScreenGetAll()
+    const screen = screens.find((s) => s.isCurrent) ?? screens.find((s) => s.isPrimary) ?? screens[0]
+    const targetX = (screen?.width ?? size.w) - SMALL_WIDTH - SMALL_MARGIN
+    const targetY = ((screen?.height ?? size.h) - SMALL_HEIGHT) / 2
+
+    WindowSetSize(SMALL_WIDTH, SMALL_HEIGHT)
+    WindowSetPosition(Math.max(0, targetX), Math.max(0, targetY))
+    SetWindowOpacity(MIN_OPACITY)
+  }
+
+  function restoreFromShrink() {
+    if (!isShrunk) return
+    isShrunk = false
+    if (savedGeometry) {
+      WindowSetSize(savedGeometry.w, savedGeometry.h)
+      WindowSetPosition(savedGeometry.x, savedGeometry.y)
+    }
+    savedGeometry = null
+    SetWindowOpacity(opacity)
   }
 
   function onWindowClick(e: MouseEvent) {
@@ -445,8 +513,14 @@
 
 </script>
 
-<svelte:window on:keydown={onKeyDown} on:click={onWindowClick} />
+<svelte:window on:keydown={onKeyDown} on:click={onWindowClick} on:blur={onWindowBlur} />
 
+{#if isShrunk}
+  <button class="shrunk-widget" on:click={restoreFromShrink} title={t('tooltip.restoreWindow')}>
+    <Icon name="restore" />
+    <span class="shrunk-count">{items.length}</span>
+  </button>
+{:else}
 <div class="app-root">
   <header class="toolbar">
     <IconButton title={t('tooltip.loadConfig')} on:click={browseConfig}><Icon name="load" /></IconButton>
@@ -465,17 +539,23 @@
       >
       {#if opacityPopoverOpen}
         <div class="opacity-popover">
-          <input
-            type="range"
-            min={MIN_OPACITY}
-            max="100"
-            step="5"
-            bind:value={opacity}
-            on:input={applyOpacity}
-            on:change={commitOpacity}
-            aria-label={t('tooltip.opacityLevel')}
-          />
-          <span class="opacity-value">{opacity}%</span>
+          <div class="opacity-slider-row">
+            <input
+              type="range"
+              min={MIN_OPACITY}
+              max="100"
+              step="5"
+              bind:value={opacity}
+              on:input={applyOpacity}
+              on:change={commitOpacity}
+              aria-label={t('tooltip.opacityLevel')}
+            />
+            <span class="opacity-value">{opacity}%</span>
+          </div>
+          <label class="shrink-option" title={alwaysOnTop ? '' : t('tooltip.shrinkOnBlurRequiresPin')}>
+            <input type="checkbox" bind:checked={shrinkOnBlur} disabled={!alwaysOnTop} on:change={toggleShrinkOnBlur} />
+            {t('option.shrinkOnBlur')}
+          </label>
         </div>
       {/if}
     </div>
@@ -727,6 +807,7 @@
     <Toast />
   </main>
 </div>
+{/if}
 
 <style>
   .app-root {
@@ -794,7 +875,7 @@
     top: calc(100% + 4px);
     right: 0;
     display: flex;
-    align-items: center;
+    flex-direction: column;
     gap: 8px;
     padding: 8px 10px;
     background: var(--sm-panel-header);
@@ -802,6 +883,12 @@
     border-radius: 6px;
     box-shadow: 0 4px 12px var(--sm-shadow);
     z-index: 20;
+  }
+
+  .opacity-slider-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .opacity-popover input[type='range'] {
@@ -813,6 +900,49 @@
     color: var(--sm-text-muted);
     min-width: 2.4em;
     text-align: right;
+  }
+
+  .shrink-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    color: var(--sm-text-muted);
+    white-space: nowrap;
+  }
+
+  .shrink-option:has(input:disabled) {
+    opacity: 0.6;
+  }
+
+  /* The shrunk-on-blur badge: at this point the native window itself has
+     been resized down to SMALL_WIDTH/SMALL_HEIGHT (see onWindowBlur), so
+     this replaces .app-root entirely rather than overlaying it. */
+  .shrunk-widget {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100vw;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+    background: var(--sm-panel-header);
+    border: 1px solid var(--sm-border);
+    color: var(--sm-text-heading);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .shrunk-widget :global(svg) {
+    width: 28px;
+    height: 28px;
+  }
+
+  .shrunk-count {
+    font-size: 0.85rem;
+    color: var(--sm-text-muted);
   }
 
   .about-control {
