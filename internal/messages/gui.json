@@ -69,10 +69,15 @@
     "pinWindow": "Always on top",
     "windowTransparency": "Transparent window",
     "opacityLevel": "Window opacity",
+    "shrinkOnBlurRequiresPin": "Requires Always on top",
+    "restoreWindow": "Click to restore",
     "minimizeWindow": "Minimize",
     "maximizeWindow": "Maximize / restore",
     "closeWindow": "Close",
     "aboutButton": "About"
+  },
+  "option": {
+    "shrinkOnBlur": "Shrink on focus loss"
   },
   "text": {
     "allGroupsChip": "All",

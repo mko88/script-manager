@@ -3,6 +3,14 @@
 Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 
+## 1.2.0.0
+
+- `script-manager-gui`: added a "Shrink on focus loss" checkbox in the
+  transparency popover — while the window is pinned always-on-top, losing
+  focus fades it to a small badge (icon + item count) parked at the
+  vertical center of the screen's right edge; clicking the badge restores
+  the window's previous size, position, and opacity.
+
 ## 1.1.0.0
 
 - `script-manager-gui`: added an About panel (toolbar "i" button) showing
