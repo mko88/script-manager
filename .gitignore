@@ -27,3 +27,10 @@ Thumbs.db
 
 # folder to store temporary files (AI analysis, dev todos etc.)
 /temp-docs/
+
+# Personal/local scripts (e.g. release.ps1) — not part of the committed
+# build (that's build.sh / build-container.ps1 at the repo root).
+/scripts/
+
+# Archives staged by scripts/release.ps1
+/release-out/
