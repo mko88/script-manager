@@ -3,6 +3,13 @@
 Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 
+## 1.3.0.0
+
+- `script-manager-gui`: the "Shrink on focus loss" badge is now a tiny
+  icon-only nub that pops out to a bigger, fully-opaque badge on hover
+  (shrinking back after a moment once the pointer leaves), and fades to
+  80% opacity instead of 20% while shrunk.
+
 ## 1.2.0.0
 
 - `script-manager-gui`: added a "Shrink on focus loss" checkbox in the
