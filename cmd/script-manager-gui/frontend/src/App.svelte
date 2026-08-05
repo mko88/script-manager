@@ -24,6 +24,7 @@
     WindowGetSize,
     WindowSetPosition,
     WindowSetSize,
+    WindowSetMinSize,
     ScreenGetAll,
   } from '../wailsjs/runtime'
   import {
@@ -298,18 +299,71 @@
   let opacityControlEl: HTMLElement
 
   // --- Shrink-on-blur: while pinned always-on-top, fades the window down
-  // to a small icon-sized badge near the screen's right edge whenever it
-  // loses OS focus, so it stays visible without competing for attention;
-  // clicking the badge restores the saved size, position, and opacity.
+  // to a tiny nub parked at the vertical center of the screen's right edge
+  // whenever it loses OS focus, so it stays out of the way without
+  // vanishing entirely. Hovering it pops it out to a bigger, fully-opaque
+  // badge that's easy to see and click; moving away shrinks it back to the
+  // nub after a short delay so it doesn't flicker shut mid-hover. Clicking
+  // it in either state restores the saved size, position, and opacity.
   // Gated on alwaysOnTop itself (not just this checkbox) since without
   // pinning, a shrunk window would just vanish behind whatever's focused.
-  const SMALL_WIDTH = 120
-  const SMALL_HEIGHT = 108
-  const SMALL_MARGIN = 24
+  //
+  // The nub and badge share the same height and right edge — only the
+  // width animates between them — so the pop only ever needs to grow/shrink
+  // leftward from a fixed edge, never risking an overflow past the screen
+  // the way animating height (or a right margin that itself moves) would.
+  //
+  // Both widths sit below Windows' minimum tracking width for a resizable
+  // frameless window (SM_CXMINTRACK, ~120px), which would otherwise clamp
+  // WindowSetSize so the window stayed wider than requested, overhung the
+  // fixed right edge, and pushed the flex-centred icon off to the right.
+  // We lower the window's min size to the nub's dimensions on the way in
+  // (and restore it on the way out) so the requested widths are honoured.
+  // The height (SHRUNK_HEIGHT) has always been above SM_CYMINTRACK, which
+  // is why only the horizontal axis was ever affected.
+  const NUB_WIDTH = 36
+  const BADGE_WIDTH = 100
+  const SHRUNK_HEIGHT = 100
+  const SHRUNK_MARGIN = 16
+  const HIDE_DELAY_MS = 300
+  const POP_ANIM_MS = 180
+  const SHRUNK_OPACITY = 80
 
   let shrinkOnBlur = false
   let isShrunk = false
+  let isPoppedOut = false
+  let shrunkRightEdgeX = 0
+  let shrunkY = 0
+  let hideShrunkTimer: ReturnType<typeof setTimeout> | null = null
+  let popProgress = 0 // 0 = nub width/opacity, 1 = badge width/opacity
+  let popAnimFrame: number | null = null
   let savedGeometry: { x: number; y: number; w: number; h: number } | null = null
+
+  function applyPopProgress() {
+    const width = Math.round(NUB_WIDTH + (BADGE_WIDTH - NUB_WIDTH) * popProgress)
+    const badgeOpacity = Math.round(SHRUNK_OPACITY + (opacity - SHRUNK_OPACITY) * popProgress)
+    WindowSetSize(width, SHRUNK_HEIGHT)
+    WindowSetPosition(Math.max(0, shrunkRightEdgeX - width), shrunkY)
+    SetWindowOpacity(badgeOpacity)
+  }
+
+  // Animates popProgress toward 0 (nub) or 1 (badge) with an ease-out curve.
+  // Reads from whatever popProgress currently is, so reversing direction
+  // mid-animation (e.g. the pointer leaves before the pop-out finishes)
+  // continues smoothly from there instead of jumping.
+  function animatePopTo(target: number) {
+    if (popAnimFrame !== null) cancelAnimationFrame(popAnimFrame)
+    const start = popProgress
+    const startTime = performance.now()
+    const step = (now: number) => {
+      const t = Math.min(1, (now - startTime) / POP_ANIM_MS)
+      const eased = 1 - Math.pow(1 - t, 3)
+      popProgress = start + (target - start) * eased
+      applyPopProgress()
+      popAnimFrame = t < 1 ? requestAnimationFrame(step) : null
+    }
+    popAnimFrame = requestAnimationFrame(step)
+  }
 
   onMount(() => {
     ;({ alwaysOnTop, opacity, shrinkOnBlur } = loadPersisted(WINDOW_KEY, {
@@ -356,28 +410,72 @@
   async function onWindowBlur() {
     if (!alwaysOnTop || !shrinkOnBlur || isShrunk) return
     isShrunk = true
+    isPoppedOut = false
+    popProgress = 0
     const [pos, size] = await Promise.all([WindowGetPosition(), WindowGetSize()])
     savedGeometry = { x: pos.x, y: pos.y, w: size.w, h: size.h }
 
     // WindowSetPosition is relative to the monitor the window is currently
-    // on, so the small badge only needs that monitor's own width/height,
-    // not its absolute desktop offset.
+    // on, so the nub only needs that monitor's own width/height, not its
+    // absolute desktop offset.
     const screens = await ScreenGetAll()
     const screen = screens.find((s) => s.isCurrent) ?? screens.find((s) => s.isPrimary) ?? screens[0]
-    const targetX = (screen?.width ?? size.w) - SMALL_WIDTH - SMALL_MARGIN
-    const targetY = ((screen?.height ?? size.h) - SMALL_HEIGHT) / 2
+    const screenW = screen?.width ?? size.w
+    shrunkRightEdgeX = screenW - SHRUNK_MARGIN
+    shrunkY = Math.max(0, ((screen?.height ?? size.h) - SHRUNK_HEIGHT) / 2)
 
-    WindowSetSize(SMALL_WIDTH, SMALL_HEIGHT)
-    WindowSetPosition(Math.max(0, targetX), Math.max(0, targetY))
-    SetWindowOpacity(MIN_OPACITY)
+    // Drop the OS min-size floor so the nub/badge widths aren't clamped
+    // wider than requested; restoreFromShrink puts it back.
+    WindowSetMinSize(NUB_WIDTH, SHRUNK_HEIGHT)
+    applyPopProgress()
+  }
+
+  // Pops the nub out to the bigger badge width on hover. Cancels any
+  // pending shrink-back from a previous mouseleave.
+  function revealPopOut() {
+    if (!isShrunk) return
+    if (hideShrunkTimer) {
+      clearTimeout(hideShrunkTimer)
+      hideShrunkTimer = null
+    }
+    if (isPoppedOut) return
+    isPoppedOut = true
+    animatePopTo(1)
+  }
+
+  // Shrinks back to the nub width after a short delay, so briefly crossing
+  // the pointer off it (e.g. moving toward its edge) doesn't snap it shut.
+  function scheduleShrinkBack() {
+    if (!isShrunk) return
+    if (hideShrunkTimer) clearTimeout(hideShrunkTimer)
+    hideShrunkTimer = setTimeout(() => {
+      hideShrunkTimer = null
+      isPoppedOut = false
+      animatePopTo(0)
+    }, HIDE_DELAY_MS)
   }
 
   function restoreFromShrink() {
     if (!isShrunk) return
+    if (hideShrunkTimer) {
+      clearTimeout(hideShrunkTimer)
+      hideShrunkTimer = null
+    }
+    if (popAnimFrame !== null) {
+      cancelAnimationFrame(popAnimFrame)
+      popAnimFrame = null
+    }
     isShrunk = false
+    isPoppedOut = false
+    // Undo the shrunk-mode min-size floor (0 = no minimum, as configured).
+    WindowSetMinSize(0, 0)
     if (savedGeometry) {
-      WindowSetSize(savedGeometry.w, savedGeometry.h)
+      // Growing back to the saved (larger) size, so reposition first — a
+      // resize keeps the top-left corner fixed and grows rightward/downward,
+      // so sizing up before moving would briefly balloon the window past
+      // the screen from its right-edge-hugging shrunk position.
       WindowSetPosition(savedGeometry.x, savedGeometry.y)
+      WindowSetSize(savedGeometry.w, savedGeometry.h)
     }
     savedGeometry = null
     SetWindowOpacity(opacity)
@@ -516,9 +614,14 @@
 <svelte:window on:keydown={onKeyDown} on:click={onWindowClick} on:blur={onWindowBlur} />
 
 {#if isShrunk}
-  <button class="shrunk-widget" on:click={restoreFromShrink} title={t('tooltip.restoreWindow')}>
+  <button
+    class="shrunk-widget"
+    on:click={restoreFromShrink}
+    on:mouseenter={revealPopOut}
+    on:mouseleave={scheduleShrinkBack}
+    title={t('tooltip.restoreWindow')}
+  >
     <Icon name="restore" />
-    <span class="shrunk-count">{items.length}</span>
   </button>
 {:else}
 <div class="app-root">
@@ -915,15 +1018,18 @@
     opacity: 0.6;
   }
 
-  /* The shrunk-on-blur badge: at this point the native window itself has
-     been resized down to SMALL_WIDTH/SMALL_HEIGHT (see onWindowBlur), so
-     this replaces .app-root entirely rather than overlaying it. */
+  /* The shrunk-on-blur nub/badge: at this point the native window itself
+     has been animated between NUB_WIDTH and BADGE_WIDTH (always at
+     SHRUNK_HEIGHT — see applyPopProgress/animatePopTo), so this replaces
+     .app-root entirely rather than overlaying it. box-sizing: border-box
+     keeps the 1px border inside those dimensions rather than added on top
+     of them, which would otherwise push the box a couple of pixels past
+     the window's actual bounds and throw off the icon's centering. */
   .shrunk-widget {
     display: flex;
-    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 6px;
+    box-sizing: border-box;
     width: 100vw;
     height: 100vh;
     margin: 0;
@@ -938,11 +1044,6 @@
   .shrunk-widget :global(svg) {
     width: 28px;
     height: 28px;
-  }
-
-  .shrunk-count {
-    font-size: 0.85rem;
-    color: var(--sm-text-muted);
   }
 
   .about-control {
