@@ -76,12 +76,9 @@ func decodeValue(kind, value string) (any, error) {
 	}
 }
 
-func FieldsFromMap(m map[string]any, exclude map[string]bool) []FieldDTO {
+func FieldsFromMap(m map[string]any) []FieldDTO {
 	keys := make([]string, 0, len(m))
 	for k := range m {
-		if exclude[k] {
-			continue
-		}
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
@@ -115,14 +112,6 @@ func nonNil[T any](s []T) []T {
 		return []T{}
 	}
 	return s
-}
-
-func toAnySlice(ss []string) []any {
-	out := make([]any, len(ss))
-	for i, s := range ss {
-		out[i] = s
-	}
-	return out
 }
 
 func actionToDTO(a config.Action) ActionDTO {
@@ -161,92 +150,51 @@ func actionGroupFromDTO(dto ActionGroupDTO) config.ActionGroup {
 	return config.ActionGroup{ID: dto.ID, Title: dto.Title, Color: dto.Color}
 }
 
-func actionDTOToMap(a ActionDTO) map[string]any {
-	m := map[string]any{"title": a.Title, "cmd": a.Cmd}
-	if a.Script != "" {
-		m["script"] = a.Script
-	}
-	if a.ID != "" {
-		m["id"] = a.ID
-	}
-	if a.Description != "" {
-		m["description"] = a.Description
-	}
-	if len(a.Groups) > 0 {
-		m["groups"] = toAnySlice(a.Groups)
-	}
-	if a.NoWait {
-		m["noWait"] = true
-	}
-	if a.Interactive {
-		m["interactive"] = true
-	}
-	if a.RequiresPIN {
-		m["requiresPin"] = true
-	}
-	return m
-}
-
-var reservedItemKeys = map[string]bool{
-	config.KeyName:          true,
-	config.KeyDisplay:       true,
-	config.KeyActions:       true,
-	config.KeyActionGroups:  true,
-	config.KeyCustomActions: true,
-}
-
-func ToItemDTO(item map[string]any) ItemDTO {
+func ToItemDTO(item config.Item) ItemDTO {
 	dto := ItemDTO{
-		Name:          config.StrVal(item[config.KeyName]),
-		Display:       config.StrVal(item[config.KeyDisplay]),
-		Actions:       []string{},
-		ActionGroups:  []string{},
+		Name:          item.Name,
+		Display:       item.Display,
+		Actions:       item.Actions,
+		ActionGroups:  item.ActionGroups,
 		CustomActions: []ActionDTO{},
 	}
-	if ids, ok := config.AsStringSlice(item[config.KeyActions]); ok {
-		dto.Actions = ids
+	if dto.Actions == nil {
+		dto.Actions = []string{}
 	}
-	if groups, ok := config.AsStringSlice(item[config.KeyActionGroups]); ok {
-		dto.ActionGroups = groups
+	if dto.ActionGroups == nil {
+		dto.ActionGroups = []string{}
 	}
-	for _, a := range config.ParseCustomActions(item[config.KeyCustomActions]) {
+	for _, a := range item.CustomActions {
 		dto.CustomActions = append(dto.CustomActions, actionToDTO(a))
 	}
-	dto.Fields = FieldsFromMap(item, reservedItemKeys)
+	dto.Fields = FieldsFromMap(item.Env)
 	return dto
 }
 
-func FromItemDTO(dto ItemDTO) (map[string]any, error) {
-	item := make(map[string]any)
-	if dto.Name != "" {
-		item[config.KeyName] = dto.Name
-	}
-	if dto.Display != "" {
-		item[config.KeyDisplay] = dto.Display
+func FromItemDTO(dto ItemDTO) (config.Item, error) {
+	item := config.Item{
+		Name:    dto.Name,
+		Display: dto.Display,
 	}
 	if len(dto.Actions) > 0 {
-		item[config.KeyActions] = toAnySlice(dto.Actions)
+		item.Actions = dto.Actions
 	}
 	if len(dto.ActionGroups) > 0 {
-		item[config.KeyActionGroups] = toAnySlice(dto.ActionGroups)
+		item.ActionGroups = dto.ActionGroups
 	}
-	if len(dto.CustomActions) > 0 {
-		custom := make([]any, len(dto.CustomActions))
-		for i, a := range dto.CustomActions {
-			custom[i] = actionDTOToMap(a)
-		}
-		item[config.KeyCustomActions] = custom
+	for _, a := range dto.CustomActions {
+		item.CustomActions = append(item.CustomActions, actionFromDTO(a))
 	}
-	extra, err := FieldsToMap(dto.Fields)
+	env, err := FieldsToMap(dto.Fields)
 	if err != nil {
 		name := dto.Name
 		if name == "" {
 			name = "(unnamed)"
 		}
-		return nil, fmt.Errorf("item %q: %w", name, err)
+		return config.Item{}, fmt.Errorf("item %q: %w", name, err)
 	}
-	for k, v := range extra {
-		item[k] = v
+	if len(env) > 0 {
+		item.Env = env
 	}
 	return item, nil
 }
@@ -278,7 +226,7 @@ func ToConfigDTO(cfg *config.Config) ConfigDTO {
 		Secrets:      secretsToDTO(cfg.Secrets),
 		Shell:        nonNil(append([]string(nil), cfg.Shell...)),
 		Terminal:     terminalToDTO(cfg.Terminal),
-		EnvFields:    FieldsFromMap(cfg.Env, nil),
+		EnvFields:    FieldsFromMap(cfg.Env),
 		Display:      []DisplayDTO{},
 		ActionGroups: []ActionGroupDTO{},
 		Actions:      []ActionDTO{},

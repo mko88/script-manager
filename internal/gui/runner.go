@@ -55,8 +55,8 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 	}
 
 	title := act.Title
-	if name, ok := item[config.KeyName].(string); ok && name != "" {
-		title = act.Title + " · " + name
+	if item.Name != "" {
+		title = act.Title + " · " + item.Name
 	}
 
 	term, err := terminal.Resolve(a.cfg.Terminal, runtime.GOOS, title, a.appDataDir)

@@ -2,7 +2,6 @@ package gui
 
 import (
 	"context"
-	"fmt"
 	"os/exec"
 	"sync"
 
@@ -130,17 +129,17 @@ type ItemDTO struct {
 
 func (a *App) GetItems() []ItemDTO {
 	items := make([]ItemDTO, len(a.cfg.Items))
-	for i, item := range a.cfg.Items {
-		items[i] = ItemDTO{Index: i, Label: a.renderListLabel(item)}
+	for i := range a.cfg.Items {
+		items[i] = ItemDTO{Index: i, Label: a.renderListLabel(&a.cfg.Items[i])}
 	}
 	return items
 }
 
-func (a *App) renderListLabel(item map[string]any) string {
+func (a *App) renderListLabel(item *config.Item) string {
 	d := config.FindDisplay(a.cfg.Display, item)
-	out, err := action.Expand(d.List, item)
+	out, err := action.Expand(d.List, item.Values())
 	if err != nil {
-		return fmt.Sprint(item[config.KeyName])
+		return item.Name
 	}
 	return out
 }
@@ -153,11 +152,11 @@ func (a *App) scriptLanguage(scriptPath string) string {
 	return action.Language(shell, scriptPath)
 }
 
-func (a *App) mergedItem(item map[string]any) map[string]any {
+func (a *App) mergedItem(item *config.Item) map[string]any {
 	return secret.Redact(action.Merge(a.cfg.Env, item))
 }
 
-func (a *App) mergedItemForRun(item map[string]any, act config.Action) (map[string]any, error) {
+func (a *App) mergedItemForRun(item *config.Item, act config.Action) (map[string]any, error) {
 	merged := action.Merge(a.cfg.Env, item)
 	if !act.RequiresPIN {
 		return secret.Strip(merged), nil
@@ -169,11 +168,11 @@ func (a *App) mergedItemForRun(item map[string]any, act config.Action) (map[stri
 	return revealed, err
 }
 
-func (a *App) itemAt(index int) map[string]any {
+func (a *App) itemAt(index int) *config.Item {
 	if index < 0 || index >= len(a.cfg.Items) {
 		return nil
 	}
-	return a.cfg.Items[index]
+	return &a.cfg.Items[index]
 }
 
 type ActionDTO struct {

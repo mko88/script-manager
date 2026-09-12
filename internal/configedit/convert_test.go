@@ -13,7 +13,7 @@ func TestEmptyConfigDTOHasNoNullSlices(t *testing.T) {
 	dto := ToConfigDTO(&config.Config{})
 	assertNoNullSlices(t, "ToConfigDTO(empty)", dto)
 
-	itemDTO := ToItemDTO(map[string]any{})
+	itemDTO := ToItemDTO(config.Item{})
 	assertNoNullSlices(t, "ToItemDTO(empty)", itemDTO)
 
 	issues := ValidateConfig(ConfigDTO{})
@@ -116,11 +116,11 @@ func TestDecodeValueErrors(t *testing.T) {
 	}
 }
 
-func TestFieldsFromMapSortedAndExcludes(t *testing.T) {
-	m := map[string]any{"z": "1", "a": "2", "name": "srv"}
-	fields := FieldsFromMap(m, map[string]bool{"name": true})
+func TestFieldsFromMapSorted(t *testing.T) {
+	m := map[string]any{"z": "1", "a": "2"}
+	fields := FieldsFromMap(m)
 	if len(fields) != 2 || fields[0].Key != "a" || fields[1].Key != "z" {
-		t.Errorf("got %+v, want sorted [a z] with name excluded", fields)
+		t.Errorf("got %+v, want sorted [a z]", fields)
 	}
 }
 
@@ -142,17 +142,19 @@ func TestFieldsToMapPropagatesError(t *testing.T) {
 }
 
 func TestItemDTORoundTrip(t *testing.T) {
-	item := map[string]any{
-		config.KeyName:    "srv1",
-		config.KeyDisplay: "prod",
-		config.KeyActions: []interface{}{"deploy", "logs"},
-		config.KeyCustomActions: []interface{}{
-			map[string]interface{}{"id": "c1", "title": "Custom", "cmd": "echo hi", "groups": []interface{}{"g1"}, "noWait": true, "interactive": true},
+	item := config.Item{
+		Name:    "srv1",
+		Display: "prod",
+		Actions: []string{"deploy", "logs"},
+		CustomActions: []config.Action{
+			{ID: "c1", Title: "Custom", Cmd: "echo hi", Groups: []string{"g1"}, NoWait: true, Interactive: true},
 		},
-		"sshUser":     "root",
-		"port":        22,
-		"verbose":     true,
-		"extraConfig": map[string]interface{}{"k": "v"},
+		Env: map[string]any{
+			"sshUser":     "root",
+			"port":        22,
+			"verbose":     true,
+			"extraConfig": map[string]interface{}{"k": "v"},
+		},
 	}
 
 	dto := ToItemDTO(item)
@@ -179,15 +181,14 @@ func TestItemDTORoundTrip(t *testing.T) {
 	}
 }
 
-func TestFromItemDTOOmitsEmptyReservedKeys(t *testing.T) {
+func TestFromItemDTOLeavesStructuralFieldsZero(t *testing.T) {
 	item, err := FromItemDTO(ItemDTO{Name: "srv1"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, key := range []string{config.KeyDisplay, config.KeyActions, config.KeyActionGroups, config.KeyCustomActions} {
-		if _, ok := item[key]; ok {
-			t.Errorf("expected %q to be omitted, got %+v", key, item)
-		}
+	if item.Display != "" || item.Actions != nil || item.ActionGroups != nil ||
+		item.CustomActions != nil || item.Env != nil {
+		t.Errorf("expected only Name to be set, got %+v", item)
 	}
 }
 
@@ -204,8 +205,8 @@ func TestConfigDTORoundTrip(t *testing.T) {
 		Actions: []config.Action{
 			{ID: "ssh", Title: "SSH", Cmd: "ssh {{.host}}", Groups: []string{"remote"}},
 		},
-		Items: []map[string]any{
-			{config.KeyName: "srv1", "sshUser": "root"},
+		Items: []config.Item{
+			{Name: "srv1", Env: map[string]any{"sshUser": "root"}},
 		},
 	}
 

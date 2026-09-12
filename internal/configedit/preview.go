@@ -21,7 +21,7 @@ var previewMarkdown = goldmark.New(
 func PreviewItem(item ItemDTO, envFields []FieldDTO, displays []DisplayDTO, displayName string, configPath string) (result PreviewDTO) {
 	defer func() { result.MissingFields = nonNil(result.MissingFields) }()
 
-	itemMap, err := FromItemDTO(item)
+	cfgItem, err := FromItemDTO(item)
 	if err != nil {
 		return PreviewDTO{Error: err.Error()}
 	}
@@ -29,7 +29,7 @@ func PreviewItem(item ItemDTO, envFields []FieldDTO, displays []DisplayDTO, disp
 	if err != nil {
 		return PreviewDTO{Error: err.Error()}
 	}
-	merged := secret.Redact(action.Merge(env, itemMap))
+	merged := secret.Redact(action.Merge(env, &cfgItem))
 
 	d := findDisplayDTO(displays, displayName)
 
@@ -75,7 +75,7 @@ func findDisplayDTO(displays []DisplayDTO, name string) DisplayDTO {
 }
 
 func PreviewAction(item ItemDTO, envFields []FieldDTO, act ActionDTO) ActionPreviewDTO {
-	itemMap, err := FromItemDTO(item)
+	cfgItem, err := FromItemDTO(item)
 	if err != nil {
 		return ActionPreviewDTO{Error: err.Error()}
 	}
@@ -83,7 +83,7 @@ func PreviewAction(item ItemDTO, envFields []FieldDTO, act ActionDTO) ActionPrev
 	if err != nil {
 		return ActionPreviewDTO{Error: err.Error()}
 	}
-	merged := secret.Redact(action.Merge(env, itemMap))
+	merged := secret.Redact(action.Merge(env, &cfgItem))
 	return ActionPreviewDTO{
 		Description: action.Preview(act.Description, merged),
 		Cmd:         action.Preview(act.Cmd, merged),

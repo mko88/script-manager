@@ -135,7 +135,8 @@ func glamourRender(r *glamour.TermRenderer, content string) (string, error) {
 type DescriptionTile struct {
 	*tl.BaseTile
 	scrollableContent
-	item          map[string]any
+	item          *config.Item
+	merged        map[string]any
 	displays      []config.DisplayConfig
 	tmpls         map[string]*template.Template
 	configPath    string
@@ -177,8 +178,9 @@ func (t *DescriptionTile) SetConfigPath(path string) {
 	t.configPath = path
 }
 
-func (t *DescriptionTile) SetItem(item map[string]any) {
+func (t *DescriptionTile) SetItem(item *config.Item, merged map[string]any) {
 	t.item = item
+	t.merged = merged
 	t.copyValuesSet = false
 	t.copyIdx = 0
 	t.copyMode = false
@@ -221,7 +223,7 @@ func (t *DescriptionTile) CopyValueLabel() string {
 	}
 	target := t.copyValues[t.copyIdx]
 	var matches []string
-	for k, v := range t.item {
+	for k, v := range t.merged {
 		if fmt.Sprintf("%v", v) == target {
 			matches = append(matches, k)
 		}
@@ -281,12 +283,12 @@ func (t *DescriptionTile) renderItem(innerW, innerH int) []string {
 		return nil
 	}
 
-	data, missing := render.FillMissingFields(tmpl, t.item)
+	data, missing := render.FillMissingFields(tmpl, t.merged)
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
 		return t.plainLines("details template error: "+err.Error(), innerW)
 	}
-	expanded := render.ExpandAllEnv(buf.String(), t.item)
+	expanded := render.ExpandAllEnv(buf.String(), t.merged)
 	expanded = render.ExpandConfigFile(expanded, t.configPath)
 	expanded = render.MissingFieldsWarning(missing) + expanded
 

@@ -47,7 +47,7 @@ func (a *App) SecretsState() SecretsStateDTO {
 		if locked {
 			break
 		}
-		locked = secret.HasLocked(item)
+		locked = secret.HasLocked(item.Env)
 	}
 	return SecretsStateDTO{
 		Configured: a.cfg.Secrets != nil,

@@ -2,7 +2,6 @@ package ui
 
 import (
 	"bytes"
-	"fmt"
 	"strings"
 	"text/template"
 
@@ -78,13 +77,13 @@ func (s *selectableList) renderRows(labels []string, innerW, innerH int, focused
 type ListTile struct {
 	*tl.BaseTile
 	selectableList
-	items    []map[string]any
+	items    []config.Item
 	displays []config.DisplayConfig
 	tmpls    map[string]*template.Template
 	title    string
 }
 
-func newListTile(items []map[string]any, displays []config.DisplayConfig) *ListTile {
+func newListTile(items []config.Item, displays []config.DisplayConfig) *ListTile {
 	t := &ListTile{
 		BaseTile: &tl.BaseTile{
 			Name: "list",
@@ -96,7 +95,7 @@ func newListTile(items []map[string]any, displays []config.DisplayConfig) *ListT
 	return t
 }
 
-func (t *ListTile) SetItems(items []map[string]any, displays []config.DisplayConfig) {
+func (t *ListTile) SetItems(items []config.Item, displays []config.DisplayConfig) {
 	tmpls := make(map[string]*template.Template, len(displays))
 	for _, d := range displays {
 		tmpl, _ := template.New("list").Parse(d.List)
@@ -115,15 +114,15 @@ func (t *ListTile) SetItems(items []map[string]any, displays []config.DisplayCon
 	}
 }
 
-func (t *ListTile) renderLabel(item map[string]any) string {
+func (t *ListTile) renderLabel(item *config.Item) string {
 	d := config.FindDisplay(t.displays, item)
 	tmpl := t.tmpls[d.Name]
 	if tmpl == nil {
-		return fmt.Sprint(item[config.KeyName])
+		return item.Name
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, item); err != nil {
-		return fmt.Sprint(item[config.KeyName])
+	if err := tmpl.Execute(&buf, item.Values()); err != nil {
+		return item.Name
 	}
 	return buf.String()
 }
@@ -148,8 +147,8 @@ func (t *ListTile) View() string {
 	}
 
 	labels := make([]string, len(t.items))
-	for i, item := range t.items {
-		labels[i] = t.renderLabel(item)
+	for i := range t.items {
+		labels[i] = t.renderLabel(&t.items[i])
 	}
 
 	rows := t.renderRows(labels, innerW, innerH, t.IsFocused())
@@ -159,9 +158,9 @@ func (t *ListTile) View() string {
 func (t *ListTile) MoveUp()   { t.moveUp() }
 func (t *ListTile) MoveDown() { t.moveDown(len(t.items)) }
 
-func (t *ListTile) Selected() map[string]any {
+func (t *ListTile) Selected() *config.Item {
 	if t.selected >= 0 && t.selected < len(t.items) {
-		return t.items[t.selected]
+		return &t.items[t.selected]
 	}
 	return nil
 }

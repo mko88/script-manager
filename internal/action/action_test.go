@@ -1,14 +1,17 @@
 package action
 
 import (
+	"reflect"
 	"slices"
 	"strings"
 	"testing"
+
+	"script-manager/internal/config"
 )
 
 func TestMerge(t *testing.T) {
 	env := map[string]any{"region": "eu", "user": "admin"}
-	item := map[string]any{"user": "bob", "host": "srv1"}
+	item := &config.Item{Env: map[string]any{"user": "bob", "host": "srv1"}}
 
 	merged := Merge(env, item)
 
@@ -22,7 +25,7 @@ func TestMerge(t *testing.T) {
 		t.Errorf("merged has %d keys, want %d", len(merged), len(want))
 	}
 
-	if env["user"] != "admin" || item["region"] != nil {
+	if env["user"] != "admin" || item.Env["region"] != nil {
 		t.Error("Merge mutated an input map")
 	}
 }
@@ -33,6 +36,39 @@ func TestMergeNilInputs(t *testing.T) {
 	}
 	if got := Merge(map[string]any{"a": 1}, nil); got["a"] != 1 {
 		t.Errorf("Merge(env, nil) lost env key: %v", got)
+	}
+}
+
+func TestMergePrecedence(t *testing.T) {
+	global := map[string]any{"region": "eu", "sshUser": "global"}
+	item := &config.Item{
+		Name:    "srv1",
+		Display: "prod",
+		Actions: []string{"ssh"},
+		Env:     map[string]any{"sshUser": "root"},
+	}
+	got := Merge(global, item)
+	want := map[string]any{"region": "eu", "sshUser": "root", "name": "srv1"}
+	if !reflect.DeepEqual(got, want) {
+		t.Errorf("Merge() = %v, want %v", got, want)
+	}
+}
+
+func TestEnvOmitsStructuralKeys(t *testing.T) {
+	merged := Merge(nil, &config.Item{
+		Name:          "srv1",
+		Display:       "prod",
+		Actions:       []string{"ssh"},
+		ActionGroups:  []string{"remote"},
+		CustomActions: []config.Action{{Title: "x"}},
+		Env:           map[string]any{"sshUser": "root"},
+	})
+	for _, line := range Env(merged) {
+		for _, banned := range []string{"DISPLAY=", "ACTIONS=", "ACTIONGROUPS=", "CUSTOMACTIONS="} {
+			if strings.HasPrefix(line, banned) {
+				t.Errorf("Env() exported %q", line)
+			}
+		}
 	}
 }
 

@@ -26,7 +26,7 @@ func lockedConfig(t *testing.T, pin, plaintext string) (*config.Config, []byte) 
 			{ID: "needs-pin", Title: "Needs PIN", Cmd: "echo $PASSWORD", RequiresPIN: true},
 			{ID: "no-pin", Title: "No PIN", Cmd: "echo $PASSWORD"},
 		},
-		Items: []map[string]any{{"name": "one", "password": enc, "host": "example"}},
+		Items: []config.Item{{Name: "one", Env: map[string]any{"password": enc, "host": "example"}}},
 	}, key
 }
 
@@ -38,7 +38,7 @@ func TestActionWithoutRequiresPINLeavesLockedValuesUnset(t *testing.T) {
 		t.Error("ActionNeedsUnlock() = true for an action that doesn't require a PIN")
 	}
 
-	merged, err := a.mergedItemForRun(cfg.Items[0], cfg.Actions[plainAction])
+	merged, err := a.mergedItemForRun(&cfg.Items[0], cfg.Actions[plainAction])
 	if err != nil {
 		t.Fatalf("mergedItemForRun() error = %v, want no error without a PIN", err)
 	}
@@ -57,7 +57,7 @@ func TestActionWithRequiresPINNeedsUnlockThenDecrypts(t *testing.T) {
 	if !a.ActionNeedsUnlock(0, pinAction) {
 		t.Fatal("ActionNeedsUnlock() = false for a PIN-requiring action with a locked value")
 	}
-	if _, err := a.mergedItemForRun(cfg.Items[0], cfg.Actions[pinAction]); err != secret.ErrLocked {
+	if _, err := a.mergedItemForRun(&cfg.Items[0], cfg.Actions[pinAction]); err != secret.ErrLocked {
 		t.Errorf("mergedItemForRun() before unlocking = %v, want ErrLocked", err)
 	}
 
@@ -68,7 +68,7 @@ func TestActionWithRequiresPINNeedsUnlockThenDecrypts(t *testing.T) {
 		t.Error("ActionNeedsUnlock() = true after unlocking")
 	}
 
-	merged, err := a.mergedItemForRun(cfg.Items[0], cfg.Actions[pinAction])
+	merged, err := a.mergedItemForRun(&cfg.Items[0], cfg.Actions[pinAction])
 	if err != nil {
 		t.Fatalf("mergedItemForRun() after unlocking error = %v", err)
 	}
@@ -81,7 +81,7 @@ func TestUnlockingNeverRevealsLockedValuesToTheDisplay(t *testing.T) {
 	cfg, _ := lockedConfig(t, "demo1234", "hunter2")
 	a := &App{cfg: cfg}
 
-	if got := a.mergedItem(cfg.Items[0])["password"]; got != secret.LockedDisplayText {
+	if got := a.mergedItem(&cfg.Items[0])["password"]; got != secret.LockedDisplayText {
 		t.Errorf("locked value before unlocking = %v, want %q", got, secret.LockedDisplayText)
 	}
 
@@ -89,7 +89,7 @@ func TestUnlockingNeverRevealsLockedValuesToTheDisplay(t *testing.T) {
 		t.Fatalf("UnlockSecrets() error = %v", err)
 	}
 
-	got := a.mergedItem(cfg.Items[0])["password"]
+	got := a.mergedItem(&cfg.Items[0])["password"]
 	if got == "hunter2" {
 		t.Fatal("an unlocked session showed the decrypted value to the templates; locked values must never render as plaintext")
 	}
@@ -99,7 +99,7 @@ func TestUnlockingNeverRevealsLockedValuesToTheDisplay(t *testing.T) {
 
 	// The run path is the only route to the plaintext, and only for an
 	// action that asked for it.
-	merged, err := a.mergedItemForRun(cfg.Items[0], cfg.Actions[pinAction])
+	merged, err := a.mergedItemForRun(&cfg.Items[0], cfg.Actions[pinAction])
 	if err != nil {
 		t.Fatalf("mergedItemForRun() error = %v", err)
 	}
@@ -155,7 +155,7 @@ func TestStaleKeyIsDroppedWhenDecryptionFails(t *testing.T) {
 	a.secretKey = firstKey
 	a.secretParams = second.Secrets
 
-	if _, err := a.mergedItemForRun(second.Items[0], second.Actions[pinAction]); err == nil {
+	if _, err := a.mergedItemForRun(&second.Items[0], second.Actions[pinAction]); err == nil {
 		t.Fatal("expected decryption with a foreign key to fail")
 	}
 	if a.SecretsState().Unlocked {
@@ -165,7 +165,7 @@ func TestStaleKeyIsDroppedWhenDecryptionFails(t *testing.T) {
 
 func TestActionNeedsUnlockOnlyWhenSomethingIsLocked(t *testing.T) {
 	cfg, _ := lockedConfig(t, "demo1234", "secret")
-	cfg.Items = append(cfg.Items, map[string]any{"name": "plain", "password": "not-locked"})
+	cfg.Items = append(cfg.Items, config.Item{Name: "plain", Env: map[string]any{"password": "not-locked"}})
 
 	a := &App{cfg: cfg}
 

@@ -14,7 +14,7 @@ func inlineTestApp(actions ...config.Action) *App {
 	return NewApp(func() (*config.Config, error) {
 		return &config.Config{
 			Shell:   []string{"bash", "-c"},
-			Items:   []map[string]any{{"name": "test"}},
+			Items:   []config.Item{{Name: "test"}},
 			Actions: actions,
 		}, nil
 	})
