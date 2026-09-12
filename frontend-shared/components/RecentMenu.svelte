@@ -86,8 +86,7 @@
 
 <style>
   .recent-menu {
-    /* Both apps put this in a frameless window's draggable titlebar, where
-       an inherited drag region swallows the popover's hover and clicks. */
+    /* The titlebar's drag region would swallow the popover's clicks. */
     --wails-draggable: no-drag;
     position: relative;
     display: inline-flex;
@@ -103,7 +102,6 @@
     padding: 6px;
     border: 1px solid var(--sm-border);
     border-radius: 6px;
-    /* The panel-body ground the .row entries below are drawn to sit on. */
     background: var(--sm-bg-alt);
     box-shadow: 0 4px 12px var(--sm-shadow);
   }
@@ -130,8 +128,7 @@
     list-style: none;
   }
 
-  /* The rest comes from the global .list/.row pair, so an entry looks like a
-     row in the item lists these apps are built out of. */
+  /* The rest of an entry comes from the global .list/.row pair. */
   .recent-item {
     white-space: nowrap;
     overflow: hidden;

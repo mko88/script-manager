@@ -72,9 +72,7 @@
   onMount(() => EventsOn('config:changed', onConfigFileChanged))
   onMount(() => EventsOn('script:changed', reloadActionDetail))
 
-  // Follows whatever script the Command pane is showing, so an edit made
-  // outside the app — including from the button beside the path — refreshes
-  // it in place.
+  // Refreshes the pane when the script is edited outside the app.
   $: WatchScript(actionDetail?.script ?? '')
 
   async function reloadActionDetail() {
@@ -123,18 +121,12 @@
 
   $: missingFields = details?.missingFields ?? []
 
-  // The OUTPUT section belongs to inline running, so it is shown for any
-  // action that can run inline — before the first run too, where it stands
-  // collapsed as a reminder that the pane is there.
   $: canRunInline = !!actionDetail && !actionDetail.interactive && !!(actionDetail.cmd || actionDetail.script)
   $: hasInlineOutput = inlineRunning || !!inlineOutput || inlineExitCode !== null
 
-  // Which section is open follows the selected action's own run state, so it
-  // never carries over from the action looked at before: OUTPUT opens once
-  // there is something to watch, and COMMAND yields to it only then. A run
-  // that printed nothing therefore leaves COMMAND open, as does an action
-  // that can't run inline at all. Toggling a header overrides this until the
-  // selection changes — the overrides are deliberately not persisted.
+  // Follows the selected action's own run state, so nothing carries over
+  // from the action before it. A header click overrides until the selection
+  // changes; not persisted.
   $: cmdSectionCollapsed = cmdCollapsedOverride ?? (inlineRunning || !!inlineOutput)
   $: outputSectionCollapsed = outputCollapsedOverride ?? !hasInlineOutput
 
@@ -172,8 +164,6 @@
     resetCommandPaneSections()
   }
 
-  // Drops a manual collapse/expand of the COMMAND and OUTPUT sections, so the
-  // next selection opens whichever section has something to show.
   function resetCommandPaneSections() {
     cmdCollapsedOverride = null
     outputCollapsedOverride = null
@@ -211,9 +201,6 @@
     copyValue(Number(target.dataset.copyIdx))
   }
 
-  // What the pane is showing: a script's contents when they could be read,
-  // the command otherwise, and the path only when the file wouldn't open —
-  // where the path is the useful thing to have.
   async function openScriptInEditor() {
     if (!actionDetail?.script) return
     try {
@@ -223,6 +210,8 @@
     }
   }
 
+  // Copies what the pane shows: the script's contents, or its path when the
+  // file wouldn't open.
   function copyCmd() {
     const value = actionDetail?.scriptContent || actionDetail?.cmd || actionDetail?.script
     if (!value) return
@@ -279,9 +268,6 @@
   function runActionInline() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
     withUnlocked(() => {
-      // Hand both sections back to the run: the output is what you want to
-      // watch once it starts, and the command is what you just read to decide
-      // to run it.
       resetCommandPaneSections()
       startInlineRun(selectedItem, selectedActionIndex)
     })
@@ -1001,9 +987,7 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    /* Plain px from setRootHeight in frontend-shared/uiprefs.ts, because a
-       viewport unit inside the zoomed subtree means different things in
-       WebView2 and WebKitGTK. 100vh is the unscaled fallback. */
+    /* Set by setRootHeight in frontend-shared/uiprefs.ts. */
     height: var(--sm-root-height, 100vh);
   }
 

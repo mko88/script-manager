@@ -18,15 +18,9 @@ export function applyUIPrefs(prefs: UIPrefs): void {
 
 let scale = 1
 
-// The interface is scaled with CSS zoom (see theme.css), which leaves the
-// app root needing a height of exactly one window. A viewport unit can't
-// express that: WebView2 and WebKitGTK disagree on whether 100vh inside a
-// zoomed element already counts the zoom, so whichever way the height is
-// written, one of them ends up with scrollbars and the other with dead
-// space below the app. What they do agree on is the zoom itself — a length
-// inside the subtree renders scale times as large — so state the height as
-// the plain px the root is allowed to occupy, pre-divided, and let the zoom
-// bring it back to one window.
+// The app root is zoomed (see theme.css) and must still be one window tall.
+// In px, pre-divided: WebView2 and WebKitGTK disagree on what a viewport
+// unit means inside a zoomed element, but not on what zoom does to a length.
 function setRootHeight(): void {
   const root = document.documentElement
   root.style.setProperty('--sm-root-height', `${root.clientHeight / scale}px`)

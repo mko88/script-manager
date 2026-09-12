@@ -668,9 +668,7 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    /* Plain px from setRootHeight in frontend-shared/uiprefs.ts, because a
-       viewport unit inside the zoomed subtree means different things in
-       WebView2 and WebKitGTK. 100vh is the unscaled fallback. */
+    /* Set by setRootHeight in frontend-shared/uiprefs.ts. */
     height: var(--sm-root-height, 100vh);
   }
 
