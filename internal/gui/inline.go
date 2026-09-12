@@ -38,7 +38,10 @@ func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup
 	if act.Interactive {
 		return nil, nil, fmt.Errorf("this action is interactive and needs a real terminal")
 	}
-	merged := a.mergedItem(item)
+	merged, err := a.mergedItemForRun(item, act)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	if len(a.cfg.Shell) == 0 {
 		return nil, nil, fmt.Errorf("no shell configured")

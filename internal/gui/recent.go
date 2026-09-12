@@ -19,7 +19,7 @@ func (a *App) LoadRecentConfig(path string) error {
 		recent.Remove(a.appDataDir, path)
 		return err
 	}
-	a.cfg = cfg
+	a.setConfig(cfg)
 	a.load = func() (*config.Config, error) { return config.LoadFromWithError(path) }
 	recent.Add(a.appDataDir, cfg.SourcePath)
 	return nil

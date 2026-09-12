@@ -18,7 +18,18 @@ import (
 type actionFinishedMsg struct{ err error }
 
 func (a *App) execAction(act config.Action) tea.Cmd {
-	merged := a.MergedItem()
+	if a.needsUnlock(act) {
+		return a.startPINPrompt(act)
+	}
+
+	item := a.list.Selected()
+	if item == nil {
+		return nil
+	}
+	merged, err := a.mergedItemForRun(item, act)
+	if err != nil {
+		return a.flashMessage("Locked values need a PIN: "+err.Error(), 3*time.Second)
+	}
 
 	if len(a.cfg.Shell) == 0 {
 		return a.flashMessage("No shell configured", 3*time.Second)

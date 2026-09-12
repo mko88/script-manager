@@ -9,17 +9,20 @@ import (
 	"script-manager/internal/appdata"
 	"script-manager/internal/config"
 	"script-manager/internal/recent"
+	"script-manager/internal/secret"
 	"script-manager/internal/terminal"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type App struct {
-	ctx        context.Context
-	cfgPath    string
-	cfg        *config.Config
-	path       string
-	appDataDir string
+	ctx          context.Context
+	cfgPath      string
+	cfg          *config.Config
+	path         string
+	appDataDir   string
+	secretKey    []byte
+	secretParams *secret.Params
 }
 
 func NewApp(cfgPath string) *App {
@@ -31,6 +34,10 @@ func (a *App) Startup(ctx context.Context) {
 }
 
 func (a *App) stateFor(cfg *config.Config) StateDTO {
+	if !secret.SameParams(a.secretParams, cfg.Secrets) {
+		a.secretKey = nil
+		a.secretParams = nil
+	}
 	a.cfg = cfg
 	a.path = cfg.SourcePath
 	recent.Add(a.appDataDir, cfg.SourcePath)
@@ -61,6 +68,8 @@ func (a *App) NewBlank() StateDTO {
 	}
 	a.cfg = cfg
 	a.path = ""
+	a.secretKey = nil
+	a.secretParams = nil
 	return StateDTO{Config: ToConfigDTO(cfg)}
 }
 

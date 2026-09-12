@@ -14,8 +14,16 @@ export function BrowseScriptFile() {
   return window['go']['configedit']['App']['BrowseScriptFile']();
 }
 
+export function ChangeSecretsPIN(arg1, arg2, arg3) {
+  return window['go']['configedit']['App']['ChangeSecretsPIN'](arg1, arg2, arg3);
+}
+
 export function ClearRecentConfigs() {
   return window['go']['configedit']['App']['ClearRecentConfigs']();
+}
+
+export function CreateSecretsPIN(arg1) {
+  return window['go']['configedit']['App']['CreateSecretsPIN'](arg1);
 }
 
 export function DataFolderPath() {
@@ -50,6 +58,14 @@ export function KnownTerminals() {
   return window['go']['configedit']['App']['KnownTerminals']();
 }
 
+export function LockSecrets() {
+  return window['go']['configedit']['App']['LockSecrets']();
+}
+
+export function LockValue(arg1) {
+  return window['go']['configedit']['App']['LockValue'](arg1);
+}
+
 export function NewBlank() {
   return window['go']['configedit']['App']['NewBlank']();
 }
@@ -82,6 +98,14 @@ export function RecentConfigs() {
   return window['go']['configedit']['App']['RecentConfigs']();
 }
 
+export function RemoveSecretsPIN(arg1, arg2) {
+  return window['go']['configedit']['App']['RemoveSecretsPIN'](arg1, arg2);
+}
+
+export function RevealValue(arg1) {
+  return window['go']['configedit']['App']['RevealValue'](arg1);
+}
+
 export function Save(arg1, arg2) {
   return window['go']['configedit']['App']['Save'](arg1, arg2);
 }
@@ -94,8 +118,16 @@ export function SaveTheme(arg1, arg2, arg3) {
   return window['go']['configedit']['App']['SaveTheme'](arg1, arg2, arg3);
 }
 
+export function SecretsState(arg1) {
+  return window['go']['configedit']['App']['SecretsState'](arg1);
+}
+
 export function SetTheme(arg1) {
   return window['go']['configedit']['App']['SetTheme'](arg1);
+}
+
+export function UnlockSecrets(arg1, arg2) {
+  return window['go']['configedit']['App']['UnlockSecrets'](arg1, arg2);
 }
 
 export function ValidateConfig(arg1) {

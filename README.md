@@ -222,6 +222,30 @@ details: |
 
 The Details pane shows `••••••` instead of the real value. When you enter copy mode and select that row, pressing `Enter` copies the actual secret to the clipboard — it is never displayed.
 
+#### PIN-locked values
+
+Masking only hides a value on screen — the value itself still sits in `config.yaml` in plain text. A value can instead be **locked behind a PIN**, so the config file holds only the encrypted form.
+
+Set the PIN first, in the Config Editor's **PIN** section — it shows whether a PIN is set and how many values are locked, and is where you change or remove it later. All three need the current PIN, and take effect on the next Save:
+
+- **Change PIN** re-encrypts every locked value in the config in one step.
+- **Remove PIN** decrypts every locked value and leaves it marked secret, so it stays masked on screen — but it is then stored in `config.yaml` as plain text.
+
+Then click the padlock next to any environment variable, global or per-item, to encrypt it in place. A locked field shows `••••••`, is read-only, and the padlock reveals it again after you enter the PIN. Clicking the padlock before a PIN exists takes you to the PIN section instead.
+
+Which actions may use locked values is per action: tick **Requires PIN** on an action in the Config Editor (`requiresPin: true` in YAML).
+
+- **Requires PIN on** — running the action asks for the PIN first (a dialog in `script-manager-gui`, a prompt in the TUI), then passes the decrypted values to the script as normal environment variables.
+- **Requires PIN off** — the action runs with no prompt, and every PIN-locked variable is simply **not set**. A script that reads one gets an empty value. Nothing warns you: knowing which of your scripts need which variables is up to you.
+
+One PIN covers every locked value in a config, and stays unlocked until you close the app or load a different config; reloading the same one (F5) keeps it unlocked. Locked values render as `(locked)` in the Details pane until you enter the PIN.
+
+What this protects against: someone reading your `config.yaml`, or the file ending up in a backup, a sync folder, or a repository. What it does **not** protect against: anything that can already run code as you while the app is unlocked. Choose a PIN you would choose for a password, not a 4-digit number — a short numeric PIN can be guessed offline by anyone holding the file, and the deliberately slow key derivation only buys time.
+
+**There is no recovery.** Forgetting the PIN means re-entering every value it locked.
+
+A ready-made demo lives in [`examples/`](examples/) — a config with locked and unlocked values side by side, PIN `demo1234`.
+
 #### Multi-line values
 
 If a backtick-wrapped value (`` `{{.field}}` ``) spans multiple lines (e.g. a certificate), the Details pane shows a placeholder like `` `(6-line value)` `` instead of the content. Pressing `Enter` in copy mode (or clicking it in the GUI) copies the real, full value to the clipboard, and in the GUI hovering shows it in a tooltip (a `{{mask ...}}` value never does — it's an actual secret).
@@ -380,10 +404,11 @@ The Windows GUI binaries are cross-compiled from Linux; only the `mingw-w64` C c
 `sm-config-edit` is a second desktop app for creating or editing `config.yaml` through forms instead of hand-writing YAML.
 
 - **New / Open / Save / Save As** (Ctrl+N/O/S/Shift+S). **Open** drops down the last 10 configs opened, by full path, with **Browse…** and **Clear recent** below — the same list `script-manager-gui` shows, so a config opened in either app appears in both. On launch it auto-detects the same config file the TUI/GUI would; finding nothing just starts blank. Save also covers the Theme and Messages sections while one of them is open. Toolbar buttons on the far right open the app-data directory in your file manager or the config file in your default editor.
-- **Sections**: Items, Action Groups, Actions, Displays, Environment, Shell, Terminal, Theme, Messages — one form per top-level `config.yaml` concern (Theme and Messages live outside `config.yaml` — see below). Item fields get type-appropriate editors, with a lock button to mark a field secret (auto-enabled for key names like "Password"); secret values stay hidden until focused. Actions switch between **Command** and **Script file** mode; Script file mode has a **Browse…** button and a preview of the file's source.
+- **Sections**: Items, Action Groups, Actions, Displays, Environment, Shell, Terminal, PIN, Theme, Messages — one form per top-level `config.yaml` concern (Theme and Messages live outside `config.yaml` — see below). Item fields get type-appropriate editors, with a lock button to mark a field secret (auto-enabled for key names like "Password"); secret values stay hidden until focused. Actions switch between **Command** and **Script file** mode; Script file mode has a **Browse…** button and a preview of the file's source.
 - **Reordering**: Items, Action Groups, and Actions can be drag-and-drop reordered (toggle with the grip icon button) — the order is what ends up in `config.yaml` and what the TUI/GUI display.
 - **Duplicating**: with an Item, Action Group, or Action selected, the copy button in that section's toolbar duplicates it in full — environment fields, custom actions, and group memberships included — and selects the new entry, placed directly below the original. Displays and Themes have the same copy button, adding their duplicate at the end of the list. Names and titles get a `" - Copy"` suffix ("Server" → "Server - Copy", then "Server - Copy 2"); actions and action groups also get a fresh id (`ssh` → `ssh-copy`), so the duplicate doesn't collide with the original. The copy is a fresh entry: nothing that referenced the original refers to it.
 - **Live preview**: with an item selected, its rendered list label, details, and any action's expanded command update as you type — no save needed. The Displays section previews templates against any item, with edit/preview/split view modes; an **Insert env…** dropdown inserts any available variable at the cursor, and formatting buttons wrap the selection in bold, italic, highlight, or `{{mask ...}}` markup.
+- **PIN-locked values**: the padlock next to an environment variable encrypts it with the config's PIN, so `config.yaml` stores only the ciphertext — see [PIN-locked values](#pin-locked-values).
 - **Validation**: duplicate global action IDs block Save; duplicate item names and an item referencing a display/action/group that doesn't exist are shown as non-blocking warnings.
 - **Themes** *(Theme section)*: pick a theme from the dropdown to apply it immediately, everywhere; **Add** / **Copy** / **Delete** / **Reset** manage custom themes (the built-in Dark/Light are read-only). Every color the apps use is editable, with a live preview panel — click any preview element to filter the field list to just the colors it uses. Saved themes are shared with `script-manager-gui` (see [Theme](#theme) above).
 - **Messages**: every piece of UI text in *either* GUI app — toasts, tooltips, labels, empty states — can be customized. A tab per app picks which one you're editing, and a search box filters by key or text. A customized message gets a restore button to reset just that one; **Restore defaults** resets everything. Changes are written by the global Save and take effect the next time the edited app is launched; customizations survive upgrades.

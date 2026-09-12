@@ -25,7 +25,7 @@ func (a *App) BrowseConfig() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	a.cfg = cfg
+	a.setConfig(cfg)
 	a.load = func() (*config.Config, error) { return config.LoadFromWithError(path) }
 	recent.Add(a.appDataDir, cfg.SourcePath)
 	return path, nil

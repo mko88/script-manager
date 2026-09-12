@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"script-manager/internal/secret"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -103,6 +105,62 @@ func TestActionGroupsMarshal(t *testing.T) {
 		}
 		if !reflect.DeepEqual(cfg.ActionGroups, reloaded.ActionGroups) {
 			t.Errorf("round trip = %+v, want %+v\nyaml:\n%s", reloaded.ActionGroups, cfg.ActionGroups, out)
+		}
+	})
+}
+
+func TestSecretsMarshal(t *testing.T) {
+	t.Run("nil omits the key entirely", func(t *testing.T) {
+		cfg := &Config{Shell: []string{"bash"}}
+		out, err := cfg.Marshal()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(out), "secrets") {
+			t.Errorf("expected no secrets: key for a config with no PIN, got:\n%s", out)
+		}
+	})
+
+	t.Run("round trips the KDF parameters and the encrypted value", func(t *testing.T) {
+		params, key, err := secret.NewParams("1234")
+		if err != nil {
+			t.Fatal(err)
+		}
+		enc, err := secret.Encrypt(key, "hunter2")
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg := &Config{
+			Secrets: &params,
+			Env:     map[string]any{"password": enc},
+		}
+
+		out, err := cfg.Marshal()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(out), "hunter2") {
+			t.Errorf("the plaintext leaked into the saved YAML:\n%s", out)
+		}
+
+		var reloaded Config
+		if err := yaml.Unmarshal(out, &reloaded); err != nil {
+			t.Fatal(err)
+		}
+		if reloaded.Secrets == nil || !reflect.DeepEqual(*reloaded.Secrets, params) {
+			t.Fatalf("secrets round trip = %+v, want %+v\nyaml:\n%s", reloaded.Secrets, params, out)
+		}
+
+		reloadedKey, err := reloaded.Secrets.Unlock("1234")
+		if err != nil {
+			t.Fatalf("Unlock() after a round trip failed: %v", err)
+		}
+		got, err := secret.Decrypt(reloadedKey, reloaded.Env["password"].(string))
+		if err != nil {
+			t.Fatalf("Decrypt() after a round trip failed: %v", err)
+		}
+		if got != "hunter2" {
+			t.Errorf("decrypted value = %q, want %q", got, "hunter2")
 		}
 	})
 }

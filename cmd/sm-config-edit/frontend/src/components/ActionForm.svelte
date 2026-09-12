@@ -14,6 +14,7 @@
     groups: string[]
     noWait: boolean
     interactive: boolean
+    requiresPin: boolean
   }
   export let showId = true
   export let allActionGroups: string[] = []
@@ -106,6 +107,10 @@
   <label class="field-checkbox">
     <input type="checkbox" bind:checked={action.interactive} />
     <span>{t('hint.interactiveCheckbox')}</span>
+  </label>
+  <label class="field-checkbox">
+    <input type="checkbox" bind:checked={action.requiresPin} />
+    <span>{t('hint.requiresPinCheckbox')}</span>
   </label>
 </div>
 

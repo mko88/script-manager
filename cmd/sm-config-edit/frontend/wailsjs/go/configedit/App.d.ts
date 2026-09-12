@@ -9,7 +9,11 @@ export function BrowseSaveAs():Promise<string>;
 
 export function BrowseScriptFile():Promise<string>;
 
+export function ChangeSecretsPIN(arg1:string,arg2:string,arg3:configedit.ConfigDTO):Promise<configedit.ConfigDTO>;
+
 export function ClearRecentConfigs():Promise<Array<string>>;
+
+export function CreateSecretsPIN(arg1:string):Promise<configedit.SecretsDTO>;
 
 export function DataFolderPath():Promise<string>;
 
@@ -27,6 +31,10 @@ export function InitialState():Promise<configedit.StateDTO>;
 
 export function KnownTerminals():Promise<Array<string>>;
 
+export function LockSecrets():Promise<void>;
+
+export function LockValue(arg1:string):Promise<string>;
+
 export function NewBlank():Promise<configedit.StateDTO>;
 
 export function OpenDataFolder():Promise<void>;
@@ -43,13 +51,21 @@ export function PreviewScriptFile(arg1:string):Promise<configedit.ScriptPreviewD
 
 export function RecentConfigs():Promise<Array<string>>;
 
+export function RemoveSecretsPIN(arg1:string,arg2:configedit.ConfigDTO):Promise<configedit.ConfigDTO>;
+
+export function RevealValue(arg1:string):Promise<string>;
+
 export function Save(arg1:configedit.ConfigDTO,arg2:string):Promise<configedit.SaveResultDTO>;
 
 export function SaveMessages(arg1:string,arg2:Record<string, any>):Promise<void>;
 
 export function SaveTheme(arg1:string,arg2:string,arg3:Record<string, string>):Promise<void>;
 
+export function SecretsState(arg1:configedit.SecretsDTO):Promise<configedit.SecretsStateDTO>;
+
 export function SetTheme(arg1:string):Promise<void>;
+
+export function UnlockSecrets(arg1:string,arg2:configedit.SecretsDTO):Promise<void>;
 
 export function ValidateConfig(arg1:configedit.ConfigDTO):Promise<Array<configedit.ValidationIssueDTO>>;
 

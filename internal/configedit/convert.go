@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"script-manager/internal/config"
+	"script-manager/internal/secret"
 
 	"gopkg.in/yaml.v3"
 )
@@ -87,8 +88,9 @@ func FieldsFromMap(m map[string]any, exclude map[string]bool) []FieldDTO {
 
 	fields := make([]FieldDTO, 0, len(keys))
 	for _, k := range keys {
-		kind, value, secret := classifyValue(k, m[k])
-		fields = append(fields, FieldDTO{Key: k, Kind: kind, Value: value, Secret: secret})
+		kind, value, isSecret := classifyValue(k, m[k])
+		locked := secret.IsLocked(value)
+		fields = append(fields, FieldDTO{Key: k, Kind: kind, Value: value, Secret: isSecret || locked, Locked: locked})
 	}
 	return fields
 }
@@ -133,6 +135,7 @@ func actionToDTO(a config.Action) ActionDTO {
 		Groups:      nonNil(append([]string(nil), a.Groups...)),
 		NoWait:      a.NoWait,
 		Interactive: a.Interactive,
+		RequiresPIN: a.RequiresPIN,
 	}
 }
 
@@ -146,6 +149,7 @@ func actionFromDTO(dto ActionDTO) config.Action {
 		Groups:      append([]string(nil), dto.Groups...),
 		NoWait:      dto.NoWait,
 		Interactive: dto.Interactive,
+		RequiresPIN: dto.RequiresPIN,
 	}
 }
 
@@ -176,6 +180,9 @@ func actionDTOToMap(a ActionDTO) map[string]any {
 	}
 	if a.Interactive {
 		m["interactive"] = true
+	}
+	if a.RequiresPIN {
+		m["requiresPin"] = true
 	}
 	return m
 }
@@ -268,6 +275,7 @@ func terminalFromDTO(dto TerminalDTO) config.TerminalConfig {
 
 func ToConfigDTO(cfg *config.Config) ConfigDTO {
 	dto := ConfigDTO{
+		Secrets:      secretsToDTO(cfg.Secrets),
 		Shell:        nonNil(append([]string(nil), cfg.Shell...)),
 		Terminal:     terminalToDTO(cfg.Terminal),
 		EnvFields:    FieldsFromMap(cfg.Env, nil),
@@ -293,6 +301,7 @@ func ToConfigDTO(cfg *config.Config) ConfigDTO {
 
 func FromConfigDTO(dto ConfigDTO) (*config.Config, error) {
 	cfg := &config.Config{
+		Secrets:  secretsFromDTO(dto.Secrets),
 		Shell:    append([]string(nil), dto.Shell...),
 		Terminal: terminalFromDTO(dto.Terminal),
 	}

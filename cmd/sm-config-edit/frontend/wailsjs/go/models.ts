@@ -9,6 +9,7 @@ export namespace configedit {
 	    groups: string[];
 	    noWait: boolean;
 	    interactive: boolean;
+	    requiresPin: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ActionDTO(source);
@@ -24,6 +25,7 @@ export namespace configedit {
 	        this.groups = source["groups"];
 	        this.noWait = source["noWait"];
 	        this.interactive = source["interactive"];
+	        this.requiresPin = source["requiresPin"];
 	    }
 	}
 	export class ActionGroupDTO {
@@ -105,6 +107,7 @@ export namespace configedit {
 	    kind: string;
 	    value: string;
 	    secret: boolean;
+	    locked: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new FieldDTO(source);
@@ -116,6 +119,7 @@ export namespace configedit {
 	        this.kind = source["kind"];
 	        this.value = source["value"];
 	        this.secret = source["secret"];
+	        this.locked = source["locked"];
 	    }
 	}
 	export class TerminalDTO {
@@ -150,7 +154,28 @@ export namespace configedit {
 	        this.details = source["details"];
 	    }
 	}
+	export class SecretsDTO {
+	    salt: string;
+	    time: number;
+	    memory: number;
+	    threads: number;
+	    check: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new SecretsDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.salt = source["salt"];
+	        this.time = source["time"];
+	        this.memory = source["memory"];
+	        this.threads = source["threads"];
+	        this.check = source["check"];
+	    }
+	}
 	export class ConfigDTO {
+	    secrets?: SecretsDTO;
 	    shell: string[];
 	    display: DisplayDTO[];
 	    terminal: TerminalDTO;
@@ -165,6 +190,7 @@ export namespace configedit {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.secrets = this.convertValues(source["secrets"], SecretsDTO);
 	        this.shell = source["shell"];
 	        this.display = this.convertValues(source["display"], DisplayDTO);
 	        this.terminal = this.convertValues(source["terminal"], TerminalDTO);
@@ -237,6 +263,21 @@ export namespace configedit {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.content = source["content"];
 	        this.error = source["error"];
+	    }
+	}
+	
+	export class SecretsStateDTO {
+	    configured: boolean;
+	    unlocked: boolean;
+	
+	    static createFrom(source: any = {}) {
+	        return new SecretsStateDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.configured = source["configured"];
+	        this.unlocked = source["unlocked"];
 	    }
 	}
 	export class StateDTO {
