@@ -2,6 +2,7 @@
   import { t } from '../messages'
   import { looksLikeSecretKey } from '../secretKey'
   import IconButton from '@shared/components/IconButton.svelte'
+  import CodeMirror from '@shared/components/CodeMirror.svelte'
 
   export let fields: { key: string; kind: string; value: string; secret: boolean; locked?: boolean }[] = []
   export let validateField: (kind: string, value: string) => Promise<string> = async () => ''
@@ -78,6 +79,16 @@
           <option value="true">true</option>
           <option value="false">false</option>
         </select>
+      {:else if fields[i].kind === 'yaml' && !fields[i].secret}
+        <div class="field-value field-value-yaml">
+          <CodeMirror
+            bind:value={fields[i].value}
+            language="yaml"
+            minHeight="3.2em"
+            maxHeight="220px"
+            onChange={() => check(i)}
+          />
+        </div>
       {:else if fields[i].kind === 'yaml'}
         <textarea
           class="field-value field-value-yaml"
@@ -88,6 +99,15 @@
           on:focus={() => (focused = { ...focused, [i]: true })}
           on:blur={() => (focused = { ...focused, [i]: false })}
         ></textarea>
+      {:else if fields[i].kind === 'multiline' && !fields[i].secret}
+        <div class="field-value">
+          <CodeMirror
+            bind:value={fields[i].value}
+            minHeight="4.5em"
+            maxHeight="220px"
+            onChange={() => check(i)}
+          />
+        </div>
       {:else if fields[i].kind === 'multiline'}
         <textarea
           class="field-value"
@@ -113,7 +133,7 @@
       <IconButton
         class="btn icon-btn field-icon-btn"
         active={fields[i].secret}
-        title={fields[i].secret ? t('tooltip.markedSecret') : t('tooltip.markSecret')}
+        title={t('tooltip.markSecret')}
         on:click={() => toggleSecret(i)}
       >
         {#if fields[i].secret}
@@ -132,7 +152,7 @@
         <IconButton
           class="btn icon-btn field-icon-btn"
           active={fields[i].locked}
-          title={fields[i].locked ? t('tooltip.lockedField') : t('tooltip.lockField')}
+          title={t('tooltip.pinProtected')}
           on:click={() => toggleLock(i)}
         >
           <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
@@ -142,7 +162,7 @@
           </svg>
         </IconButton>
       {/if}
-      <IconButton class="btn icon-btn field-icon-btn" title={t('tooltip.removeField')} on:click={() => remove(i)}>{t('text.removeGlyph')}</IconButton>
+      <IconButton class="btn icon-btn field-icon-btn" title={t('tooltip.remove')} on:click={() => remove(i)}>{t('text.removeGlyph')}</IconButton>
     </div>
     {#if errors[i]}
       <div class="field-error">{errors[i]}</div>

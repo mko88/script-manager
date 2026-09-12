@@ -42,6 +42,10 @@ export function LoadRecentConfig(arg1:string):Promise<void>;
 
 export function LockSecrets():Promise<void>;
 
+export function Log(arg1:string):Promise<void>;
+
+export function LogPath():Promise<string>;
+
 export function RecentConfigs():Promise<Array<string>>;
 
 export function ReloadConfig():Promise<string>;

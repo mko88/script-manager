@@ -4,6 +4,7 @@
   import { flash } from '@shared/toast'
   import Icon from '@shared/components/Icon.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
+  import CodeMirror from '@shared/components/CodeMirror.svelte'
   import { t } from '../messages'
   import { deepCopy, copyLabel } from '../lib/duplicate'
   import { looksLikeSecretKey } from '../secretKey'
@@ -32,18 +33,50 @@
   let displayEditHeight = 260
   let displaySplitEl: HTMLElement
 
-  let detailsTextareaEl: HTMLTextAreaElement | undefined
+  let detailsEditor: CodeMirror | undefined
+
+  // name is a reserved item key, held on the item itself rather than among
+  // its fields, so it has to be named here — templates use it more than
+  // anything else.
+  const BUILT_IN_ITEM_KEYS = ['name']
 
   $: availableEnvKeys = Array.from(
     new Set([
+      ...BUILT_IN_ITEM_KEYS,
       ...envFields.map((f) => f.key),
       ...(previewItemForDisplay >= 0 ? (items[previewItemForDisplay]?.fields ?? []).map((f) => f.key) : []),
     ]),
   ).filter((k) => k)
 
+  // The same list the Insert env… dropdown offers, in the form a template
+  // wants it. A key that looks like a secret also offers its masked form,
+  // which is what the dropdown inserts for one.
+  $: templateCompletions = availableEnvKeys.flatMap((key) =>
+    looksLikeSecretKey(key)
+      ? [
+          {
+            label: `mask .${key}`,
+            apply: `mask .${key}`,
+            applyStandalone: '`{{mask .' + key + '}}`',
+            detail: 'masked',
+          },
+          { label: `.${key}`, apply: `.${key}`, applyStandalone: `{{.${key}}}`, detail: 'variable' },
+        ]
+      : [{ label: `.${key}`, apply: `.${key}`, applyStandalone: `{{.${key}}}`, detail: 'variable' }],
+  )
+
+  // Only the details template is run through ExpandAllEnv, so the list
+  // template is offered variables alone.
+  const ALL_ENV_PLACEHOLDERS = [
+    { label: '#ALL_ENV_LIST#', detail: 'every variable, as a list', kind: 'placeholder' as const },
+    { label: '#ALL_ENV_TABLE#', detail: 'every variable, as a table', kind: 'placeholder' as const },
+  ]
+
+  $: detailsCompletions = [...ALL_ENV_PLACEHOLDERS, ...templateCompletions]
+
   function insertEnvVar(key: string) {
-    if (looksLikeSecretKey(key)) insertAtCursor('`{{mask .' + key + '}}`')
-    else insertAtCursor(`{{.${key}}}`)
+    if (looksLikeSecretKey(key)) detailsEditor?.insertAtCursor('`{{mask .' + key + '}}`')
+    else detailsEditor?.insertAtCursor(`{{.${key}}}`)
   }
 
   function onEnvSelectChange(e: Event) {
@@ -53,69 +86,15 @@
     select.selectedIndex = 0
   }
 
-  type UndoableInsertText = { execCommand(commandId: string, showUI?: boolean, value?: string): boolean }
-
-  function replaceRange(el: HTMLTextAreaElement, start: number, end: number, text: string) {
-    el.focus()
-    el.setSelectionRange(start, end)
-    let handled = false
-    try {
-      const undoable: UndoableInsertText = document
-      handled = undoable.execCommand('insertText', false, text)
-    } catch {
-      handled = false
-    }
-    if (!handled) el.setRangeText(text, start, end, 'end')
-    displays[selectedDisplay].details = el.value
-  }
-
-  function insertAtCursor(text: string) {
-    const el = detailsTextareaEl
-    if (!el) return
-    const start = el.selectionStart ?? el.value.length
-    const end = el.selectionEnd ?? el.value.length
-    replaceRange(el, start, end, text)
-    el.setSelectionRange(start, start + text.length)
-  }
-
-  function wrapSelection(before: string, after: string = before) {
-    const el = detailsTextareaEl
-    if (!el) return
-    const start = el.selectionStart ?? 0
-    const end = el.selectionEnd ?? 0
-    const selected = el.value.slice(start, end)
-
-    const alreadyWrapped =
-      before.length > 0 &&
-      el.value.slice(start - before.length, start) === before &&
-      el.value.slice(end, end + after.length) === after
-
-    if (alreadyWrapped) {
-      const wrapStart = start - before.length
-      replaceRange(el, wrapStart, end + after.length, selected)
-      el.setSelectionRange(wrapStart, wrapStart + selected.length)
-      return
-    }
-
-    replaceRange(el, start, end, before + selected + after)
-    el.setSelectionRange(start + before.length, start + before.length + selected.length)
-  }
-
   const FIELD_REF_RE = /^\{\{\s*(\.[\w.]+)\s*\}\}$/
 
   function maskSelection() {
-    const el = detailsTextareaEl
-    if (!el) return
-    const start = el.selectionStart ?? 0
-    const end = el.selectionEnd ?? 0
-    const match = el.value.slice(start, end).match(FIELD_REF_RE)
+    const match = (detailsEditor?.selectedText() ?? '').match(FIELD_REF_RE)
     if (!match) {
       flash(t('toast.maskNeedsVariable'))
       return
     }
-    const replacement = '`{{mask ' + match[1] + '}}`'
-    replaceRange(el, start, end, replacement)
-    el.setSelectionRange(start, start + replacement.length)
+    detailsEditor?.replaceSelection('`{{mask ' + match[1] + '}}`')
   }
 
   const DISPLAY_LAYOUT_KEY = 'sm-config-edit:displayLayout'
@@ -284,20 +263,25 @@
         >
           <header class="panel-title"><span>{t('panel.edit')}</span></header>
           <div class="panel-body edit-pane-body">
-            <label class="field list-template-field">
+            <div class="field list-template-field">
               <span>{t('field.listTemplate')}</span>
-              <input type="text" bind:value={displays[selectedDisplay].list} />
-            </label>
-            <label class="field details-template-field">
+              <CodeMirror
+                bind:value={displays[selectedDisplay].list}
+                completions={templateCompletions}
+                templateRefs
+                singleLine
+              />
+            </div>
+            <div class="field details-template-field">
               <span>{t('field.detailsTemplate')}</span>
               <div class="details-helper-toolbar">
                 <select class="env-insert-select" title={t('tooltip.insertEnvVar')} on:change={onEnvSelectChange}>
                   <option value="">{t('option.insertEnv')}</option>
                   {#each availableEnvKeys as key (key)}<option value={key}>{key}</option>{/each}
                 </select>
-                <IconButton title={t('tooltip.bold')} on:click={() => wrapSelection('**')}><strong>B</strong></IconButton>
-                <IconButton title={t('tooltip.italic')} on:click={() => wrapSelection('_')}><em>I</em></IconButton>
-                <IconButton title={t('tooltip.highlight')} on:click={() => wrapSelection('`')}><code>`</code></IconButton>
+                <IconButton title={t('tooltip.bold')} on:click={() => detailsEditor?.wrapSelection('**')}><strong>B</strong></IconButton>
+                <IconButton title={t('tooltip.italic')} on:click={() => detailsEditor?.wrapSelection('_')}><em>I</em></IconButton>
+                <IconButton title={t('tooltip.highlight')} on:click={() => detailsEditor?.wrapSelection('`')}><code>`</code></IconButton>
                 <IconButton title={t('tooltip.mask')} on:click={maskSelection}
                   ><svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
                     <rect x="3.5" y="7" width="9" height="6.5" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3" />
@@ -305,9 +289,16 @@
                   </svg></IconButton
                 >
               </div>
-              <textarea bind:value={displays[selectedDisplay].details} bind:this={detailsTextareaEl}
-              ></textarea>
-            </label>
+              <CodeMirror
+                bind:this={detailsEditor}
+                bind:value={displays[selectedDisplay].details}
+                language="markdown"
+                completions={detailsCompletions}
+                templateRefs
+                minHeight="100%"
+                maxHeight="100%"
+              />
+            </div>
           </div>
         </div>
       {/if}
@@ -435,12 +426,13 @@
     margin-bottom: 0;
   }
 
-  .details-template-field textarea {
+  .details-template-field :global(.sm-code) {
     flex: 1 1 auto;
     min-height: 60px;
-    resize: none;
-    font-family: var(--sm-font-mono);
-    font-size: var(--sm-type-sm);
+  }
+
+  .details-template-field :global(.cm-editor) {
+    height: 100%;
   }
 
   .details-helper-toolbar {

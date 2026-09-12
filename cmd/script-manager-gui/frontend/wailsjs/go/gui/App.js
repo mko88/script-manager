@@ -78,6 +78,14 @@ export function LockSecrets() {
   return window['go']['gui']['App']['LockSecrets']();
 }
 
+export function Log(arg1) {
+  return window['go']['gui']['App']['Log'](arg1);
+}
+
+export function LogPath() {
+  return window['go']['gui']['App']['LogPath']();
+}
+
 export function RecentConfigs() {
   return window['go']['gui']['App']['RecentConfigs']();
 }

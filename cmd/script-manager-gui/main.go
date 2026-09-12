@@ -38,7 +38,12 @@ func main() {
 		},
 		BackgroundColour: &options.RGBA{R: 27, G: 38, B: 54, A: 1},
 		OnStartup:        app.Startup,
-		Frameless:        true,
+		// Only takes effect in a build made with devtools enabled
+		// (build.sh --devtools); a normal build ignores it.
+		Debug: options.Debug{
+			OpenInspectorOnStartup: true,
+		},
+		Frameless: true,
 		Bind: []interface{}{
 			app,
 		},

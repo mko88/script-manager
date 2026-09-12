@@ -7,6 +7,7 @@ import (
 	"os/exec"
 
 	"script-manager/internal/action"
+	"script-manager/internal/applog"
 	"script-manager/internal/config"
 )
 
@@ -107,6 +108,8 @@ type InlineStatusDTO struct {
 }
 
 func (a *App) RunActionInline(itemIndex, actionIndex int) error {
+	applog.Printf("RunActionInline enter item=%d action=%d", itemIndex, actionIndex)
+	defer applog.Printf("RunActionInline exit item=%d action=%d", itemIndex, actionIndex)
 	key := inlineKey{itemIndex, actionIndex}
 
 	a.inlineMu.Lock()
@@ -154,6 +157,7 @@ func (a *App) RunActionInline(itemIndex, actionIndex int) error {
 		a.inlineMu.Lock()
 		a.inlineRuns[key] = &inlineRun{outPath: outFile.Name(), exitCode: exitCode, errMsg: errMsg}
 		a.inlineMu.Unlock()
+		applog.Printf("inline run finished item=%d action=%d exit=%d err=%q", itemIndex, actionIndex, exitCode, errMsg)
 	}()
 
 	return nil

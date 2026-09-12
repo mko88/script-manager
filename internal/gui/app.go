@@ -8,6 +8,7 @@ import (
 
 	"script-manager/internal/action"
 	"script-manager/internal/appdata"
+	"script-manager/internal/applog"
 	"script-manager/internal/config"
 	"script-manager/internal/exepath"
 	"script-manager/internal/recent"
@@ -64,6 +65,16 @@ func NewApp(load func() (*config.Config, error)) *App {
 	}
 }
 
+// Log lets the frontend put its own errors in the same file, so a JS
+// exception and the Go call that preceded it sit next to each other.
+func (a *App) Log(message string) {
+	applog.Printf("ui: %s", message)
+}
+
+func (a *App) LogPath() string {
+	return applog.Path(a.appDataDir)
+}
+
 func (a *App) LoadError() string {
 	if a.loadErr == nil {
 		return ""
@@ -73,6 +84,8 @@ func (a *App) LoadError() string {
 
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
+	applog.Init(a.appDataDir)
+	applog.Printf("startup version=%s config=%s", version.Version, a.configSourcePath())
 	a.watchTheme()
 	a.watchConfig()
 }
@@ -125,6 +138,14 @@ func (a *App) renderListLabel(item map[string]any) string {
 	return out
 }
 
+func (a *App) scriptLanguage(scriptPath string) string {
+	shell := ""
+	if len(a.cfg.Shell) > 0 {
+		shell = a.cfg.Shell[0]
+	}
+	return action.Language(shell, scriptPath)
+}
+
 func (a *App) mergedItem(item map[string]any) map[string]any {
 	return secret.Redact(action.Merge(a.cfg.Env, item))
 }
@@ -173,6 +194,7 @@ type ActionDetailDTO struct {
 	ScriptError   string `json:"scriptError"`
 	NoWait        bool   `json:"noWait"`
 	Interactive   bool   `json:"interactive"`
+	Language      string `json:"language"`
 }
 
 func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
@@ -201,6 +223,7 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 		Script:        script,
 		ScriptContent: scriptContent,
 		ScriptError:   scriptErr,
+		Language:      a.scriptLanguage(script),
 		NoWait:        act.NoWait,
 		Interactive:   act.Interactive,
 	}

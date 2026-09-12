@@ -15,6 +15,7 @@ build_linux=1
 run_vet=0
 run_test=0
 run_check=0
+build_debug=0
 
 for arg in "$@"; do
 	case "$arg" in
@@ -23,6 +24,7 @@ for arg in "$@"; do
 		--vet) run_vet=1 ;;
 		--test) run_test=1 ;;
 		--check) run_check=1 ;;
+		--devtools) build_debug=1 ;;
 		--full) run_vet=1; run_test=1; run_check=1 ;;
 	esac
 done
@@ -44,11 +46,20 @@ if [ "$run_check" = 1 ]; then
 	done
 fi
 
+# --devtools ships the GUI apps with WebView2's inspector enabled, so a
+# console error in a built app can be read (right-click, Inspect). Not for
+# release builds.
+wails_extra=""
+if [ "$build_debug" = 1 ]; then
+	wails_extra="-devtools"
+	echo "Building GUI apps with devtools enabled"
+fi
+
 mkdir -p bin
 
 # Stamped into internal/version at link time, so the binaries can report
 # which build they are instead of carrying a hand-edited constant.
-# `git describe` gives "v1.4.0.0" on a release tag, "v1.4.0.0-4-g94b2835"
+# `git describe` gives "v1.4.0" on a release tag, "v1.4.0-4-g94b2835"
 # past one, and a "-dirty" suffix with uncommitted changes. Outside a git
 # checkout the defaults in the package stand ("dev").
 version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)
@@ -106,7 +117,7 @@ build_gui() { # build_gui <app>
 
 	if [ "$build_linux" = 1 ]; then
 		echo "Building GUI ($app, linux/amd64)..."
-		(cd "cmd/$app" && wails build -ldflags "$ldflags")
+		(cd "cmd/$app" && wails build $wails_extra -ldflags "$ldflags")
 		cp "cmd/$app/build/bin/$app" bin/
 	fi
 
@@ -115,7 +126,7 @@ build_gui() { # build_gui <app>
 			echo "Building GUI ($app, windows/amd64)..."
 			(cd "cmd/$app" && GOOS=windows GOARCH=amd64 CGO_ENABLED=1 \
 				CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ \
-				wails build -platform windows/amd64 -ldflags "$ldflags")
+				wails build $wails_extra -platform windows/amd64 -ldflags "$ldflags")
 			cp "cmd/$app/build/bin/$app.exe" bin/
 		else
 			echo "mingw-w64 not found — skipping GUI Windows cross-compile for $app (see README)"

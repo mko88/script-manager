@@ -26,7 +26,7 @@ function setInlineState(itemIndex: number, actionIndex: number, state: Omit<Inli
 
 const INLINE_POLL_INTERVAL_MS = 300
 
-async function pollInlineStatus(itemIndex: number, actionIndex: number, onUpdate: (itemIndex: number, actionIndex: number) => void) {
+async function pollInlineStatus(itemIndex: number, actionIndex: number) {
   for (;;) {
     const status = await GetInlineStatus(itemIndex, actionIndex)
     setInlineState(itemIndex, actionIndex, {
@@ -34,7 +34,6 @@ async function pollInlineStatus(itemIndex: number, actionIndex: number, onUpdate
       running: status.running,
       exitCode: status.running ? null : status.exitCode,
     })
-    onUpdate(itemIndex, actionIndex)
     if (status.running) {
       await new Promise((resolve) => setTimeout(resolve, INLINE_POLL_INTERVAL_MS))
       continue
@@ -44,12 +43,12 @@ async function pollInlineStatus(itemIndex: number, actionIndex: number, onUpdate
   }
 }
 
-export async function startInlineRun(itemIndex: number, actionIndex: number, onUpdate: (itemIndex: number, actionIndex: number) => void) {
+export async function startInlineRun(itemIndex: number, actionIndex: number) {
   if (get(inlineStates)[inlineKey(itemIndex, actionIndex)]?.running) return
   setInlineState(itemIndex, actionIndex, { output: '', running: true, exitCode: null })
   try {
     await RunActionInline(itemIndex, actionIndex)
-    pollInlineStatus(itemIndex, actionIndex, onUpdate)
+    pollInlineStatus(itemIndex, actionIndex)
   } catch (err) {
     setInlineState(itemIndex, actionIndex, { output: '', running: false, exitCode: null })
     flash(t('toast.runFailed', { error: String(err) }))

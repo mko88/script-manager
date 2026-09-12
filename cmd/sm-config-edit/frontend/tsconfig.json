@@ -10,7 +10,12 @@
     "isolatedModules": true,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["../../../frontend-shared/*"]
+      "@shared/*": ["../../../frontend-shared/*"],
+      "svelte": ["./node_modules/svelte"],
+      "svelte/*": ["./node_modules/svelte/*"],
+      "codemirror": ["./node_modules/codemirror"],
+      "@codemirror/*": ["./node_modules/@codemirror/*"],
+      "@lezer/*": ["./node_modules/@lezer/*"]
     }
   },
   "include": [

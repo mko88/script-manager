@@ -112,29 +112,33 @@ have one standard.
 
 **Rule: `### Changes` and `### Bug fixes` under the version heading, and
 nothing else.** No Downloads list — the assets are on the release page
-already. No account of what was verified or how it was built.
+already. No account of what was verified or how it was built. No
+known-issues list.
 
-**One line per entry, saying what changed rather than how it was found or
+**One line each, saying what changed rather than how it was found or
 fixed.** The investigation belongs in the commit message, which still has
 it:
 
     - Request options set as workspace defaults were ignored.
 
-not a paragraph on which layer answered with the wrong defaults. Prefix
-the line with which binary it affects (e.g. `` `script-manager-gui`: ``)
-when that isn't obvious.
+not a paragraph on which layer answered with the wrong defaults. Name the
+binary when it isn't obvious which one changed.
 
 Spend length only where the reader has to *do* something: a breaking
 change goes first, marked, and may take a paragraph with the before and
 after — everything else is a line.
+
+The first release of anything is the exception: there is nothing to have
+changed from, so it gets a sentence saying what the thing is and one list
+of what it does.
 
 ## Bumping the version
 
 **The version is a git tag, not a source constant — never hand-edit
 `internal/version`.** `build.sh` stamps `internal/version.{Version,Commit,
 Date}` at link time via ldflags, from `git describe --tags --always
---dirty`. So a build sitting exactly on tag `v1.4.0.0` reports
-`v1.4.0.0`; four commits later it reports `v1.4.0.0-4-g94b2835`; with
+--dirty`. So a build sitting exactly on tag `v1.4.0` reports
+`v1.4.0`; four commits later it reports `v1.4.0-4-g94b2835`; with
 uncommitted changes it gains `-dirty`; and a binary built outside a git
 checkout (or by a bare `go build`/`wails build`) says `dev`. That string
 is what `script-manager-gui`'s About panel shows, so a screenshot of it
@@ -143,28 +147,30 @@ identifies the exact commit it came from.
 Releasing is therefore: merge to `main`, then tag that merge commit.
 
 ```
-git tag -a v1.4.0.0 -m "Copy buttons for items, action groups and actions"
+git tag -a v1.4.0 -m "Copy buttons for items, action groups and actions"
 ```
 
-Tags are `v` + `Major.Minor.Patch.Build` (started at `1.0.0.0`) and must
-match the newest `CHANGELOG.md` heading. Bump exactly one segment per
-merge to `main`, resetting every segment after it to `0`:
+Tags are `v` + `Major.Minor.Patch` and must match the newest
+`CHANGELOG.md` heading. Bump exactly one segment per merge to `main`,
+resetting every segment after it to `0`:
 
 - **Major** — by hand only, for a big rewrite or breaking change. Never
   bump this automatically.
-- **Minor** — new user-facing functionality (e.g. `1.0.0.0` → `1.1.0.0`).
-- **Patch** — a bug fix to shipped behavior (e.g. `1.1.0.0` → `1.1.1.0`).
-- **Build** — every other merge that touches a shipped binary and isn't a
-  Minor or Patch case above — refactors, dependency bumps, anything under
-  `cmd/`, `internal/` (excluding `_test.go` files), or a frontend app's
-  `src/`/`frontend-shared` (e.g. `1.1.0.0` → `1.1.0.1`).
+- **Minor** — new user-facing functionality (e.g. `1.4.0` → `1.5.0`).
+- **Patch** — everything else that reaches a shipped binary: a bug fix, a
+  refactor, a dependency bump, anything under `cmd/`, `internal/`
+  (excluding `_test.go` files), or a frontend app's `src/`/`frontend-shared`
+  (e.g. `1.4.0` → `1.4.1`).
+
+Tags before `v1.4.0` carry a fourth segment, from the scheme this
+replaced; they are left as they were.
 
 Skip the tag entirely for a merge that touches nothing compiled into a
 binary — a docs-only (`README.md`, `CLAUDE.md`), comment-only, or test-only
 change. Those merges just ride along under the previous tag, which
-`git describe` reports as `v1.4.0.0-2-gabc1234`.
+`git describe` reports as `v1.4.0-2-gabc1234`.
 
-Whichever segment is bumped, add a matching `## Major.Minor.Patch.Build`
+Whichever segment is bumped, add a matching `## Major.Minor.Patch`
 heading to `CHANGELOG.md` (newest on top, no `v` prefix) in the feature
 branch's own commits — not in a separate post-merge commit, so the tag
 lands on a commit whose changelog already describes it. Write the entry
