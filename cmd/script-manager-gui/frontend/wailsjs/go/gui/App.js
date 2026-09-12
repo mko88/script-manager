@@ -86,6 +86,10 @@ export function LogPath() {
   return window['go']['gui']['App']['LogPath']();
 }
 
+export function OpenScriptInEditor(arg1) {
+  return window['go']['gui']['App']['OpenScriptInEditor'](arg1);
+}
+
 export function RecentConfigs() {
   return window['go']['gui']['App']['RecentConfigs']();
 }
@@ -124,4 +128,8 @@ export function SetWindowOpacity(arg1) {
 
 export function UnlockSecrets(arg1) {
   return window['go']['gui']['App']['UnlockSecrets'](arg1);
+}
+
+export function WatchScript(arg1) {
+  return window['go']['gui']['App']['WatchScript'](arg1);
 }

@@ -20,7 +20,7 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import RecentMenu from '@shared/components/RecentMenu.svelte'
   import PinDialog from '@shared/components/PinDialog.svelte'
-  import { WindowMinimise, WindowToggleMaximise, Quit } from '../wailsjs/runtime'
+  import { EventsOn, WindowMinimise, WindowToggleMaximise, Quit } from '../wailsjs/runtime'
   import { t } from './messages'
   import { shellLanguage } from './lib/shellLanguage'
   import {
@@ -31,6 +31,8 @@
     GetUIPrefs,
     SetUIScale,
     SetUIFonts,
+    WatchScript,
+    OpenScriptInEditor,
     OpenRecent,
     ClearRecentConfigs,
     CreateSecretsPIN,
@@ -160,6 +162,18 @@
   $: hasBlockingError = validation.some((v) => v.severity === 'error')
 
   $: cmdLanguage = shellLanguage(cfg.shell?.[0])
+
+  // Bumped when a watched script is written, which re-runs the preview.
+  let scriptReloadToken = 0
+  onMount(() => EventsOn('script:changed', () => (scriptReloadToken += 1)))
+
+  async function openScriptInEditor(path: string) {
+    try {
+      await OpenScriptInEditor(path)
+    } catch (err) {
+      flash(t('toast.openScriptFailed', { error: String(err) }))
+    }
+  }
 
   async function confirmDiscard(): Promise<boolean> {
     if (!dirty) return true
@@ -572,6 +586,9 @@
             bind:selectedAction
             {allActionGroups}
             {cmdLanguage}
+            watchScript={WatchScript}
+            {openScriptInEditor}
+            {scriptReloadToken}
             browseScriptFile={BrowseScriptFile}
             previewScriptFile={PreviewScriptFile}
           />
@@ -582,6 +599,9 @@
             actions={cfg.actions}
             {allActionGroups}
             {cmdLanguage}
+            watchScript={WatchScript}
+            {openScriptInEditor}
+            {scriptReloadToken}
             displays={cfg.display}
             envFields={cfg.envFields}
             previewItem={PreviewItem}

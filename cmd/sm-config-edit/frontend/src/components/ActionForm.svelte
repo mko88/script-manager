@@ -3,6 +3,8 @@
   import RadioGroup from './RadioGroup.svelte'
   import CheckboxChipList from './CheckboxChipList.svelte'
   import CodeMirror from '@shared/components/CodeMirror.svelte'
+  import Icon from '@shared/components/Icon.svelte'
+  import IconButton from '@shared/components/IconButton.svelte'
   import type { configedit } from '../../wailsjs/go/models'
 
   export let action: {
@@ -22,6 +24,9 @@
   // The shell the config is configured with, so an inline command is
   // highlighted as what it will actually be run by.
   export let cmdLanguage = 'plain'
+  export let watchScript: ((path: string) => void) | null = null
+  export let openScriptInEditor: ((path: string) => void) | null = null
+  export let reloadToken = 0
   export let previewScriptFile: (path: string) => Promise<configedit.ScriptPreviewDTO>
 
   let mode: 'cmd' | 'script' = action.script ? 'script' : 'cmd'
@@ -44,8 +49,13 @@
 
   let scriptPreview: configedit.ScriptPreviewDTO | null = null
   let scriptPreviewTimer: ReturnType<typeof setTimeout>
-  $: if (mode === 'script') scheduleScriptPreview(action.script)
-  function scheduleScriptPreview(path: string) {
+  // reloadToken is bumped when the watched file changes on disk; naming it
+  // here is what makes this statement re-run and re-read the file.
+  $: if (mode === 'script') scheduleScriptPreview(action.script, reloadToken)
+  // Follows the file whose preview is on screen, and nothing while this is a
+  // command action.
+  $: watchScript?.(mode === 'script' ? action.script : '')
+  function scheduleScriptPreview(path: string, _token: number = 0) {
     clearTimeout(scriptPreviewTimer)
     if (!path) {
       scriptPreview = null
@@ -88,6 +98,12 @@
     <label class="field cmd-field">
       <div class="script-path-row">
         <input type="text" bind:value={action.script} placeholder={t('placeholder.scriptPath')} />
+        <IconButton
+          class="btn icon-btn"
+          disabled={!action.script}
+          title={t('tooltip.openScriptInEditor')}
+          on:click={() => openScriptInEditor?.(action.script)}><Icon name="edit" /></IconButton
+        >
         <button class="btn" type="button" on:click={browseScript}>{t('button.browse')}</button>
       </div>
     </label>

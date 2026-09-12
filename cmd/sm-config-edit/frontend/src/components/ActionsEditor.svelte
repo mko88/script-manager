@@ -10,6 +10,9 @@
   export let selectedAction: number
   export let allActionGroups: string[] = []
   export let cmdLanguage = 'plain'
+  export let watchScript: ((path: string) => void) | null = null
+  export let openScriptInEditor: ((path: string) => void) | null = null
+  export let scriptReloadToken = 0
   export let browseScriptFile: () => Promise<string>
   export let previewScriptFile: (path: string) => Promise<configedit.ScriptPreviewDTO>
 
@@ -103,6 +106,9 @@
         bind:action={actions[selectedAction]}
         {allActionGroups}
         {cmdLanguage}
+        {watchScript}
+        {openScriptInEditor}
+        reloadToken={scriptReloadToken}
         {browseScriptFile}
         {previewScriptFile}
       />

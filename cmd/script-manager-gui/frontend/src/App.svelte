@@ -51,6 +51,8 @@
     LoadRecentConfig,
     ClearRecentConfigs,
     ActionNeedsUnlock,
+    OpenScriptInEditor,
+    WatchScript,
     UnlockSecrets,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
@@ -67,6 +69,17 @@
 
   onMount(() => watchTheme(EventsOn, () => {}))
   onMount(() => EventsOn('config:changed', onConfigFileChanged))
+  onMount(() => EventsOn('script:changed', reloadActionDetail))
+
+  // Follows whatever script the Command pane is showing, so an edit made
+  // outside the app — including from the button beside the path — refreshes
+  // it in place.
+  $: WatchScript(actionDetail?.script ?? '')
+
+  async function reloadActionDetail() {
+    if (selectedItem < 0 || selectedActionIndex < 0) return
+    actionDetail = await GetActionDetail(selectedItem, selectedActionIndex)
+  }
 
   let uiScale: number = UI_SCALE.default
 
@@ -172,8 +185,20 @@
     copyValue(Number(target.dataset.copyIdx))
   }
 
+  // What the pane is showing: a script's contents when they could be read,
+  // the command otherwise, and the path only when the file wouldn't open —
+  // where the path is the useful thing to have.
+  async function openScriptInEditor() {
+    if (!actionDetail?.script) return
+    try {
+      await OpenScriptInEditor(actionDetail.script)
+    } catch (err) {
+      flash(t('toast.openScriptFailed', { error: String(err) }))
+    }
+  }
+
   function copyCmd() {
-    const value = actionDetail?.cmd || actionDetail?.script
+    const value = actionDetail?.scriptContent || actionDetail?.cmd || actionDetail?.script
     if (!value) return
     copyToClipboard(value)
   }
@@ -887,7 +912,14 @@
                   </div>
                 {/if}
                 {#if actionDetail.script}
-                  <p class="cmd-desc">{t('text.scriptLabel')}{actionDetail.script}</p>
+                  <p class="cmd-desc script-path-line">
+                    <span class="script-path">{t('text.scriptLabel')}{actionDetail.script}</span>
+                    <IconButton
+                      class="btn icon-btn script-edit-btn"
+                      title={t('tooltip.openScriptInEditor', { path: actionDetail.script })}
+                      on:click={openScriptInEditor}><Icon name="edit" /></IconButton
+                    >
+                  </p>
                   {#if actionDetail.scriptError}
                     <p class="cmd-error">{actionDetail.scriptError}</p>
                   {:else}
@@ -1225,6 +1257,7 @@
     position: absolute;
     top: 4px;
     right: 4px;
+    z-index: 1;
   }
   .list .row {
     display: flex;
@@ -1266,6 +1299,22 @@
   .code-block {
     position: relative;
     margin-bottom: 8px;
+  }
+
+  .script-path-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .script-path {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  :global(.script-edit-btn) {
+    flex: none;
+    padding: 2px 5px;
   }
 
   .cmd-groups {

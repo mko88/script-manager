@@ -46,6 +46,8 @@ export function Log(arg1:string):Promise<void>;
 
 export function LogPath():Promise<string>;
 
+export function OpenScriptInEditor(arg1:string):Promise<void>;
+
 export function RecentConfigs():Promise<Array<string>>;
 
 export function ReloadConfig():Promise<string>;
@@ -65,3 +67,5 @@ export function SetUIScale(arg1:number):Promise<uiprefs.Prefs>;
 export function SetWindowOpacity(arg1:number):Promise<void>;
 
 export function UnlockSecrets(arg1:string):Promise<void>;
+
+export function WatchScript(arg1:string):Promise<void>;

@@ -4,6 +4,22 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
+## 1.4.1
+
+### Changes
+
+- A button beside a script action's path opens the file in the default
+  editor, in both GUI apps.
+- A script shown on screen is watched, so an edit made outside the app
+  refreshes the preview without reselecting the action.
+
+### Bug fixes
+
+- `script-manager-gui`: the Copy output button was hidden behind the output
+  pane.
+- `script-manager-gui`: copying a script action copied the path to the file
+  rather than the contents shown beside the button.
+
 ## 1.4.0
 
 ### Changes
