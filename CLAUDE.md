@@ -112,21 +112,25 @@ have one standard.
 
 **Rule: `### Changes` and `### Bug fixes` under the version heading, and
 nothing else.** No Downloads list — the assets are on the release page
-already. No account of what was verified or how it was built.
+already. No account of what was verified or how it was built. No
+known-issues list.
 
-**One line per entry, saying what changed rather than how it was found or
+**One line each, saying what changed rather than how it was found or
 fixed.** The investigation belongs in the commit message, which still has
 it:
 
     - Request options set as workspace defaults were ignored.
 
-not a paragraph on which layer answered with the wrong defaults. Prefix
-the line with which binary it affects (e.g. `` `script-manager-gui`: ``)
-when that isn't obvious.
+not a paragraph on which layer answered with the wrong defaults. Name the
+binary when it isn't obvious which one changed.
 
 Spend length only where the reader has to *do* something: a breaking
 change goes first, marked, and may take a paragraph with the before and
 after — everything else is a line.
+
+The first release of anything is the exception: there is nothing to have
+changed from, so it gets a sentence saying what the thing is and one list
+of what it does.
 
 ## Bumping the version
 

@@ -8,61 +8,25 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 
 ### Changes
 
-- Everything that shows code is now a CodeMirror pane: the script and
-  command previews, the action preview, the inline run output, YAML fields
-  and the Displays details template. They bring syntax highlighting for
-  shell, PowerShell and YAML, a fold gutter, and proper undo, all themed
-  from the same colour tokens as the rest of the app.
-- `sm-config-edit`: the details template completes variable names. Typing
-  `{{` offers every variable the item and environment provide, and a
-  secret-looking name also offers its `mask` form.
-
-- The interface scales with **Ctrl +** / **Ctrl -**, and **Ctrl 0** resets
-  it — in both GUI apps, 70% to 200%, spacing included rather than the text
-  alone. The setting is shared by both apps.
-- The interface and monospace fonts can be set to any font installed on the
-  machine, from `sm-config-edit`'s Theme section; empty keeps the bundled
-  Nunito.
-- Bold text is real bold: Nunito now ships as a variable font, so weights
-  are drawn rather than synthesized by the browser.
-- Type sizes come from a five-step scale, and every colour comes from a
-  theme token — including two new ones, `warning-tint` and `scrim`, which
-  the theme editor can now customise.
-- Inputs, selects and textareas show a focus ring, and the running-status
-  animations respect `prefers-reduced-motion`.
-
-- `sm-config-edit` autosaves, on by default: once a config has a path, edits
-  are written about a second after you stop typing. A toolbar button toggles
-  it and the choice is remembered. Autosave holds off while a blocking
-  validation error is showing.
-- `script-manager-gui` watches the config file and reloads when it changes on
-  disk, so edits made in the editor appear without pressing F5.
-
-- Environment values can be locked behind a config PIN: `sm-config-edit`
-  encrypts the value in place and `config.yaml` stores only the ciphertext.
-  One PIN per config, entered once per app run and again after loading a
-  different config, in both the GUI and the TUI.
-- Actions opt in with **Requires PIN** (`requiresPin: true`). Such an action
-  asks for the PIN and receives the decrypted values; every other action
-  runs without a prompt and simply doesn't have the locked variables set.
-- A locked value never renders on screen: details, list labels and the
-  editor's preview show `(locked)` whether or not the PIN has been entered.
-  Entering it only feeds the value to a `requiresPin` action.
-- `sm-config-edit`: a **PIN** section sets the config's PIN, changes it
-  (re-encrypting every locked value in one step), or removes it (decrypting
-  them back to plain text, still marked secret). The padlock on a value
-  points there when no PIN has been set yet.
-- The Load config button (`script-manager-gui`) and Open button
-  (`sm-config-edit`) now open a dropdown listing the last 10 configs
-  opened, by full path, with Clear recent and Browse… below it. The list
-  is shared by both apps, and an entry that no longer loads drops off it.
-- `sm-config-edit`: a copy button on the Items, Action Groups and Actions
-  toolbars duplicates the selected entry below the original and selects it.
-- `sm-config-edit`: copies are named "Server - Copy", then "Server - Copy 2";
-  actions and action groups also get a fresh id (`ssh` → `ssh-copy`).
-- The version now comes from the git tag at build time, so the About panel
-  identifies the exact build (`v1.4.0`, `v1.4.0-4-g94b2835`, `-dirty`,
-  or `dev` outside a checkout).
+- Items, action groups and actions can be copied in `sm-config-edit`; the copy
+  lands below the original, named "Server - Copy".
+- Environment values can be locked behind a per-config PIN: `config.yaml` keeps
+  only the ciphertext, and a locked value never appears on screen.
+- Actions opt in with **Requires PIN** to receive those values decrypted;
+  others run without a prompt and simply don't have them set.
+- `sm-config-edit` has a **PIN** section to set, change or remove the PIN.
+- Both GUI apps list the last 10 configs opened, shared between them.
+- `sm-config-edit` autosaves, and `script-manager-gui` reloads when the config
+  changes on disk.
+- Every pane showing code is a CodeMirror editor: highlighting for shell,
+  PowerShell, YAML and markdown, folding, and undo.
+- The details template completes variables, `#ALL_ENV_LIST#` and
+  `#ALL_ENV_TABLE#`, and tints `{{ }}` references.
+- The interface scales between 70% and 200% with **Ctrl +** / **-** / **0**.
+- The interface and monospace fonts can be set to any font on the machine.
+- The version comes from the git tag at build time, shown in the About panel.
+- Bold text is drawn rather than synthesized: Nunito ships as a variable font.
+- Inputs show a focus ring, and status animations respect reduced motion.
 
 ## 1.3.0.0
 
