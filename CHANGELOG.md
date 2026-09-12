@@ -12,6 +12,9 @@ the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
   and the Displays details template. They bring syntax highlighting for
   shell, PowerShell and YAML, a fold gutter, and proper undo, all themed
   from the same colour tokens as the rest of the app.
+- `sm-config-edit`: the details template completes variable names. Typing
+  `{{` offers every variable the item and environment provide, and a
+  secret-looking name also offers its `mask` form.
 
 - The interface scales with **Ctrl +** / **Ctrl -**, and **Ctrl 0** resets
   it — in both GUI apps, 70% to 200%, spacing included rather than the text

@@ -42,6 +42,18 @@
     ]),
   ).filter((k) => k)
 
+  // The same list the Insert env… dropdown offers, in the form a template
+  // wants it. A key that looks like a secret also offers its masked form,
+  // which is what the dropdown inserts for one.
+  $: templateCompletions = availableEnvKeys.flatMap((key) =>
+    looksLikeSecretKey(key)
+      ? [
+          { label: `mask .${key}`, apply: `mask .${key}`, detail: 'masked' },
+          { label: `.${key}`, apply: `.${key}`, detail: 'variable' },
+        ]
+      : [{ label: `.${key}`, apply: `.${key}`, detail: 'variable' }],
+  )
+
   function insertEnvVar(key: string) {
     if (looksLikeSecretKey(key)) detailsEditor?.insertAtCursor('`{{mask .' + key + '}}`')
     else detailsEditor?.insertAtCursor(`{{.${key}}}`)
@@ -256,6 +268,7 @@
                 bind:this={detailsEditor}
                 bind:value={displays[selectedDisplay].details}
                 language="markdown"
+                completions={templateCompletions}
                 minHeight="100%"
                 maxHeight="100%"
               />

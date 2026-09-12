@@ -45,6 +45,21 @@
     '.cm-scroller::-webkit-scrollbar-thumb': { backgroundColor: 'var(--sm-scrollbar)', borderRadius: '3px' },
     '&.cm-focused': { outline: 'none' },
     '.cm-placeholder': { color: 'var(--sm-text-faint)' },
+    '.cm-tooltip': {
+      backgroundColor: 'var(--sm-panel-header)',
+      border: '1px solid var(--sm-border)',
+      borderRadius: '4px',
+      color: 'var(--sm-text)',
+    },
+    '.cm-tooltip-autocomplete > ul > li': {
+      fontFamily: 'var(--sm-font-mono)',
+      padding: '2px 6px',
+    },
+    '.cm-tooltip-autocomplete > ul > li[aria-selected]': {
+      backgroundColor: 'var(--sm-bg-primary)',
+      color: 'var(--sm-text-primary)',
+    },
+    '.cm-completionDetail': { color: 'var(--sm-text-muted)', fontStyle: 'normal', marginLeft: '8px' },
   })
 
   export const smHighlight = HighlightStyle.define([
@@ -79,6 +94,7 @@
   import { Compartment, EditorState } from '@codemirror/state'
   import { keymap, lineNumbers, placeholder as placeholderExt } from '@codemirror/view'
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
+  import { autocompletion, completionKeymap, type CompletionContext } from '@codemirror/autocomplete'
   import { bracketMatching, foldGutter, foldKeymap, indentOnInput } from '@codemirror/language'
 
   export let value = ''
@@ -96,9 +112,30 @@
   // react to the new text. A callback rather than a dispatched event: these
   // components are consumed as plain props everywhere else.
   export let onChange: ((value: string) => void) | null = null
+  // Names offered while typing inside a {{ }} reference. Empty turns
+  // completion off entirely.
+  export let completions: { label: string; apply?: string; detail?: string }[] = []
 
   let host: HTMLElement
   let view: EditorView | undefined
+
+  // Only inside an unclosed {{ — elsewhere in a details template the text is
+  // prose, where a popup on every word would be in the way.
+  function completeTemplateRef(ctx: CompletionContext) {
+    if (completions.length === 0) return null
+    if (!ctx.matchBefore(/\{\{[^}]*$/)) return null
+    const token = ctx.matchBefore(/[\w.]*$/)
+    return {
+      from: token ? token.from : ctx.pos,
+      options: completions.map((c) => ({
+        label: c.label,
+        apply: c.apply ?? c.label,
+        detail: c.detail,
+        type: 'variable',
+      })),
+      validFor: /^[\w.]*$/,
+    }
+  }
   const languageCompartment = new Compartment()
 
   onMount(() => {
@@ -120,7 +157,13 @@
     if (wrap) extensions.push(EditorView.lineWrapping)
     if (placeholder) extensions.push(placeholderExt(placeholder))
     if (!readOnly) {
-      extensions.push(history(), indentOnInput(), keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap, indentWithTab]))
+      extensions.push(history(), indentOnInput())
+      if (completions.length > 0) {
+        extensions.push(autocompletion({ override: [completeTemplateRef] }))
+      }
+      extensions.push(
+        keymap.of([...completionKeymap, ...defaultKeymap, ...historyKeymap, ...foldKeymap, indentWithTab]),
+      )
     }
 
     view = new EditorView({ doc: value, parent: host, extensions })
