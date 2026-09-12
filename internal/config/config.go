@@ -248,11 +248,15 @@ func StrVal(v any) string {
 	return s
 }
 
-func LoadWithError() (*Config, error) {
-	names := []string{"config.yaml"}
+func configNames() []string {
 	if runtime.GOOS == "windows" {
-		names = []string{"config-win.yaml", "config.yaml"}
+		return []string{"config-win.yaml", "config.yaml"}
 	}
+	return []string{"config.yaml"}
+}
+
+func searchPaths() []string {
+	names := configNames()
 
 	var exeDir string
 	if exe, err := os.Executable(); err == nil {
@@ -272,11 +276,37 @@ func LoadWithError() (*Config, error) {
 			paths = append(paths, filepath.Join(dataDir, name))
 		}
 	}
+	return paths
+}
 
+// ResolvePath is the file LoadWithError would read, creating the starter
+// config if nothing exists yet. Callers that must inspect the file before
+// loading it — the format check on startup — use this to find it.
+func ResolvePath() (string, error) {
+	paths := searchPaths()
+	for _, p := range paths {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+	dataDir := appdata.Dir()
+	if dataDir == "" {
+		return "", fmt.Errorf("no config file found (tried %s)", strings.Join(paths, ", "))
+	}
+	defaultPath := filepath.Join(dataDir, configNames()[0])
+	if err := os.WriteFile(defaultPath, []byte(defaultConfigYAML()), 0o644); err != nil {
+		return "", err
+	}
+	return defaultPath, nil
+}
+
+func LoadWithError() (*Config, error) {
+	paths := searchPaths()
+	dataDir := appdata.Dir()
 	if dataDir == "" {
 		return loadPaths(paths)
 	}
-	return loadOrCreate(paths, filepath.Join(dataDir, names[0]), defaultConfigYAML())
+	return loadOrCreate(paths, filepath.Join(dataDir, configNames()[0]), defaultConfigYAML())
 }
 
 func LoadFromWithError(path string) (*Config, error) {
