@@ -4,6 +4,14 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
+## 1.4.2
+
+### Changes
+
+- `script-manager-gui`: the Command pane puts COMMAND above OUTPUT, gives each
+  open section a share of the pane's height with its own scrollbar, and
+  collapses COMMAND in favour of OUTPUT when an inline run starts.
+
 ## 1.4.1
 
 ### Changes

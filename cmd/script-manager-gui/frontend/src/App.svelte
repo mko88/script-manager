@@ -253,6 +253,11 @@
   function runActionInline() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
     withUnlocked(() => {
+      // The output is what you want to watch once it starts, and the command
+      // is what you just read to decide to run it.
+      cmdSectionCollapsed = true
+      outputSectionCollapsed = false
+      saveLayout()
       startInlineRun(selectedItem, selectedActionIndex)
     })
   }
@@ -864,8 +869,55 @@
                 {/if}
               </div>
             {/if}
+            <div class="messages-group cmd-section" class:cmd-section-open={!cmdSectionCollapsed}>
+              <button class="messages-group-header" type="button" on:click={() => { cmdSectionCollapsed = !cmdSectionCollapsed; saveLayout() }}>
+                <span class="messages-group-title">{t('section.command')}</span>
+                <span class="collapse-glyph">{cmdSectionCollapsed ? '▸' : '▾'}</span>
+              </button>
+              {#if !cmdSectionCollapsed}
+                <div class="cmd-section-body">
+                {#if actionDetail.description}
+                  <p class="cmd-desc">{actionDetail.description}</p>
+                {/if}
+                {#if selectedActionGroups.length > 0}
+                  <div class="cmd-groups">
+                    {#each selectedActionGroups as group (group)}
+                      <span class="chip chip-static" style={groupChipStyle(groupColors, group, false)}>{group}</span>
+                    {/each}
+                  </div>
+                {/if}
+                {#if actionDetail.script}
+                  <p class="cmd-desc script-path-line">
+                    <span class="script-path">{t('text.scriptLabel')}{actionDetail.script}</span>
+                    <IconButton
+                      class="btn icon-btn script-edit-btn"
+                      title={t('tooltip.openScriptInEditor', { path: actionDetail.script })}
+                      on:click={openScriptInEditor}><Icon name="edit" /></IconButton
+                    >
+                  </p>
+                  {#if actionDetail.scriptError}
+                    <p class="cmd-error">{actionDetail.scriptError}</p>
+                  {:else}
+                    <div class="code-block">
+                      <CodeMirror
+                        value={actionDetail.scriptContent}
+                        language={actionDetail.language}
+                        readOnly
+                      />
+                      <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
+                    </div>
+                  {/if}
+                {:else if actionDetail.cmd}
+                  <div class="code-block">
+                    <CodeMirror value={actionDetail.cmd} language={actionDetail.language} readOnly />
+                    <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
+                  </div>
+                {/if}
+                </div>
+              {/if}
+            </div>
             {#if inlineRunning || inlineOutput || inlineExitCode !== null}
-              <div class="messages-group">
+              <div class="messages-group cmd-section" class:cmd-section-open={!outputSectionCollapsed && inlineOutput}>
                 <button class="messages-group-header" type="button" on:click={() => { outputSectionCollapsed = !outputSectionCollapsed; saveLayout() }}>
                   <span class="messages-group-title">{t('section.output')}</span>
                   <span class="output-status">
@@ -895,52 +947,6 @@
                 {/if}
               </div>
             {/if}
-            <div class="messages-group">
-              <button class="messages-group-header" type="button" on:click={() => { cmdSectionCollapsed = !cmdSectionCollapsed; saveLayout() }}>
-                <span class="messages-group-title">{t('section.command')}</span>
-                <span class="collapse-glyph">{cmdSectionCollapsed ? '▸' : '▾'}</span>
-              </button>
-              {#if !cmdSectionCollapsed}
-                {#if actionDetail.description}
-                  <p class="cmd-desc">{actionDetail.description}</p>
-                {/if}
-                {#if selectedActionGroups.length > 0}
-                  <div class="cmd-groups">
-                    {#each selectedActionGroups as group (group)}
-                      <span class="chip chip-static" style={groupChipStyle(groupColors, group, false)}>{group}</span>
-                    {/each}
-                  </div>
-                {/if}
-                {#if actionDetail.script}
-                  <p class="cmd-desc script-path-line">
-                    <span class="script-path">{t('text.scriptLabel')}{actionDetail.script}</span>
-                    <IconButton
-                      class="btn icon-btn script-edit-btn"
-                      title={t('tooltip.openScriptInEditor', { path: actionDetail.script })}
-                      on:click={openScriptInEditor}><Icon name="edit" /></IconButton
-                    >
-                  </p>
-                  {#if actionDetail.scriptError}
-                    <p class="cmd-error">{actionDetail.scriptError}</p>
-                  {:else}
-                    <div class="code-block">
-                      <CodeMirror
-                        value={actionDetail.scriptContent}
-                        language={actionDetail.language}
-                        readOnly
-                        maxHeight="420px"
-                      />
-                      <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
-                    </div>
-                  {/if}
-                {:else if actionDetail.cmd}
-                  <div class="code-block">
-                    <CodeMirror value={actionDetail.cmd} language={actionDetail.language} readOnly maxHeight="420px" />
-                    <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
-                  </div>
-                {/if}
-              {/if}
-            </div>
           {:else}
             <div class="empty">{t('empty.selectActionToPreview')}</div>
           {/if}
@@ -1232,10 +1238,6 @@
     color: var(--sm-masked);
   }
 
-  .command-content {
-    font-size: var(--sm-type-base);
-  }
-
   .cmd-desc {
     margin: 0 0 8px;
     color: var(--sm-text-muted);
@@ -1251,7 +1253,10 @@
     position: relative;
     background: var(--sm-bg-deep);
     border-radius: 4px;
-    margin: 0 0 8px;
+    margin: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
   }
   :global(.cmd-output-copy-btn) {
     position: absolute;
@@ -1286,9 +1291,55 @@
   .cmd-output-body {
     margin: 0;
     padding: 6px;
-    max-height: 260px;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: hidden;
     display: flex;
+  }
+
+  /* The pane is a column of sections: the run buttons take what they need,
+     and every open section shares what is left rather than the whole pane
+     scrolling as one long strip. */
+  .command-content {
+    font-size: var(--sm-type-base);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .cmd-actions {
+    flex: none;
+  }
+
+  .command-content .cmd-section {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    margin: 0;
+  }
+
+  /* An open section gets an equal share, but never less than about three
+     lines plus its header — below that it is a title bar with a sliver. */
+  .command-content .cmd-section-open {
+    flex: 1 1 0;
+    min-height: 104px;
+  }
+
+  .command-content :global(.messages-group-header) {
+    flex: none;
+  }
+
+  .cmd-section-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .cmd-section-body :global(.sm-code) {
+    max-height: none;
   }
 
   .cmd-output-body :global(.sm-code) {
