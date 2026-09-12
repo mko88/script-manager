@@ -23,6 +23,7 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 
 - `script-manager-gui`: entries in the recent-configs list had no hover
   highlight and needed a second click to open.
+- On Linux, scaling the interface up left empty space below the app.
 
 ## 1.4.1
 
