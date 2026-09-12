@@ -359,6 +359,8 @@ The **Run** terminal window is independent once launched — no output streams b
 
 #### Running a command without a terminal ("Run here")
 
+For a script-mode action, a pencil button beside the script path opens the file in your default editor.
+
 For a command that doesn't need interactive input, the **Run here** button next to **Run** executes it directly and streams the output live into the Command pane's **OUTPUT** section, with **Cancel** and **Copy output** buttons alongside. Like **Run**, the working directory is the app-data directory. Stdin is disconnected, so a command that unexpectedly prompts for input fails fast instead of hanging.
 
 An action's `interactive: true` (see the config example above) hides **Run here** entirely for that action — it can only be run via **Run**, in a real terminal.

@@ -51,6 +51,7 @@
     LoadRecentConfig,
     ClearRecentConfigs,
     ActionNeedsUnlock,
+    OpenScriptInEditor,
     UnlockSecrets,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
@@ -175,6 +176,15 @@
   // What the pane is showing: a script's contents when they could be read,
   // the command otherwise, and the path only when the file wouldn't open —
   // where the path is the useful thing to have.
+  async function openScriptInEditor() {
+    if (!actionDetail?.script) return
+    try {
+      await OpenScriptInEditor(actionDetail.script)
+    } catch (err) {
+      flash(t('toast.openScriptFailed', { error: String(err) }))
+    }
+  }
+
   function copyCmd() {
     const value = actionDetail?.scriptContent || actionDetail?.cmd || actionDetail?.script
     if (!value) return
@@ -890,7 +900,14 @@
                   </div>
                 {/if}
                 {#if actionDetail.script}
-                  <p class="cmd-desc">{t('text.scriptLabel')}{actionDetail.script}</p>
+                  <p class="cmd-desc script-path-line">
+                    <span class="script-path">{t('text.scriptLabel')}{actionDetail.script}</span>
+                    <IconButton
+                      class="btn icon-btn script-edit-btn"
+                      title={t('tooltip.openScriptInEditor', { path: actionDetail.script })}
+                      on:click={openScriptInEditor}><Icon name="edit" /></IconButton
+                    >
+                  </p>
                   {#if actionDetail.scriptError}
                     <p class="cmd-error">{actionDetail.scriptError}</p>
                   {:else}
@@ -1270,6 +1287,22 @@
   .code-block {
     position: relative;
     margin-bottom: 8px;
+  }
+
+  .script-path-line {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .script-path {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  :global(.script-edit-btn) {
+    flex: none;
+    padding: 2px 5px;
   }
 
   .cmd-groups {

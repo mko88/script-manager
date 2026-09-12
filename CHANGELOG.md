@@ -6,6 +6,11 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 
 ## 1.4.1
 
+### Changes
+
+- `script-manager-gui`: a button beside a script action's path opens the file
+  in the default editor.
+
 ### Bug fixes
 
 - `script-manager-gui`: the Copy output button was hidden behind the output

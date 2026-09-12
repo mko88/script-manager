@@ -46,6 +46,8 @@ export function Log(arg1:string):Promise<void>;
 
 export function LogPath():Promise<string>;
 
+export function OpenScriptInEditor(arg1:string):Promise<void>;
+
 export function RecentConfigs():Promise<Array<string>>;
 
 export function ReloadConfig():Promise<string>;

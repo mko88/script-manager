@@ -86,6 +86,10 @@ export function LogPath() {
   return window['go']['gui']['App']['LogPath']();
 }
 
+export function OpenScriptInEditor(arg1) {
+  return window['go']['gui']['App']['OpenScriptInEditor'](arg1);
+}
+
 export function RecentConfigs() {
   return window['go']['gui']['App']['RecentConfigs']();
 }
