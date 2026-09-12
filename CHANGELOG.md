@@ -7,6 +7,17 @@ the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 
 ### Changes
 
+- Environment values can be locked behind a config PIN: `sm-config-edit`
+  encrypts the value in place and `config.yaml` stores only the ciphertext.
+  One PIN per config, entered once per app run and again after loading a
+  different config, in both the GUI and the TUI.
+- Actions opt in with **Requires PIN** (`requiresPin: true`). Such an action
+  asks for the PIN and receives the decrypted values; every other action
+  runs without a prompt and simply doesn't have the locked variables set.
+- `sm-config-edit`: a **PIN** section sets the config's PIN, changes it
+  (re-encrypting every locked value in one step), or removes it (decrypting
+  them back to plain text, still marked secret). The padlock on a value
+  points there when no PIN has been set yet.
 - The Load config button (`script-manager-gui`) and Open button
   (`sm-config-edit`) now open a dropdown listing the last 10 configs
   opened, by full path, with Clear recent and Browse… below it. The list

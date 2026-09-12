@@ -22,6 +22,7 @@
       groups: [],
       noWait: false,
       interactive: true,
+      requiresPin: false,
     } as unknown as configedit.ActionDTO
   }
 

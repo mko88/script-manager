@@ -5,6 +5,7 @@ import (
 
 	"script-manager/internal/action"
 	"script-manager/internal/config"
+	"script-manager/internal/secret"
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
@@ -40,6 +41,12 @@ type App struct {
 	reload           func() (*config.Config, error)
 	cfg              *config.Config
 	loadErr          error
+
+	secretKey    []byte
+	secretParams *secret.Params
+	pinPrompt    bool
+	pinEntry     string
+	pinPending   config.Action
 }
 
 func NewApp(cfg *config.Config, reload func() (*config.Config, error), loadErr error) *App {
@@ -91,6 +98,10 @@ func NewApp(cfg *config.Config, reload func() (*config.Config, error), loadErr e
 }
 
 func (a *App) applyConfig(cfg *config.Config) {
+	if !secret.SameParams(a.secretParams, cfg.Secrets) {
+		a.secretKey = nil
+		a.secretParams = nil
+	}
 	a.cfg = cfg
 	a.list.SetItems(cfg.Items, cfg.Display)
 
@@ -232,7 +243,20 @@ func (a *App) onItemChanged() {
 }
 
 func (a *App) mergedItem(item map[string]any) map[string]any {
-	return action.Merge(a.globalEnv, item)
+	return secret.Display(action.Merge(a.globalEnv, item), a.secretKey)
+}
+
+func (a *App) mergedItemForRun(item map[string]any, act config.Action) (map[string]any, error) {
+	merged := action.Merge(a.globalEnv, item)
+	if !act.RequiresPIN {
+		return secret.Strip(merged), nil
+	}
+	revealed, err := secret.Reveal(merged, a.secretKey)
+	if err == secret.ErrWrongPIN {
+		a.secretKey = nil
+		a.secretParams = nil
+	}
+	return revealed, err
 }
 
 func (a *App) MergedItem() map[string]any {
@@ -296,6 +320,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, cmd
 
 	case tea.KeyMsg:
+		if a.pinPrompt {
+			return a.updatePINPrompt(msg)
+		}
 		switch msg.String() {
 		case "q", "Q", "ctrl+c":
 			return a, tea.Quit

@@ -8,6 +8,7 @@
   import CollapseToggle from '@shared/components/CollapseToggle.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
   import RecentMenu from '@shared/components/RecentMenu.svelte'
+  import PinDialog from '@shared/components/PinDialog.svelte'
   import ScriptSource from '@shared/components/ScriptSource.svelte'
   import Panel from './components/Panel.svelte'
   import GroupFilter from './components/GroupFilter.svelte'
@@ -46,6 +47,8 @@
     RecentConfigs,
     LoadRecentConfig,
     ClearRecentConfigs,
+    ActionNeedsUnlock,
+    UnlockSecrets,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
 
@@ -161,22 +164,61 @@
     copyToClipboard(value)
   }
 
-  async function runAction() {
-    if (selectedItem < 0 || selectedActionIndex < 0) return
-    try {
-      await RunAction(selectedItem, selectedActionIndex)
-      flash(t('toast.runningInTerminal'))
-    } catch (err) {
-      flash(t('toast.runFailed', { error: String(err) }))
+  let pinDialogOpen = false
+  let pinError = ''
+  let pinPending: (() => void) | null = null
+
+  async function withUnlocked(run: () => void) {
+    if (selectedItem >= 0 && selectedActionIndex >= 0 && (await ActionNeedsUnlock(selectedItem, selectedActionIndex))) {
+      pinError = ''
+      pinPending = run
+      pinDialogOpen = true
+      return
     }
+    run()
+  }
+
+  async function submitPin(pin: string) {
+    try {
+      await UnlockSecrets(pin)
+    } catch {
+      pinError = t('tooltip.pinWrong')
+      return
+    }
+    pinDialogOpen = false
+    pinError = ''
+    const run = pinPending
+    pinPending = null
+    if (selectedItem >= 0) details = await GetItemDetails(selectedItem)
+    run?.()
+  }
+
+  function cancelPin() {
+    pinDialogOpen = false
+    pinError = ''
+    pinPending = null
+  }
+
+  function runAction() {
+    if (selectedItem < 0 || selectedActionIndex < 0) return
+    withUnlocked(async () => {
+      try {
+        await RunAction(selectedItem, selectedActionIndex)
+        flash(t('toast.runningInTerminal'))
+      } catch (err) {
+        flash(t('toast.runFailed', { error: String(err) }))
+      }
+    })
   }
 
   function runActionInline() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
-    startInlineRun(selectedItem, selectedActionIndex, (itemIndex, actionIndex) => {
-      if (selectedItem === itemIndex && selectedActionIndex === actionIndex) {
-        scrollInlineOutputToEnd()
-      }
+    withUnlocked(() => {
+      startInlineRun(selectedItem, selectedActionIndex, (itemIndex, actionIndex) => {
+        if (selectedItem === itemIndex && selectedActionIndex === actionIndex) {
+          scrollInlineOutputToEnd()
+        }
+      })
     })
   }
 
@@ -847,6 +889,17 @@
     <Toast />
   </main>
 </div>
+<PinDialog
+  open={pinDialogOpen}
+  title={t('tooltip.pinTitle')}
+  message={t('tooltip.pinMessage')}
+  pinLabel={t('tooltip.pinLabel')}
+  confirmLabel={t('tooltip.pinConfirmButton')}
+  cancelLabel={t('tooltip.pinCancelButton')}
+  error={pinError}
+  onSubmit={submitPin}
+  onCancel={cancelPin}
+/>
 {/if}
 
 <style>

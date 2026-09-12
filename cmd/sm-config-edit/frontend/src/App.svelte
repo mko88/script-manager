@@ -7,6 +7,7 @@
   import FieldGrid from './components/FieldGrid.svelte'
   import ThemeEditor from './components/ThemeEditor.svelte'
   import MessagesEditor from './components/MessagesEditor.svelte'
+  import SecretsEditor from './components/SecretsEditor.svelte'
   import DisplaysEditor from './components/DisplaysEditor.svelte'
   import ActionGroupsEditor from './components/ActionGroupsEditor.svelte'
   import ActionsEditor from './components/ActionsEditor.svelte'
@@ -16,6 +17,7 @@
   import Icon from '@shared/components/Icon.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
   import RecentMenu from '@shared/components/RecentMenu.svelte'
+  import PinDialog from '@shared/components/PinDialog.svelte'
   import { t } from './messages'
   import {
     InitialState,
@@ -24,6 +26,12 @@
     RecentConfigs,
     OpenRecent,
     ClearRecentConfigs,
+    CreateSecretsPIN,
+    ChangeSecretsPIN,
+    RemoveSecretsPIN,
+    UnlockSecrets,
+    LockValue,
+    RevealValue,
     BrowseSaveAs,
     BrowseScriptFile,
     PreviewScriptFile,
@@ -79,6 +87,7 @@
     | 'terminal'
     | 'theme'
     | 'messages'
+    | 'secrets'
   const sections: { key: Section; label: string }[] = [
     { key: 'items', label: t('nav.items') },
     { key: 'actionGroups', label: t('nav.actionGroups') },
@@ -87,6 +96,7 @@
     { key: 'env', label: t('nav.environment') },
     { key: 'shell', label: t('nav.shell') },
     { key: 'terminal', label: t('nav.terminal') },
+    { key: 'secrets', label: t('nav.pin') },
     { key: 'theme', label: t('nav.theme') },
     { key: 'messages', label: t('nav.messages') },
   ]
@@ -116,6 +126,7 @@
   function applyState(state: configedit.StateDTO) {
     cfg = state.config
     path = state.path
+    secretsUnlocked = false
     markClean()
     if (state.warning) flash(t('toast.configLoadWarning', { warning: state.warning }))
   }
@@ -168,6 +179,96 @@
 
   async function refreshRecents() {
     recents = await RecentConfigs()
+  }
+
+  let pinDialogOpen = false
+  let pinError = ''
+  let secretsUnlocked = false
+  let pinResolve: ((ok: boolean) => void) | null = null
+
+  function askPin(): Promise<boolean> {
+    pinError = ''
+    pinDialogOpen = true
+    return new Promise((resolve) => (pinResolve = resolve))
+  }
+
+  async function submitPin(pin: string) {
+    if (!cfg.secrets) return
+    try {
+      await UnlockSecrets(pin, cfg.secrets)
+    } catch (err) {
+      pinError = String(err)
+      return
+    }
+    secretsUnlocked = true
+    pinDialogOpen = false
+    pinResolve?.(true)
+    pinResolve = null
+  }
+
+  function cancelPin() {
+    pinDialogOpen = false
+    pinError = ''
+    pinResolve?.(false)
+    pinResolve = null
+  }
+
+  async function ensureUnlocked(): Promise<boolean> {
+    if (secretsUnlocked) return true
+    if (!cfg.secrets) {
+      flash(t('toast.pinNotSet'))
+      section = 'secrets'
+      return false
+    }
+    return askPin()
+  }
+
+  async function toggleFieldLock(field: { key: string; value: string; locked?: boolean }): Promise<string | null> {
+    if (!(await ensureUnlocked())) return null
+    try {
+      return field.locked ? await RevealValue(field.value) : await LockValue(field.value)
+    } catch (err) {
+      flash(t('toast.lockFailed', { error: String(err) }))
+      return null
+    }
+  }
+
+  $: lockedValueCount =
+    (cfg?.envFields ?? []).filter((f) => f.locked).length +
+    (cfg?.items ?? []).reduce((n, it) => n + (it.fields ?? []).filter((f) => f.locked).length, 0)
+
+  async function setPin(newPin: string): Promise<string> {
+    try {
+      cfg.secrets = await CreateSecretsPIN(newPin)
+      cfg = cfg
+      secretsUnlocked = true
+      flash(t('toast.pinSet'))
+      return ''
+    } catch (err) {
+      return String(err)
+    }
+  }
+
+  async function changePin(oldPin: string, newPin: string): Promise<string> {
+    try {
+      cfg = await ChangeSecretsPIN(oldPin, newPin, cfg)
+      secretsUnlocked = true
+      flash(t('toast.pinChanged'))
+      return ''
+    } catch (err) {
+      return String(err)
+    }
+  }
+
+  async function removePin(pin: string): Promise<string> {
+    try {
+      cfg = await RemoveSecretsPIN(pin, cfg)
+      secretsUnlocked = false
+      flash(t('toast.pinRemoved'))
+      return ''
+    } catch (err) {
+      return String(err)
+    }
   }
 
   async function openRecent(recentPath: string) {
@@ -374,7 +475,7 @@
           {/if}
         {:else if section === 'env'}
           <p class="hint">{t('hint.envGlobal')}</p>
-          <FieldGrid bind:fields={cfg.envFields} validateField={ValidateField} />
+          <FieldGrid bind:fields={cfg.envFields} validateField={ValidateField} onToggleLock={toggleFieldLock} />
         {:else if section === 'display'}
           <DisplaysEditor
             bind:displays={cfg.display}
@@ -411,6 +512,7 @@
             validateField={ValidateField}
             browseScriptFile={BrowseScriptFile}
             previewScriptFile={PreviewScriptFile}
+            onToggleLock={toggleFieldLock}
           />
         {:else if section === 'theme'}
           <ThemeEditor
@@ -421,6 +523,15 @@
             deleteTheme={DeleteTheme}
             setActiveTheme={SetTheme}
             {flash}
+          />
+        {:else if section === 'secrets'}
+          <SecretsEditor
+            configured={!!cfg.secrets}
+            unlocked={secretsUnlocked}
+            lockedCount={lockedValueCount}
+            onSetPin={setPin}
+            onChangePin={changePin}
+            onRemovePin={removePin}
           />
         {:else if section === 'messages'}
           <MessagesEditor
@@ -437,6 +548,18 @@
     <Toast />
   </main>
 </div>
+
+<PinDialog
+  open={pinDialogOpen}
+  title={t('tooltip.pinEnterTitle')}
+  message={t('tooltip.pinEnterMessage')}
+  pinLabel={t('tooltip.pinLabel')}
+  confirmLabel={t('tooltip.pinConfirmButton')}
+  cancelLabel={t('tooltip.pinCancelButton')}
+  error={pinError}
+  onSubmit={submitPin}
+  onCancel={cancelPin}
+/>
 
 <style>
   .app-root {

@@ -12,6 +12,7 @@ import (
 	"script-manager/internal/exepath"
 	"script-manager/internal/recent"
 	"script-manager/internal/scriptsource"
+	"script-manager/internal/secret"
 	"script-manager/internal/version"
 
 	"github.com/atotto/clipboard"
@@ -28,6 +29,10 @@ type App struct {
 	exeDir     string
 	appDataDir string
 	loadErr    error
+
+	secretMu     sync.RWMutex
+	secretKey    []byte
+	secretParams *secret.Params
 
 	inlineMu   sync.Mutex
 	inlineRuns map[inlineKey]*inlineRun
@@ -74,7 +79,7 @@ func (a *App) ReloadConfig() (string, error) {
 	if cfg.SourcePath == "" {
 		return "", err
 	}
-	a.cfg = cfg
+	a.setConfig(cfg)
 	if err != nil {
 		return err.Error(), nil
 	}
@@ -118,7 +123,19 @@ func (a *App) renderListLabel(item map[string]any) string {
 }
 
 func (a *App) mergedItem(item map[string]any) map[string]any {
-	return action.Merge(a.cfg.Env, item)
+	return secret.Display(action.Merge(a.cfg.Env, item), a.sessionKey())
+}
+
+func (a *App) mergedItemForRun(item map[string]any, act config.Action) (map[string]any, error) {
+	merged := action.Merge(a.cfg.Env, item)
+	if !act.RequiresPIN {
+		return secret.Strip(merged), nil
+	}
+	revealed, err := secret.Reveal(merged, a.sessionKey())
+	if err == secret.ErrWrongPIN {
+		a.forgetSessionKey()
+	}
+	return revealed, err
 }
 
 func (a *App) itemAt(index int) map[string]any {

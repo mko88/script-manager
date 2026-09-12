@@ -21,6 +21,7 @@ type ActionDTO struct {
 	Groups      []string `json:"groups"`
 	NoWait      bool     `json:"noWait"`
 	Interactive bool     `json:"interactive"`
+	RequiresPIN bool     `json:"requiresPin"`
 }
 
 type ActionGroupDTO struct {
@@ -34,6 +35,15 @@ type FieldDTO struct {
 	Kind   string `json:"kind"`
 	Value  string `json:"value"`
 	Secret bool   `json:"secret"`
+	Locked bool   `json:"locked"`
+}
+
+type SecretsDTO struct {
+	Salt    string `json:"salt"`
+	Time    uint32 `json:"time"`
+	Memory  uint32 `json:"memory"`
+	Threads uint8  `json:"threads"`
+	Check   string `json:"check"`
 }
 
 type ItemDTO struct {
@@ -46,6 +56,7 @@ type ItemDTO struct {
 }
 
 type ConfigDTO struct {
+	Secrets      *SecretsDTO      `json:"secrets,omitempty"`
 	Shell        []string         `json:"shell"`
 	Display      []DisplayDTO     `json:"display"`
 	Terminal     TerminalDTO      `json:"terminal"`

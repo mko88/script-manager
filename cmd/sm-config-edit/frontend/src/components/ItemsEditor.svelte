@@ -26,6 +26,8 @@
     action: configedit.ActionDTO,
   ) => Promise<configedit.ActionPreviewDTO>
   export let validateField: (kind: string, value: string) => Promise<string>
+  export let onToggleLock: ((field: { key: string; value: string; locked?: boolean }) => Promise<string | null>) | null =
+    null
   export let browseScriptFile: () => Promise<string>
   export let previewScriptFile: (path: string) => Promise<configedit.ScriptPreviewDTO>
 
@@ -44,6 +46,7 @@
       groups: [],
       noWait: false,
       interactive: true,
+      requiresPin: false,
     } as unknown as configedit.ActionDTO
   }
 
@@ -213,7 +216,7 @@
       <div class="field">
         <span>{t('nav.environment')}</span>
         <p class="hint">{t('hint.envItem')}</p>
-        <FieldGrid bind:fields={items[selectedItem].fields} {validateField} />
+        <FieldGrid bind:fields={items[selectedItem].fields} {validateField} {onToggleLock} />
       </div>
 
       <div class="preview-pane panel">

@@ -3,12 +3,15 @@
   import { looksLikeSecretKey } from '../secretKey'
   import IconButton from '@shared/components/IconButton.svelte'
 
-  export let fields: { key: string; kind: string; value: string; secret: boolean }[] = []
+  export let fields: { key: string; kind: string; value: string; secret: boolean; locked?: boolean }[] = []
   export let validateField: (kind: string, value: string) => Promise<string> = async () => ''
+  export let onToggleLock: ((field: { key: string; value: string; locked?: boolean }) => Promise<string | null>) | null =
+    null
 
   const kinds = ['string', 'multiline', 'number', 'bool', 'yaml'] as const
 
   const secretPlaceholder = t('text.secretMask')
+  const LOCK_PREFIX = 'sm-enc:v1:'
 
   let errors: Record<number, string> = {}
   let focused: Record<number, boolean> = {}
@@ -19,7 +22,17 @@
   }
 
   function add() {
-    fields = [...fields, { key: '', kind: 'string', value: '', secret: false }]
+    fields = [...fields, { key: '', kind: 'string', value: '', secret: false, locked: false }]
+  }
+
+  async function toggleLock(i: number) {
+    if (!onToggleLock) return
+    const next = await onToggleLock(fields[i])
+    if (next === null) return
+    fields[i].value = next
+    fields[i].locked = next.startsWith(LOCK_PREFIX)
+    if (fields[i].locked) fields[i].secret = true
+    fields = fields
   }
   function remove(i: number) {
     const key = fields[i]?.key || t('fallback.unnamed')
@@ -90,7 +103,8 @@
           class="field-value"
           class:field-value-secret={fields[i].secret && focused[i]}
           type="text"
-          value={fields[i].secret && !focused[i] ? secretPlaceholder : fields[i].value}
+          readonly={fields[i].locked}
+          value={fields[i].locked || (fields[i].secret && !focused[i]) ? secretPlaceholder : fields[i].value}
           on:input={(e) => onValueInput(i, e)}
           on:focus={() => (focused = { ...focused, [i]: true })}
           on:blur={() => (focused = { ...focused, [i]: false })}
@@ -114,6 +128,20 @@
           </svg>
         {/if}
       </IconButton>
+      {#if onToggleLock}
+        <IconButton
+          class="btn icon-btn field-icon-btn"
+          active={fields[i].locked}
+          title={fields[i].locked ? t('tooltip.lockedField') : t('tooltip.lockField')}
+          on:click={() => toggleLock(i)}
+        >
+          <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
+            <rect x="3" y="7" width="10" height="6.5" rx="1.2" fill={fields[i].locked ? 'currentColor' : 'none'} stroke="currentColor" stroke-width="1.3" />
+            <path d="M5.2 7V5.2a2.8 2.8 0 0 1 5.6 0V7" fill="none" stroke="currentColor" stroke-width="1.3" />
+            <circle cx="8" cy="10.2" r="1" fill={fields[i].locked ? 'var(--sm-panel-header)' : 'currentColor'} />
+          </svg>
+        </IconButton>
+      {/if}
       <IconButton class="btn icon-btn field-icon-btn" title={t('tooltip.removeField')} on:click={() => remove(i)}>{t('text.removeGlyph')}</IconButton>
     </div>
     {#if errors[i]}

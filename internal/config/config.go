@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"script-manager/internal/appdata"
+	"script-manager/internal/secret"
 
 	"gopkg.in/yaml.v3"
 )
@@ -43,6 +44,7 @@ type Action struct {
 	Groups      []string `yaml:"groups,omitempty"`
 	NoWait      bool     `yaml:"noWait,omitempty"`
 	Interactive bool     `yaml:"interactive,omitempty"`
+	RequiresPIN bool     `yaml:"requiresPin,omitempty"`
 }
 
 type ActionGroup struct {
@@ -122,6 +124,7 @@ type Config struct {
 	Shell        []string         `yaml:"shell,omitempty"`
 	Display      DisplayList      `yaml:"display,omitempty"`
 	Terminal     TerminalConfig   `yaml:"terminal,omitempty"`
+	Secrets      *secret.Params   `yaml:"secrets,omitempty"`
 	Env          map[string]any   `yaml:"env,omitempty"`
 	Items        []map[string]any `yaml:"items,omitempty"`
 	ActionGroups []ActionGroup    `yaml:"actionGroups,omitempty"`

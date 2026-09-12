@@ -49,7 +49,10 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 	}
 
 	act := actions[actionIndex]
-	merged := a.mergedItem(item)
+	merged, err := a.mergedItemForRun(item, act)
+	if err != nil {
+		return err
+	}
 
 	title := act.Title
 	if name, ok := item[config.KeyName].(string); ok && name != "" {

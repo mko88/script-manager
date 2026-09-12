@@ -3,6 +3,8 @@
 import {gui} from '../models';
 import {theme} from '../models';
 
+export function ActionNeedsUnlock(arg1:number,arg2:number):Promise<boolean>;
+
 export function BrowseConfig():Promise<string>;
 
 export function CancelInlineAction(arg1:number,arg2:number):Promise<void>;
@@ -35,6 +37,8 @@ export function LoadError():Promise<string>;
 
 export function LoadRecentConfig(arg1:string):Promise<void>;
 
+export function LockSecrets():Promise<void>;
+
 export function RecentConfigs():Promise<Array<string>>;
 
 export function ReloadConfig():Promise<string>;
@@ -43,8 +47,12 @@ export function RunAction(arg1:number,arg2:number):Promise<void>;
 
 export function RunActionInline(arg1:number,arg2:number):Promise<void>;
 
+export function SecretsState():Promise<gui.SecretsStateDTO>;
+
 export function SetAlwaysOnTop(arg1:boolean):Promise<void>;
 
 export function SetTheme(arg1:string):Promise<void>;
 
 export function SetWindowOpacity(arg1:number):Promise<void>;
+
+export function UnlockSecrets(arg1:string):Promise<void>;
