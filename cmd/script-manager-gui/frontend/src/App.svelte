@@ -942,12 +942,6 @@
     margin-left: auto;
   }
 
-  .toolbar :global(.btn.active) {
-    background: var(--sm-bg-primary);
-    border-color: var(--sm-bg-primary);
-    color: var(--sm-text-primary);
-  }
-
   .opacity-control {
     position: relative;
     display: flex;
@@ -1227,6 +1221,11 @@
   @keyframes running-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .running-indicator {
+      animation: none;
+    }
   }
   .cmd-output-body {
     margin: 0;

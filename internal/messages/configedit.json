@@ -213,7 +213,9 @@
     "sections": "Sections"
   },
   "text": {
-    "unsaved": "(unsaved)",
+    "autosaveOn": "Autosave on",
+    "autosaveOff": "Autosave off",
+    "unsaved": "unsaved",
     "dirtyMarker": " *",
     "errorIcon": "⛔",
     "warningIcon": "⚠",
