@@ -452,7 +452,7 @@ bash build.sh --windows
 bash build.sh --linux
 ```
 
-`build.sh` stamps the version the GUI's About panel shows from `git describe --tags --always --dirty`: `v1.4.0.0` when the build sits exactly on a release tag, `v1.4.0.0-4-g94b2835` a few commits past one, plus a `-dirty` suffix when the working tree has uncommitted changes. Binaries produced by the manual commands further down — or built outside a git checkout — report `dev` instead.
+`build.sh` stamps the version the GUI's About panel shows from `git describe --tags --always --dirty`: `v1.4.0` when the build sits exactly on a release tag, `v1.4.0-4-g94b2835` a few commits past one, plus a `-dirty` suffix when the working tree has uncommitted changes. Binaries produced by the manual commands further down — or built outside a git checkout — report `dev` instead.
 
 ### Building from a Windows host via a dev container
 

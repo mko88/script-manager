@@ -59,7 +59,7 @@ mkdir -p bin
 
 # Stamped into internal/version at link time, so the binaries can report
 # which build they are instead of carrying a hand-edited constant.
-# `git describe` gives "v1.4.0.0" on a release tag, "v1.4.0.0-4-g94b2835"
+# `git describe` gives "v1.4.0" on a release tag, "v1.4.0-4-g94b2835"
 # past one, and a "-dirty" suffix with uncommitted changes. Outside a git
 # checkout the defaults in the package stand ("dev").
 version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)

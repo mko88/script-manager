@@ -1,9 +1,10 @@
 # Changelog
 
 Notable changes across all three binaries, newest first. Versions follow
-the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
+the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
+1.4.0 carry a fourth segment, from the scheme this replaced.
 
-## 1.4.0.0
+## 1.4.0
 
 ### Changes
 
@@ -60,7 +61,7 @@ the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 - `sm-config-edit`: copies are named "Server - Copy", then "Server - Copy 2";
   actions and action groups also get a fresh id (`ssh` → `ssh-copy`).
 - The version now comes from the git tag at build time, so the About panel
-  identifies the exact build (`v1.4.0.0`, `v1.4.0.0-4-g94b2835`, `-dirty`,
+  identifies the exact build (`v1.4.0`, `v1.4.0-4-g94b2835`, `-dirty`,
   or `dev` outside a checkout).
 
 ## 1.3.0.0
