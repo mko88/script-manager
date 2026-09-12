@@ -99,6 +99,15 @@
           on:focus={() => (focused = { ...focused, [i]: true })}
           on:blur={() => (focused = { ...focused, [i]: false })}
         ></textarea>
+      {:else if fields[i].kind === 'multiline' && !fields[i].secret}
+        <div class="field-value">
+          <CodeMirror
+            bind:value={fields[i].value}
+            minHeight="4.5em"
+            maxHeight="220px"
+            onChange={() => check(i)}
+          />
+        </div>
       {:else if fields[i].kind === 'multiline'}
         <textarea
           class="field-value"

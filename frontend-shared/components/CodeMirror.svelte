@@ -108,6 +108,9 @@
   // Keeps a streaming document pinned to its last line — the inline run
   // output, which grows while it is watched.
   export let followTail = false
+  // One line only, for a field that stands in for a text input: no gutter,
+  // no wrapping, and anything that would add a line is refused.
+  export let singleLine = false
   // Called after an edit made in this editor, for callers that validate or
   // react to the new text. A callback rather than a dispatched event: these
   // components are consumed as plain props everywhere else.
@@ -156,8 +159,12 @@
         }
       }),
     ]
-    if (showLineNumbers) extensions.push(lineNumbers(), foldGutter())
-    if (wrap) extensions.push(EditorView.lineWrapping)
+    if (singleLine) {
+      extensions.push(EditorState.transactionFilter.of((tr) => (tr.newDoc.lines > 1 ? [] : tr)))
+    } else {
+      if (showLineNumbers) extensions.push(lineNumbers(), foldGutter())
+      if (wrap) extensions.push(EditorView.lineWrapping)
+    }
     if (placeholder) extensions.push(placeholderExt(placeholder))
     if (!readOnly) {
       extensions.push(history(), indentOnInput())
@@ -263,6 +270,7 @@
 <div
   class="sm-code"
   class:sm-code-readonly={readOnly}
+  class:sm-code-single={singleLine}
   style:--sm-code-min-height={minHeight}
   style:--sm-code-max-height={maxHeight}
   bind:this={host}
@@ -282,5 +290,13 @@
 
   .sm-code :global(.cm-scroller) {
     overflow: auto;
+  }
+
+  .sm-code-single :global(.cm-content) {
+    padding: 4px 0;
+  }
+
+  .sm-code-single :global(.cm-line) {
+    padding: 0 6px;
   }
 </style>

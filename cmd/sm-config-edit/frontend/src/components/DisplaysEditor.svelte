@@ -254,10 +254,14 @@
         >
           <header class="panel-title"><span>{t('panel.edit')}</span></header>
           <div class="panel-body edit-pane-body">
-            <label class="field list-template-field">
+            <div class="field list-template-field">
               <span>{t('field.listTemplate')}</span>
-              <input type="text" bind:value={displays[selectedDisplay].list} />
-            </label>
+              <CodeMirror
+                bind:value={displays[selectedDisplay].list}
+                completions={templateCompletions}
+                singleLine
+              />
+            </div>
             <div class="field details-template-field">
               <span>{t('field.detailsTemplate')}</span>
               <div class="details-helper-toolbar">
