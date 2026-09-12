@@ -316,7 +316,7 @@ actions:
 - Actions can be filtered by group with a row of chips below the Actions list header. Multiple groups can be selected at once — an action must belong to *all* selected groups to show; clicking "All" clears the filter
 - Markdown details rendering, with masked (`{{mask ...}}`) values click-to-copy without ever displaying the secret
 - Command preview (expanded template) for the selected action, with a copy button. An **OUTPUT** section appears once a "Run here" run has started (see below)
-- All four panes are collapsible (click anywhere on a pane's header, not just the chevron) and resizable by dragging the dividers; sizes persist across restarts. Selecting an item expands Details and collapses Command; selecting an action does the reverse
+- All four panes are collapsible (click anywhere on a pane's header, not just the chevron) and resizable by dragging the dividers; sizes and collapsed state persist across restarts
 - `F5` reloads the config from disk in place — same semantics as the TUI, with errors shown as a toast
 
 ### Running actions (Windows and Linux)

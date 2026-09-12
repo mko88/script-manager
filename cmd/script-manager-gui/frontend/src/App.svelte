@@ -151,9 +151,6 @@
     resetCommandPaneSections()
     selectedGroups = new Set()
     actionDetail = null
-    detailsCollapsed = false
-    commandCollapsed = true
-    saveLayout()
     actions = await GetActions(index)
     details = await GetItemDetails(index)
   }
@@ -173,9 +170,6 @@
     if (selectedItem < 0) return
     selectedActionIndex = index
     resetCommandPaneSections()
-    detailsCollapsed = true
-    commandCollapsed = false
-    saveLayout()
     actionDetail = await GetActionDetail(selectedItem, index)
   }
 
