@@ -56,15 +56,8 @@
   let cfg: configedit.ConfigDTO = emptyConfig()
   let path = ''
 
-  // No toolbar switcher here anymore — theme/themes just seed ThemeEditor's
-  // picker panel and receive its two-way-bound updates as themes are
-  // switched, saved, or deleted there.
   let theme: Theme = getTheme()
   let themes: Record<string, CustomPalette> | null = getThemes()
-  // Only set while their section is mounted (Svelte destroys the component,
-  // clearing these back to undefined, whenever the {:else if} branch below
-  // switches away) — lets the global Save reach each section's exported
-  // save() without duplicating its save flow up here.
   let themeEditor: ThemeEditor | undefined
   let messagesEditor: MessagesEditor | undefined
 
@@ -110,13 +103,6 @@
     initialized = true
   })
 
-  // The "clean" snapshot dirty is compared against, taken every time cfg is
-  // set programmatically (load/save) rather than by the user editing a
-  // field. A boolean toggled by "cfg was reassigned" doesn't work here: cfg
-  // is reassigned by applyState too (loading is itself a reassignment), and
-  // initialized flips true in a *later* tick than applyState's — so an
-  // edge-triggered flag fires once, spuriously, right after every load. A
-  // value comparison instead of an edge trigger sidesteps that entirely.
   let cleanSnapshot = ''
   function markClean() {
     cleanSnapshot = JSON.stringify(cfg)
@@ -144,14 +130,8 @@
     }, 300)
   }
 
-  // dirty is a pure derived comparison against the last clean snapshot, not
-  // an edge-triggered flag — see markClean's comment for why.
   $: dirty = initialized && JSON.stringify(cfg) !== cleanSnapshot
 
-  // Validation re-runs on every nested edit too: Svelte's bind: chains
-  // (StringListEditor, FieldGrid, ActionForm) all invalidate cfg up to this
-  // root, which this statement is watching. Re-validating once extra right
-  // after a load (before cleanSnapshot is compared) is harmless.
   $: if (initialized && cfg) scheduleValidate()
 
   $: hasBlockingError = validation.some((v) => v.severity === 'error')
@@ -202,11 +182,6 @@
     if (target) await doSave(target)
   }
 
-  // Global Save (toolbar button and Ctrl+S): saves the config, plus whatever
-  // the mounted section owns outside config.yaml — the Theme section's
-  // working theme, the Messages section's override file. Each editor ref is
-  // only bound while its section is mounted, and each save() has its own
-  // "anything to save?" guard, so these are no-ops the rest of the time.
   async function saveAll() {
     await saveConfig()
     themeEditor?.save()
@@ -240,9 +215,6 @@
     }
   }
 
-  // Standard New/Open/Save/Save As shortcuts — Ctrl on Windows/Linux, Cmd on
-  // Mac. These are modifier combos, not text a focused input would ever
-  // insert, so it's safe to handle them regardless of what's focused.
   function handleGlobalKeydown(e: KeyboardEvent) {
     if (!(e.ctrlKey || e.metaKey)) return
     switch (e.key.toLowerCase()) {
@@ -264,11 +236,6 @@
 
   $: allActionGroups = cfg.actionGroups.map((g) => g.id).filter((id) => id)
 
-  // Messages section: extracted into MessagesEditor.svelte.
-  // Displays section: extracted into DisplaysEditor.svelte.
-  // Action Groups section: extracted into ActionGroupsEditor.svelte.
-  // Actions section: extracted into ActionsEditor.svelte.
-  // Items section: extracted into ItemsEditor.svelte.
 </script>
 
 <svelte:window on:keydown={handleGlobalKeydown} />
@@ -448,16 +415,6 @@
     border-bottom: 1px solid var(--sm-border);
   }
 
-  /* .icon-btn comes from the shared design system (@shared/theme.css),
-     same as .btn. */
-
-  /* Takes over the far-right slot script-manager-gui's settings-btn
-     occupies — a peripheral, non-file-op action pair pinned opposite New/
-     Open/Save/Save As. The auto margin belongs on the first (leftmost) of
-     the two so both land at the far right together. :global — these
-     classes now render inside IconButton's own template (via its class
-     prop), which Svelte's per-component CSS scoping wouldn't otherwise
-     reach. */
   :global(.open-data-folder-btn) {
     margin-left: auto;
   }
@@ -512,19 +469,6 @@
     min-width: 0;
   }
 
-  /* Items/Action Groups/Actions: .master-detail's height:100% only works
-     out if it's the sole child filling panel-body — with .list-toolbar as
-     a sibling above it, "100%" of the same box overflows by the toolbar's
-     own height, forcing a scrollbar on panel-body that a user could never
-     actually need (master/detail already scroll internally). Making
-     panel-body a column flex here — toolbar fixed-height, master-detail
-     filling exactly what's left — removes that spurious overflow and, as a
-     side effect, keeps the toolbar permanently visible above the list
-     without needing script-manager-gui's position:sticky trick (nothing
-     here scrolls at the panel-body level to begin with). The extra
-     specificity over the plain .panel-body rule is deliberate so this
-     doesn't depend on CSS source order between the shared theme and this
-     component's scoped styles. */
   .panel-body.list-body {
     display: flex;
     flex-direction: column;
@@ -543,8 +487,4 @@
     border-radius: 3px;
   }
 
-  /* .field/.field input come from the shared design system
-     (@shared/theme.css) — not redefined here. */
-
-  /* .messages-* styling now lives in MessagesEditor.svelte. */
 </style>

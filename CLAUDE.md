@@ -62,9 +62,9 @@ After any change that affects user-facing behaviour — keybindings, layout, pan
 
 ### README style: user guide, not engineering notes
 
-The README is a guide for someone *using* the apps. Document what the app
-does and how to use it — not how it's implemented or why it was built that
-way.
+The README is a guide for someone *using* the apps, describing the current
+state only. Document what the app does and how to use it — not how it's
+implemented or why it was built that way.
 
 Belongs in the README:
 - How to launch, configure, and operate the apps: keybindings, flags,
@@ -76,22 +76,79 @@ Belongs in the README:
   element to filter the field list") — not how the mechanic works inside.
 
 Does NOT belong (put it in CLAUDE.md or a code comment instead, or drop it):
-- "We do X because of Y" implementation rationale — temp-script
-  self-deletion ordering, why a helper avoids some API, CSS or
-  pseudo-element workarounds, component-reuse notes.
-- Internal identifiers users never type: theme token names, package or
-  component names, CSS selectors.
-- Change history ("previously this used…", token/field renames) — the
-  README describes the current state only.
+- "We do X because of Y" implementation rationale, and internal
+  identifiers users never type (theme tokens, package/component names,
+  CSS selectors).
+- Change history — "previously this used…", renames, "now uses". The
+  CHANGELOG covers that.
 - Build internals that don't change how the build is invoked (e.g. that
   build.sh parallelizes its jobs).
 
+## No changelog comments in code
+
+**Rule: don't leave comments that narrate a change's history** — "retired
+2026-09-04", "no longer X", "used to be Y", "removed in favor of Z", "just
+relocated here", a dated note explaining why a field/case/branch was
+deleted. That belongs in the commit message and git history, not the
+source. A comment should describe the code as it is now; if something
+isn't there anymore, it needs no comment at all, not an epitaph.
+
+This doesn't apply to comments documenting a non-obvious *constraint* the
+current code exists to satisfy — why a reactive statement is written a
+particular way to avoid a real bug, why a value is read back instead of
+assumed. That's about the present code being correct, not about what used
+to be there. Write those as the constraint ("re-deriving this mid-drag
+corrupts dndzone's tracking"), not as the story of discovering it.
+
+Keep them condensed. A comment earns its length by what the next reader
+has to know, not by how much was learned writing it: prefer the two lines
+that state the constraint over the ten that reconstruct the investigation.
+
+## Release notes are short
+
+The GitHub release body *is* the matching `## <Version>` section of
+`CHANGELOG.md` (`scripts/release.ps1` pulls it out verbatim), so the two
+have one standard.
+
+**Rule: `### Changes` and `### Bug fixes` under the version heading, and
+nothing else.** No Downloads list — the assets are on the release page
+already. No account of what was verified or how it was built.
+
+**One line per entry, saying what changed rather than how it was found or
+fixed.** The investigation belongs in the commit message, which still has
+it:
+
+    - Request options set as workspace defaults were ignored.
+
+not a paragraph on which layer answered with the wrong defaults. Prefix
+the line with which binary it affects (e.g. `` `script-manager-gui`: ``)
+when that isn't obvious.
+
+Spend length only where the reader has to *do* something: a breaking
+change goes first, marked, and may take a paragraph with the before and
+after — everything else is a line.
+
 ## Bumping the version
 
-`internal/version.Version` is the single version string, shown in
-`script-manager-gui`'s About panel — `Major.Minor.Patch.Build` (started at
-`1.0.0.0`). Bump exactly one segment per merge to `main`, resetting every
-segment after it to `0`:
+**The version is a git tag, not a source constant — never hand-edit
+`internal/version`.** `build.sh` stamps `internal/version.{Version,Commit,
+Date}` at link time via ldflags, from `git describe --tags --always
+--dirty`. So a build sitting exactly on tag `v1.4.0.0` reports
+`v1.4.0.0`; four commits later it reports `v1.4.0.0-4-g94b2835`; with
+uncommitted changes it gains `-dirty`; and a binary built outside a git
+checkout (or by a bare `go build`/`wails build`) says `dev`. That string
+is what `script-manager-gui`'s About panel shows, so a screenshot of it
+identifies the exact commit it came from.
+
+Releasing is therefore: merge to `main`, then tag that merge commit.
+
+```
+git tag -a v1.4.0.0 -m "Copy buttons for items, action groups and actions"
+```
+
+Tags are `v` + `Major.Minor.Patch.Build` (started at `1.0.0.0`) and must
+match the newest `CHANGELOG.md` heading. Bump exactly one segment per
+merge to `main`, resetting every segment after it to `0`:
 
 - **Major** — by hand only, for a big rewrite or breaking change. Never
   bump this automatically.
@@ -102,16 +159,20 @@ segment after it to `0`:
   `cmd/`, `internal/` (excluding `_test.go` files), or a frontend app's
   `src/`/`frontend-shared` (e.g. `1.1.0.0` → `1.1.0.1`).
 
-Skip all of the above for a merge that touches nothing compiled into a
+Skip the tag entirely for a merge that touches nothing compiled into a
 binary — a docs-only (`README.md`, `CLAUDE.md`), comment-only, or test-only
-change.
+change. Those merges just ride along under the previous tag, which
+`git describe` reports as `v1.4.0.0-2-gabc1234`.
 
-Whenever you bump the version, add a matching entry to `CHANGELOG.md` in
-the same commit: a new `## Major.Minor.Patch.Build` heading (newest on
-top) with a bullet list of what changed, prefixed with which binary it
-affects (e.g. `` `script-manager-gui`: `` ) when it isn't obvious.
+Whichever segment is bumped, add a matching `## Major.Minor.Patch.Build`
+heading to `CHANGELOG.md` (newest on top, no `v` prefix) in the feature
+branch's own commits — not in a separate post-merge commit, so the tag
+lands on a commit whose changelog already describes it. Write the entry
+per "Release notes are short" above.
 
-Do this before closing the task, same as the README update below.
+Do this before closing the task, same as the README update below. Creating
+the tag is the user's call — never tag or push tags automatically; say
+which tag the merge is due instead.
 
 ## Building binaries
 
@@ -184,15 +245,33 @@ Exception: skip asking when the diff is only build scripts, docs, or
 comments — no actual code logic changed, so a full build/test pass can't
 catch anything the change could have broken.
 
-## Verifying GUI changes
+## Verifying changes: build only, never run the app
 
-After making changes to `cmd/script-manager-gui/` or `cmd/sm-config-edit/`, build the binaries (`bash build.sh`) but stop there — don't automatically launch into a full visual verification pass (Xvfb, screenshots, simulated clicks via xdotool). It's slow and not always necessary. Instead, ask the user to pick one:
+**Never launch or manually test the application — in any session, for any
+app in this repo (`script-manager`, `script-manager-gui`, `sm-config-edit`).**
+Build the Windows binaries and stop there; the user runs them and verifies
+the result.
 
-1. They'll confirm visually themselves that it looks right.
-2. Claude does the full visual verification loop (Xvfb + screenshots + simulated clicks) and reports/fixes what it finds.
-3. They'll describe what's wrong and Claude fixes it from that description.
+That means none of the following, ever, unless the user explicitly asks for
+it in that same request:
+- Starting a binary from `bin/` (`./bin/script-manager-gui.exe`, `go run`, …).
+- The Xvfb visual-verification loop — virtual display, screenshots,
+  simulated clicks via `xdotool`. Don't offer it as an option either.
+- Driving the TUI through a pty/terminal harness to exercise keybindings.
 
-Only go straight to option 2's workflow if the user explicitly asks for visual verification up front.
+So the finish line for a code change is:
+
+```
+.\build-container.ps1 -Windows        # plus -Vet/-Test/-Check as the diff warrants
+```
+
+then report what changed and hand it over for the user to verify. If
+something can only be settled by running the app, say what you'd need
+confirmed and let the user check it — don't run it yourself.
+
+Static verification is still expected and unaffected: `go build`, `go vet`,
+`go test`, and `npm run check` are not "running the app" — scale them to
+what the diff touched, per "Build discipline while iterating" above.
 
 ## .vscode/launch.json
 

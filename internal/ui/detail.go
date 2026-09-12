@@ -19,16 +19,8 @@ import (
 
 var detailContentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 
-// brSplitRe splits on <br>, <br/>, <br /> (case-insensitive), consuming any
-// surrounding whitespace and the optional trailing newline.
-// goldmark cannot produce a line break when a line ends at an inline code span
-// (no KindText node carries the SoftLineBreak flag), so we handle <br> by
-// splitting the content, rendering each segment separately, then rejoining.
 var brSplitRe = regexp.MustCompile(`(?i)\s*<br\s*/?>\s*\n?`)
 
-// hlSentinel is substituted for the selected backtick span in the markdown
-// source before rendering, then replaced with the styled highlight in the
-// rendered output. It must not contain markdown-special characters.
 const hlSentinel = "XXGLHIGHLIGHTXX"
 
 func boolPtr(b bool) *bool    { return &b }
@@ -82,7 +74,6 @@ func newGlamourRenderer(width int) (*glamour.TermRenderer, error) {
 				Italic: boolPtr(true),
 				Color:  strPtr("245"),
 			},
-			// Code spans are rendered in cyan — these are the copyable values.
 			Code: gansi.StyleBlock{
 				StylePrimitive: gansi.StylePrimitive{
 					Color: strPtr("6"),
@@ -121,10 +112,6 @@ func newGlamourRenderer(width int) (*glamour.TermRenderer, error) {
 	)
 }
 
-// glamourRender renders markdown through glamour, handling <br> tags by
-// splitting the content at each <br>, rendering segments individually, and
-// rejoining. This is necessary because goldmark cannot emit a line break when
-// a paragraph line ends at an inline code span (KindCode has no SoftLineBreak).
 func glamourRender(r *glamour.TermRenderer, content string) (string, error) {
 	parts := brSplitRe.Split(content, -1)
 	if len(parts) == 1 {
@@ -145,21 +132,20 @@ func glamourRender(r *glamour.TermRenderer, content string) (string, error) {
 	return strings.Join(segments, "\n") + "\n", nil
 }
 
-// DescriptionTile renders the details template for the selected item.
 type DescriptionTile struct {
 	*tl.BaseTile
 	scrollableContent
 	item          map[string]any
 	displays      []config.DisplayConfig
-	tmpls         map[string]*template.Template // keyed by DisplayConfig.Name
-	configPath    string                        // for the #CONFIG_FILE# placeholder
+	tmpls         map[string]*template.Template
+	configPath    string
 	title         string
-	copyValues    []string // actual values for clipboard (decoded for masked spans)
-	copyMasked    []bool   // true when the corresponding value was masked
-	displayMd     string   // markdown with mask markers replaced by ••••••
+	copyValues    []string
+	copyMasked    []bool
+	displayMd     string
 	copyValuesSet bool
 	copyIdx       int
-	copyMode      bool // true while the user is selecting a value to copy
+	copyMode      bool
 	renderer      *glamour.TermRenderer
 	rendererWidth int
 }
@@ -176,7 +162,6 @@ func newDescriptionTile(displays []config.DisplayConfig) *DescriptionTile {
 	return t
 }
 
-// SetDisplays replaces the display templates, e.g. after a config reload.
 func (t *DescriptionTile) SetDisplays(displays config.DisplayList) {
 	funcMap := template.FuncMap{"mask": render.MaskFunc}
 	tmpls := make(map[string]*template.Template, len(displays))
@@ -188,8 +173,6 @@ func (t *DescriptionTile) SetDisplays(displays config.DisplayList) {
 	t.tmpls = tmpls
 }
 
-// SetConfigPath records which config file is loaded, e.g. after a reload, so
-// renderItem can expand #CONFIG_FILE#.
 func (t *DescriptionTile) SetConfigPath(path string) {
 	t.configPath = path
 }
@@ -232,9 +215,6 @@ func (t *DescriptionTile) IsCurrentMasked() bool {
 	return t.copyIdx < len(t.copyMasked) && t.copyMasked[t.copyIdx]
 }
 
-// CopyValueLabel returns the item field name whose value equals the current
-// copy value, provided exactly one field matches. Returns "" for composite
-// values derived from multiple fields or when no single field owns the value.
 func (t *DescriptionTile) CopyValueLabel() string {
 	if len(t.copyValues) == 0 || t.item == nil {
 		return ""
@@ -294,8 +274,6 @@ func (t *DescriptionTile) View() string {
 	return renderBox(t.title, t.visibleLines(lines, innerH), w, t.IsFocused())
 }
 
-// renderItem expands the details template for the current item and renders it
-// through glamour, falling back to plain wrapped text when glamour fails.
 func (t *DescriptionTile) renderItem(innerW, innerH int) []string {
 	d := config.FindDisplay(t.displays, t.item)
 	tmpl := t.tmpls[d.Name]
@@ -312,7 +290,6 @@ func (t *DescriptionTile) renderItem(innerW, innerH int) []string {
 	expanded = render.ExpandConfigFile(expanded, t.configPath)
 	expanded = render.MissingFieldsWarning(missing) + expanded
 
-	// Process masks and extract copy values once per item.
 	if !t.copyValuesSet {
 		t.displayMd, t.copyValues, t.copyMasked = render.ProcessMaskSpans(expanded)
 		t.copyValuesSet = true
@@ -321,18 +298,10 @@ func (t *DescriptionTile) renderItem(innerW, innerH int) []string {
 	if lines, ok := t.renderMarkdown(innerW, innerH); ok {
 		return lines
 	}
-	// displayMd, not the raw expansion: the raw text still contains the
-	// decodable mask markers and must never reach the screen.
 	return t.plainLines(t.displayMd, innerW)
 }
 
-// renderMarkdown renders the (mask-processed) markdown, highlighting the copy
-// selection and scrolling it into view when copy mode is active. Returns
-// ok=false when glamour is unavailable or failed.
 func (t *DescriptionTile) renderMarkdown(innerW, innerH int) ([]string, bool) {
-	// In copy mode, mark the selected backtick span in the source with a
-	// sentinel before rendering so the highlight is always on the right span,
-	// even when the same value appears in multiple code spans.
 	highlighting := t.copyMode && len(t.copyValues) > 0
 	forRender := t.displayMd
 	if highlighting {
@@ -361,10 +330,6 @@ func (t *DescriptionTile) renderMarkdown(innerW, innerH int) ([]string, bool) {
 	return lines, true
 }
 
-// highlightSentinel swaps the sentinel for the styled copy value and reports
-// which line it landed on. A masked value (a secret, or one spanning
-// multiple lines) displays as render.MaskedDisplayText even when highlighted,
-// matching displayMd, so the real value is never shown on screen.
 func (t *DescriptionTile) highlightSentinel(rendered string) (string, int) {
 	sentinelLine := -1
 	for i, line := range strings.Split(rendered, "\n") {
@@ -381,7 +346,6 @@ func (t *DescriptionTile) highlightSentinel(rendered string) (string, int) {
 	return strings.Replace(rendered, hlSentinel, hlStyle.Render(displayTarget), 1), sentinelLine
 }
 
-// scrollIntoView adjusts the scroll offset so the given line is visible.
 func (t *DescriptionTile) scrollIntoView(line, innerH int) {
 	if line < t.scrollOffset {
 		t.scrollOffset = line
@@ -390,7 +354,6 @@ func (t *DescriptionTile) scrollIntoView(line, innerH int) {
 	}
 }
 
-// plainLines wraps raw text into indented, styled display lines.
 func (t *DescriptionTile) plainLines(text string, innerW int) []string {
 	var lines []string
 	for _, line := range strings.Split(strings.TrimRight(text, "\n"), "\n") {
@@ -401,7 +364,6 @@ func (t *DescriptionTile) plainLines(text string, innerW int) []string {
 	return lines
 }
 
-// ActionsTile shows the configured actions and tracks the highlighted selection.
 type ActionsTile struct {
 	*tl.BaseTile
 	selectableList

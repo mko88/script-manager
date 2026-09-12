@@ -1,6 +1,17 @@
-// Package version holds this project's single version string.
 package version
 
-// Version is the current release version, shown in script-manager-gui's
-// About panel.
-const Version = "1.3.0.0"
+var (
+	Version = "dev"
+	Commit  = ""
+	Date    = ""
+)
+
+type Info struct {
+	Version string `json:"version"`
+	Commit  string `json:"commit,omitempty"`
+	Date    string `json:"date,omitempty"`
+}
+
+func Get() Info {
+	return Info{Version: Version, Commit: Commit, Date: Date}
+}

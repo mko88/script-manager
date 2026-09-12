@@ -3,34 +3,17 @@
   import { groupChipStyle } from '../lib/groupColors'
   import type { gui } from '../../wailsjs/go/models'
 
-  // The current item's actions — the filter derives its group list and
-  // counts from these.
   export let actions: gui.ActionDTO[] = []
-  // Catalog colors from lib/groupColors.buildGroupColors, shared with the
-  // Command pane's own group chips so both render identically.
   export let groupColors: Record<string, string> = {}
-  // Two-way bound: empty set means "All" — no filter, show everything.
-  // Otherwise an action matches if it belongs to every selected group (AND
-  // semantics, applied by the parent's filteredActions).
   export let selectedGroups = new Set<string>()
-  // Two-way bound so the parent can persist it with the rest of its layout.
   export let collapsed = true
-  // Called after the collapse toggle / a selection change respectively —
-  // the parent persists layout on the former and resets its action
-  // selection on the latter.
   export let onCollapseChange: () => void = () => {}
   export let onSelectionChange: () => void = () => {}
 
-  // Group chips are sorted by exactly one key at a time: the active button
-  // (name or count) owns the order. Clicking the active button flips its
-  // direction; clicking the inactive one switches to that key, keeping the
-  // direction it last had.
   let sortMode: 'alpha' | 'count' = 'alpha'
   let alphaDir: 'asc' | 'desc' = 'asc'
   let countDir: 'asc' | 'desc' = 'desc'
 
-  // Unique groups across the current item's actions, in order of first
-  // appearance — same set the TUI's [ / ] cycling walks.
   $: actionGroups = (() => {
     const seen = new Set<string>()
     const list: string[] = []
@@ -47,9 +30,6 @@
 
   $: groupSummary = selectedGroups.size === 0 ? t('text.allGroupsChip') : actionGroups.filter((g) => selectedGroups.has(g)).join(', ')
 
-  // For each group, how many actions would match if that group were added to
-  // the current filter (AND semantics, same rule filteredActions applies) —
-  // for an already-selected group this is just the current filtered count.
   $: groupCounts = (() => {
     const counts: Record<string, number> = {}
     for (const g of actionGroups) {
@@ -67,14 +47,9 @@
     }
     const countCmp = ((groupCounts[a] ?? 0) - (groupCounts[b] ?? 0)) * (countDir === 'asc' ? 1 : -1)
     if (countCmp !== 0) return countCmp
-    // Equal counts need a deterministic order; plain A-Z, unaffected by the
-    // (inactive) name button.
     return a.localeCompare(b)
   })
 
-  // Hide chips that would narrow the filter to nothing — but never hide an
-  // already-selected group, or there'd be no way left to deselect it short of
-  // hitting "All".
   $: visibleGroups = sortedGroups.filter((g) => selectedGroups.has(g) || (groupCounts[g] ?? 0) > 0)
 
   $: alphaSortLabel = alphaDir === 'desc' ? t('sort.alphaDesc') : t('sort.alphaAsc')

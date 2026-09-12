@@ -8,11 +8,6 @@ import (
 	tl "github.com/mko88/bubbletea-tilelayout"
 )
 
-// TestDescriptionTileMultilineIsMasked exercises the copy pipeline for a
-// value referenced directly by a hand-written `{{.field}}` span (as opposed
-// to one produced by #ALL_ENV_LIST#/#ALL_ENV_TABLE#, covered at the render
-// package level): a multi-line value is treated as masked, same as a real
-// secret, while the real value stays available to copy in full.
 func TestDescriptionTileMultilineIsMasked(t *testing.T) {
 	displays := config.DisplayList{{Name: "default", List: "{{.name}}", Details: "`{{.cert}}`"}}
 	tile := newDescriptionTile(displays)
@@ -20,7 +15,7 @@ func TestDescriptionTileMultilineIsMasked(t *testing.T) {
 
 	cert := "line1\nline2\nline3"
 	tile.SetItem(map[string]any{"name": "x", "cert": cert})
-	tile.View() // triggers renderItem, populating copyValues/copyMasked
+	tile.View()
 
 	if !tile.HasCopyValues() {
 		t.Fatal("expected a copy value to have been found")

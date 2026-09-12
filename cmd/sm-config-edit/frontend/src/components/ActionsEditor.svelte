@@ -3,12 +3,9 @@
   import ListToolbar from './ListToolbar.svelte'
   import { t } from '../messages'
   import { wrap, sortableList, syncList, type DndEntry } from '../lib/sortable'
+  import { deepCopy, copyLabel, copyId, insertAfter } from '../lib/duplicate'
   import type { configedit } from '../../wailsjs/go/models'
 
-  // The Actions section: a reorderable master list of the global actions,
-  // each edited through the shared ActionForm.
-
-  // Two-way bound slices of the parent's cfg.
   export let actions: configedit.ActionDTO[]
   export let selectedAction: number
   export let allActionGroups: string[] = []
@@ -32,6 +29,15 @@
     actions = [...actions, newAction()]
     selectedAction = actions.length - 1
   }
+  function copyAction(i: number) {
+    const src = actions[i]
+    if (!src) return
+    const dup = deepCopy(src)
+    dup.id = copyId(src.id, actions.map((a) => a.id))
+    dup.title = copyLabel(src.title, actions.map((a) => a.title))
+    actions = insertAfter(actions, i, dup)
+    selectedAction = i + 1
+  }
   function removeAction(i: number) {
     actions = actions.filter((_, idx) => idx !== i)
     if (selectedAction === i) selectedAction = -1
@@ -42,8 +48,6 @@
     if (confirm(t('confirm.removeAction', { name }))) removeAction(i)
   }
 
-  // See ItemsEditor for why reordering is an explicit opt-in mode and why
-  // entries aren't re-derived mid-drag.
   let reorderMode = false
   function toggleReorderMode() {
     reorderMode = !reorderMode
@@ -63,12 +67,15 @@
 
 <ListToolbar
   addLabel={t('tooltip.addAction')}
+  copyLabel={t('tooltip.copyAction')}
+  copyDisabled={selectedAction < 0}
   removeLabel={t('tooltip.removeAction')}
   removeDisabled={selectedAction < 0}
   {reorderMode}
   reorderEnterLabel={t('tooltip.enterReorderMode')}
   reorderExitLabel={t('tooltip.exitReorderMode')}
   on:add={addAction}
+  on:copy={() => copyAction(selectedAction)}
   on:remove={() => confirmRemoveAction(selectedAction)}
   on:toggleReorder={toggleReorderMode}
 />

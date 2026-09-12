@@ -21,7 +21,6 @@ const (
 	modeSelectAction appMode = 1
 )
 
-// App is the root Bubble Tea model.
 type App struct {
 	layout           *tl.TileLayout
 	list             *ListTile
@@ -33,14 +32,14 @@ type App struct {
 	windowSize       tea.WindowSizeMsg
 	globalEnv        map[string]any
 	allActions       []config.Action
-	itemActions      []config.Action // full filtered list for current item
-	activeGroup      string          // "" = all groups
-	actionsTileTitle string          // base title before group suffix
+	itemActions      []config.Action
+	activeGroup      string
+	actionsTileTitle string
 	savedListOffset  int
 	msgToken         int
 	reload           func() (*config.Config, error)
 	cfg              *config.Config
-	loadErr          error // from the initial load, surfaced once via Init
+	loadErr          error
 }
 
 func NewApp(cfg *config.Config, reload func() (*config.Config, error), loadErr error) *App {
@@ -91,8 +90,6 @@ func NewApp(cfg *config.Config, reload func() (*config.Config, error), loadErr e
 	return a
 }
 
-// applyConfig refreshes every tile from a freshly reloaded config, preserving
-// the current selection/scroll positions where still valid.
 func (a *App) applyConfig(cfg *config.Config) {
 	a.cfg = cfg
 	a.list.SetItems(cfg.Items, cfg.Display)
@@ -120,12 +117,6 @@ func (a *App) applyConfig(cfg *config.Config) {
 	}
 }
 
-// reloadConfig re-reads the config from disk and, on success, refreshes the
-// app in place. On total failure — nothing at all could be loaded — the
-// previous config is kept. A preferred file (e.g. config-win.yaml) failing to
-// parse while a fallback (config.yaml) still loads is not total failure:
-// cfg.SourcePath is non-empty, so the fallback is applied and the parse error
-// is shown as a warning rather than discarded.
 func (a *App) reloadConfig() tea.Cmd {
 	if a.reload == nil {
 		return nil
@@ -173,16 +164,12 @@ func (a *App) enterItemMode() {
 	a.status.ClearMessage()
 }
 
-// updateActionsForItem recomputes the full action list for the selected item
-// and resets any active group filter.
 func (a *App) updateActionsForItem() {
 	a.itemActions = config.ActionsForItem(a.allActions, a.list.Selected())
 	a.activeGroup = ""
 	a.applyGroupFilter()
 }
 
-// applyGroupFilter pushes the (optionally group-filtered) action list to the
-// panel and updates the panel title to reflect the active filter.
 func (a *App) applyGroupFilter() {
 	if a.activeGroup == "" {
 		a.actionsPanel.SetActions(a.itemActions)
@@ -202,8 +189,6 @@ func (a *App) applyGroupFilter() {
 	a.actionsPanel.title = a.actionsTileTitle + " [" + a.activeGroup + "]"
 }
 
-// cycleGroup advances (delta=+1) or rewinds (delta=-1) through the list of
-// unique groups present in itemActions, with "" (all) as the first entry.
 func (a *App) cycleGroup(delta int) {
 	seen := make(map[string]bool)
 	groups := []string{""}
@@ -232,15 +217,12 @@ func (a *App) cycleGroup(delta int) {
 	a.refreshCmdBar()
 }
 
-// refreshCmdBar re-expands the command preview and description for the
-// currently selected item/action pair and resets the pane scroll.
 func (a *App) refreshCmdBar() {
 	a.cmdBar.SetCmd(a.previewCmd())
 	a.cmdBar.SetDescription(a.previewDescription())
 	a.cmdBar.ResetScroll()
 }
 
-// onItemChanged refreshes every dependent pane after the list selection moves.
 func (a *App) onItemChanged() {
 	a.description.SetItem(a.mergedItem(a.list.Selected()))
 	a.description.ResetScroll()
@@ -249,14 +231,10 @@ func (a *App) onItemChanged() {
 	a.status.ClearMessage()
 }
 
-// mergedItem returns a copy of the item with global env vars as defaults.
-// Item-level keys always win over globals.
 func (a *App) mergedItem(item map[string]any) map[string]any {
 	return action.Merge(a.globalEnv, item)
 }
 
-// MergedItem returns the selected item merged with the global env, or nil
-// when no item is selected.
 func (a *App) MergedItem() map[string]any {
 	if item := a.list.Selected(); item != nil {
 		return a.mergedItem(item)
@@ -282,7 +260,6 @@ func (a *App) previewCmd() string {
 	return action.Preview(act.Cmd, a.mergedItem(item))
 }
 
-// flashMessage sets a status message that automatically clears after d.
 func (a *App) flashMessage(text string, d time.Duration) tea.Cmd {
 	a.msgToken++
 	tok := a.msgToken
@@ -319,7 +296,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, cmd
 
 	case tea.KeyMsg:
-		// Global exits.
 		switch msg.String() {
 		case "q", "Q", "ctrl+c":
 			return a, tea.Quit
@@ -377,7 +353,7 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.description.SetFocused(false)
 			a.cmdBar.SetFocused(true)
 			a.status.SetContext(ctxCommandFocused)
-		default: // cmdBar
+		default:
 			a.cmdBar.SetFocused(false)
 			a.actionsPanel.SetFocused(true)
 			a.status.SetContext(ctxActionsFocused)
@@ -397,7 +373,7 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			a.description.SetFocused(false)
 			a.actionsPanel.SetFocused(true)
 			a.status.SetContext(ctxActionsFocused)
-		default: // cmdBar
+		default:
 			a.cmdBar.SetFocused(false)
 			a.description.SetFocused(true)
 			a.status.SetContext(ctxDetailsFocused)
@@ -476,8 +452,6 @@ func (a *App) updateActionMode(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return a, nil
 }
 
-// copySelectedValue writes the value highlighted in copy mode to the
-// clipboard and flashes a confirmation that names the source field.
 func (a *App) copySelectedValue() tea.Cmd {
 	val, ok := a.description.CurrentCopyValue()
 	if !ok {

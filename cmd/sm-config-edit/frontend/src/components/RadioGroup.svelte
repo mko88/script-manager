@@ -1,11 +1,6 @@
 <script lang="ts">
   import { createEventDispatcher } from 'svelte'
 
-  // Shared by the Terminal section's mode picker and ActionForm's Cmd/Script
-  // picker. value is bindable (bind:value) for a plain two-way-bound field
-  // like cfg.terminal.mode; callers that need to run side effects on an
-  // explicit user pick (not a programmatic reset) instead pass value
-  // one-way and listen for on:change.
   export let options: { value: string; label: string }[]
   export let value: string
 

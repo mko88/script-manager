@@ -89,9 +89,6 @@ func (t *StatusBarTile) View() string {
 		return ""
 	}
 
-	// Everything below must fit in exactly one row of w cells: lipgloss
-	// wraps content wider than Width(w), which would grow the bar to two
-	// lines on narrow terminals.
 	if t.message != "" {
 		content := truncateToWidth("  "+t.message, w)
 		return statusBarBgStyle.Width(w).Render(statusMsgStyle.Render(content))
@@ -100,7 +97,7 @@ func (t *StatusBarTile) View() string {
 	entries := contextHelp[t.context]
 	sep := statusSepStyle.Render("  │  ")
 	sepW := lipgloss.Width(sep)
-	avail := w - 2 // leading padding
+	avail := w - 2
 	used := 0
 	var b strings.Builder
 	for i, e := range entries {
@@ -109,8 +106,6 @@ func (t *StatusBarTile) View() string {
 		if i > 0 {
 			need += sepW
 		}
-		// Drop this entry and the rest rather than truncating mid-entry:
-		// a partial key hint is worse than none.
 		if used+need > avail {
 			break
 		}

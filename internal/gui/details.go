@@ -12,10 +12,6 @@ import (
 	"script-manager/internal/render"
 )
 
-// DetailsDTO is the rendered details pane: HTML plus the copyable values
-// found in the source template, in the order they appear. MissingFields
-// lists template fields the item lacks (rendered as <nil> in the HTML); the
-// frontend shows them in a pinned warning bar rather than inline markdown.
 type DetailsDTO struct {
 	Html          string   `json:"html"`
 	CopyValues    []string `json:"copyValues"`
@@ -23,9 +19,6 @@ type DetailsDTO struct {
 	MissingFields []string `json:"missingFields"`
 }
 
-// codeTagRe matches a single inline <code>...</code> element as emitted by
-// goldmark for a backtick span. Code fences render as <pre><code>, which this
-// intentionally does not match since fenced blocks aren't used as copy targets.
 var codeTagRe = regexp.MustCompile(`<code>(.*?)</code>`)
 
 func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
@@ -65,10 +58,6 @@ func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
 		titleAttr := ""
 		if masked {
 			cls += " copy-value-masked"
-			// A genuine secret must never surface on hover, but a value
-			// masked only because it spans multiple lines isn't sensitive —
-			// just too long to inline — so it's safe to preview in full via
-			// the native title tooltip.
 			if idx < len(copyValues) && strings.Contains(copyValues[idx], "\n") {
 				titleAttr = ` title="` + stdhtml.EscapeString(copyValues[idx]) + `"`
 			}

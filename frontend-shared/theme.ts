@@ -1,6 +1,3 @@
-// A theme is either the built-in "dark"/"light" or the name of an entry
-// in a themes map — a custom theme's name doubles as its selector, so
-// there's no fixed enum here anymore.
 export type Theme = string
 export type CustomPalette = Record<string, string>
 export interface ThemeState {
@@ -11,9 +8,6 @@ export interface ThemeState {
 const STORAGE_KEY = 'sm-theme'
 const THEMES_STORAGE_KEY = 'sm-theme-themes'
 
-// The canonical list of every customizable CSS custom property (without
-// the "--sm-" prefix), grouped for the theme editor's UI — matches
-// frontend-shared/theme.css's :root block exactly; keep both in sync.
 export const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
   {
     label: 'Backgrounds',
@@ -60,13 +54,6 @@ export function getThemes(): Record<string, CustomPalette> | null {
   }
 }
 
-// Reads every token's value for a static base theme straight off theme.css
-// (never hardcoded here, so it can't drift) — used by the theme editor to
-// seed its working copy and by its "Reset to Dark"/"Reset to Light"
-// buttons. Momentarily flips data-theme and clears any inline custom
-// overrides to read the stylesheet's own values via getComputedStyle, then
-// restores exactly what was there before — synchronous, so nothing ever
-// paints the intermediate state.
 export function readPaletteFor(base: 'dark' | 'light'): CustomPalette {
   const root = document.documentElement
   const prevAttr = root.getAttribute('data-theme')
@@ -90,8 +77,6 @@ function applyTheme(theme: Theme, themes?: Record<string, CustomPalette> | null)
   const root = document.documentElement
   const palette = theme !== 'dark' && theme !== 'light' ? themes?.[theme] : undefined
   if (palette) {
-    // "dark" is a structural fallback only — every token below gets an
-    // explicit inline override, so the underlying :root values never show.
     root.setAttribute('data-theme', 'dark')
     for (const name of TOKEN_NAMES) {
       const value = palette[name]
@@ -100,16 +85,10 @@ function applyTheme(theme: Theme, themes?: Record<string, CustomPalette> | null)
     }
   } else {
     root.setAttribute('data-theme', theme === 'light' ? 'light' : 'dark')
-    // Clear any inline overrides a previous custom-theme selection left
-    // behind — otherwise they'd keep shadowing the dark/light stylesheet
-    // values.
     for (const name of TOKEN_NAMES) root.style.removeProperty(`--sm-${name}`)
   }
 }
 
-// Call as the very first line of main.ts, before Svelte mounts — sets
-// data-theme (and any custom overrides) on <html> synchronously so
-// there's no flash of the wrong theme.
 export function initTheme(): Theme {
   const theme = getTheme()
   applyTheme(theme, getThemes())
@@ -122,13 +101,6 @@ export function setTheme(theme: Theme, themes?: Record<string, CustomPalette> | 
   applyTheme(theme, themes ?? getThemes())
 }
 
-// Applies a ThemeState fetched from the Go backend, mirroring it into the
-// local cache exactly rather than just merging into it — otherwise a
-// custom theme cached from an earlier install/session would linger
-// forever once the backend genuinely has none (e.g. its sm-theme.json was
-// deleted or never existed on this machine). Shared by syncTheme (polled
-// once at startup) and watchTheme (pushed live) so both reconcile the same
-// way.
 function applyRemoteState(remote: ThemeState): { theme: Theme; themes: Record<string, CustomPalette> | null } {
   const theme = remote.active || 'dark'
   const themes = remote.themes ?? null
@@ -141,15 +113,6 @@ function applyRemoteState(remote: ThemeState): { theme: Theme; themes: Record<st
   return { theme, themes }
 }
 
-// Reconciles the locally cached theme (localStorage, per-app since each is
-// its own WebView) against the value persisted by the Go backend, which is
-// shared by both apps via a file next to the executables (internal/theme) —
-// so switching the theme in one app, or saving a custom theme in
-// sm-config-edit, is picked up by the other the next time it starts.
-// getRemote is each app's own bound GetTheme call; the two apps bind under
-// different Wails namespaces, so this can't import a shared binding
-// directly. Best-effort: a rejected call leaves the locally cached theme
-// in place rather than throwing.
 export async function syncTheme(
   getRemote: () => Promise<ThemeState>,
 ): Promise<{ theme: Theme; themes: Record<string, CustomPalette> | null }> {
@@ -160,20 +123,8 @@ export async function syncTheme(
   }
 }
 
-// The Wails event name internal/gui/themewatch.go emits on — must match
-// its ThemeChangedEvent constant; there's no way to share a literal across
-// the Go/JS boundary here, so keep the two in sync by hand.
 const THEME_CHANGED_EVENT = 'theme:changed'
 
-// Subscribes to the Go backend's live theme-change notification (currently
-// script-manager-gui only — it watches sm-theme.json for writes made by
-// sm-config-edit's Theme section) via eventsOn, each app's own bound
-// wailsjs/runtime EventsOn — passed in rather than imported directly
-// since, like GetTheme in syncTheme, the two apps' generated bindings live
-// in different files even though the API shape is identical. Applies and
-// persists the change locally the moment it arrives, then reports the new
-// theme/themes to onChange so the caller can update its own reactive UI.
-// Returns the unsubscribe function EventsOn itself returns.
 export function watchTheme(
   eventsOn: (eventName: string, callback: (...data: unknown[]) => void) => () => void,
   onChange: (theme: Theme, themes: Record<string, CustomPalette> | null) => void,

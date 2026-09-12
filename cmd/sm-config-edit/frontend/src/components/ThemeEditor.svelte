@@ -5,35 +5,21 @@
   import Icon from '@shared/components/Icon.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
   import { t } from '../messages'
+  import { copyLabel } from '../lib/duplicate'
 
-  // Two-way bound: this component both seeds from and writes back to the
-  // parent's theme/themes state, so switching/saving/deleting here is
-  // immediately reflected in whatever else reads them (e.g. a future
-  // toolbar indicator).
   export let theme: Theme
   export let themes: Record<string, CustomPalette> | null
-  // The actual Wails bindings, passed straight through like FieldGrid's
-  // validateField prop — this component doesn't import bindings itself.
   export let saveTheme: (name: string, renamedFrom: string, palette: Record<string, string>) => Promise<void>
   export let deleteTheme: (name: string) => Promise<void>
   export let setActiveTheme: (active: string) => Promise<void>
-  // Shows a transient toast — the parent's own flash(), passed through so
-  // save/delete feedback here looks the same as every other action in the
-  // app instead of a locally-styled inline message.
   export let flash: (msg: string) => void
 
-  // Sentinel dropdown value for "+ New theme" — picked to never collide
-  // with a real (user-chosen) theme name.
   const NEW_THEME_ENTRY = '__new-theme__'
 
   function isBuiltIn(name: string): name is 'dark' | 'light' {
     return name === 'dark' || name === 'light'
   }
 
-  // Seeds the working copy (name + palette) for a given selection — the
-  // dropdown's current value for an existing theme (built-in or custom),
-  // never called for the "+ New theme" sentinel (that path stages its own
-  // draft instead; see onThemeSelect).
   function loadSelection(name: string) {
     if (isBuiltIn(name)) {
       editedName = name === 'dark' ? t('theme.dark') : t('theme.light')
@@ -46,8 +32,6 @@
     }
   }
 
-  // "Custom", "Custom 2", ... — skips any name already taken so a second,
-  // third, etc. "+ New theme" draft never collides with an existing save.
   function nextDefaultName(): string {
     const base = t('themeEditor.newThemeDefaultName')
     const existing = new Set(Object.keys(themes ?? {}))
@@ -64,8 +48,6 @@
   let nameInputEl: HTMLInputElement | undefined
   loadSelection(selectedThemeName)
 
-  // Anything other than the two built-ins is a named custom theme — either
-  // one already saved, or the as-yet-unsaved "+ New theme" draft.
   $: isCustomSelected = selectedThemeName !== 'dark' && selectedThemeName !== 'light'
   $: isDraft = selectedThemeName === NEW_THEME_ENTRY
   $: canSave = isCustomSelected && editedName.trim().length > 0
@@ -74,8 +56,6 @@
 
   function onThemeSelect() {
     if (selectedThemeName === NEW_THEME_ENTRY) {
-      // Stages a local draft only — nothing is activated until Save, per
-      // the confirmed design (unlike picking an existing theme below).
       selectionAtLoad = ''
       editedName = nextDefaultName()
       palette = readPaletteFor('dark')
@@ -83,53 +63,30 @@
       return
     }
     loadSelection(selectedThemeName)
-    // Picking an existing theme (built-in or custom) applies it
-    // immediately, everywhere — matches the toolbar dropdown's old
-    // behavior, just relocated here.
     theme = selectedThemeName
     setTheme(selectedThemeName, themes ?? undefined)
     setActiveTheme(selectedThemeName).catch(() => {})
   }
 
-  // The toolbar's "+" button — same draft-staging path as picking the old
-  // "+ New theme" dropdown entry, just triggered directly now that entry
-  // is gone (it only reappears, dynamically, once a draft is in progress;
-  // see the template). Disabled while already drafting, since calling this
-  // again would silently reset the in-progress draft's name/palette.
   function addTheme() {
     selectedThemeName = NEW_THEME_ENTRY
     onThemeSelect()
   }
 
-  // Duplicates whatever's currently loaded — built-in, saved custom, or an
-  // in-progress draft — into a new unsaved draft, "<name> - copy", the same
-  // one-step-duplicate shape Displays' Copy display button already uses.
-  // Unlike addTheme, this doesn't go through onThemeSelect: that would
-  // reset editedName/palette to fresh draft defaults instead of preserving
-  // what's being copied.
   function copyTheme() {
     const baseName = editedName.trim() || activeThemeLabel
     const copiedPalette = { ...palette }
     selectionAtLoad = ''
-    editedName = `${baseName} - copy`
+    editedName = copyLabel(baseName, Object.keys(themes ?? {}))
     palette = copiedPalette
     selectedThemeName = NEW_THEME_ENTRY
   }
 
-  // Applies before resetFrom/resetToSaved actually replace the working
-  // palette — all three silently discard whatever's currently unsaved, so
-  // they share one confirm message parameterized by what they're resetting
-  // to.
   function confirmResetFrom(base: 'dark' | 'light') {
     const target = base === 'dark' ? t('theme.dark') : t('theme.light')
     if (confirm(t('confirm.resetTheme', { target }))) resetFrom(base)
   }
 
-  // Reverts the working palette back to this theme's last-saved state,
-  // discarding any in-progress edits — only meaningful for an existing
-  // saved custom theme (same disabled condition as Delete: a draft has no
-  // saved state yet, and Dark/Light's fields aren't editable to begin
-  // with).
   function resetToSaved() {
     if (!isCustomSelected || isDraft) return
     if (!confirm(t('confirm.resetTheme', { target: t('themeEditor.resetTargetSaved') }))) return
@@ -144,7 +101,6 @@
       const saved = JSON.parse(localStorage.getItem(THEME_PANEL_KEY) ?? '{}')
       themePanelCollapsed = !!saved.collapsed
     } catch {
-      // ignore corrupt/missing layout, default already set
     }
   })
 
@@ -161,27 +117,9 @@
     collapsedGroups = next
   }
 
-  // Every --sm-* token referenced by a CSS rule that directly matches el —
-  // in its resting state, or in its :hover state (tested by stripping
-  // :hover from the selector and re-matching) — not one it merely
-  // inherits from an ancestor's own rule. Walks the live stylesheets
-  // instead of a hand-maintained per-element map, so a new preview
-  // element's own CSS automatically shows up here without this needing an
-  // update. Can't fully resolve cascade/specificity (e.g. a selected row's
-  // own :hover rule never actually applies, since .row.selected comes
-  // after .row:hover in theme.css at equal specificity) — this unions
-  // every matching rule's tokens regardless, so the result is occasionally
-  // over-inclusive. Acceptable for narrowing the filter box below; not a
-  // precision requirement.
   function tokensForElement(el: Element): string[] {
     const found = new Set<string>()
     const tokenRe = /var\(\s*--sm-([\w-]+)/g
-    // Scans the whole declaration block's text rather than enumerating
-    // style.item(i)/getPropertyValue() one property at a time — WebKitGTK
-    // (this app's Linux target) doesn't reliably expose a shorthand like
-    // "background: var(--sm-bg-primary)" through per-property lookups
-    // the same way Chromium/WebView2 does; cssText sidesteps that engine
-    // difference entirely.
     function collect(style: CSSStyleDeclaration) {
       tokenRe.lastIndex = 0
       let m: RegExpExecArray | null
@@ -199,7 +137,6 @@
           const hoverless = rule.selectorText.includes(':hover') ? rule.selectorText.replace(/:hover/g, '') : ''
           if (hoverless && el.matches(hoverless)) collect(rule.style)
         } catch {
-          // selector unsupported by this browser — skip
         }
       }
     }
@@ -207,17 +144,11 @@
       try {
         walk(sheet.cssRules)
       } catch {
-        // inaccessible (cross-origin) stylesheet — skip
       }
     }
     return Array.from(found)
   }
 
-  // Falls back to the panel's own tokens (--sm-bg-alt/--sm-border) whenever
-  // the clicked element has none of its own — e.g. the markdown preview's
-  // plain body text, which only inherits color from its wrapping button
-  // rather than referencing a token directly itself. Without this, such a
-  // click would blank the filter box instead of showing something useful.
   let fieldFilter = ''
   function filterForElement(el: Element) {
     const tokens = tokensForElement(el)
@@ -226,48 +157,18 @@
   function onPreviewClick(e: MouseEvent) {
     filterForElement(e.currentTarget as Element)
   }
-  // For preview elements that nest inside another clickable preview element
-  // (the copy buttons floating in the cmd/output blocks' corners, the
-  // status dots in the section header) — a <button> can't nest inside
-  // another <button>, so those wrapping blocks are plain clickable <div>s
-  // (same pattern as onPreviewBodyClick/onBackgroundClick above) for
-  // exactly this reason. Without stopping propagation here, a click on the
-  // inner element would also bubble to the wrapper's own onPreviewClick,
-  // which runs after and would overwrite the inner element's own tokens.
   function onNestedPreviewClick(e: MouseEvent) {
     e.stopPropagation()
     filterForElement(e.currentTarget as Element)
   }
-  // --sm-scrollbar styles a ::-webkit-scrollbar-thumb pseudo-element — not
-  // a real DOM node, so tokensForElement (which works by testing
-  // el.matches(rule.selectorText)) can never discover it no matter what's
-  // clicked. Set the filter directly instead. (There's no separate hover
-  // token: ::-webkit-scrollbar-thumb:hover's background-color didn't
-  // actually take effect in testing, so the thumb's hover state is left to
-  // the browser/OS default instead of a custom one that doesn't apply.)
   function onScrollbarClick() {
     fieldFilter = 'scrollbar'
   }
 
-  // The pane itself carries --sm-bg (the page-level background the panel
-  // sits on, kept visible as a frame around it — see
-  // .theme-editor-preview-pane) — clicking that frame, rather than
-  // anything inside it, filters for it. Every click from an inner element
-  // bubbles up here too, so this only acts when the pane itself — not a
-  // descendant — was the actual click target.
   function onBackgroundClick(e: MouseEvent) {
     if (e.target === e.currentTarget) filterForElement(e.currentTarget as Element)
   }
 
-  // .theme-editor-preview (the panel surface itself, --sm-bg-alt) has no
-  // blank space of its own to click — its only direct child besides the
-  // title button is .theme-editor-preview-body, which fills it edge to
-  // edge via padding. So blank-space clicks land on the body wrapper, not
-  // the panel — this mirrors onBackgroundClick's target-must-be-currentTarget
-  // guard (only fires for the body's own blank padding/gaps, not a bubbled
-  // click from a row/chip/button inside it) but resolves the token filter
-  // against the panel element, since that's the one whose CSS rule actually
-  // references --sm-bg-alt.
   let previewPanelEl: HTMLElement | undefined
   function onPreviewBodyClick(e: MouseEvent) {
     if (e.target === e.currentTarget && previewPanelEl) filterForElement(previewPanelEl)
@@ -277,9 +178,6 @@
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean)
-  // Exact match, not substring — "bg" from a clicked preview element should
-  // show only --sm-bg, not also sweep in --sm-bg-alt/--sm-bg-deep just
-  // because they share that prefix.
   $: visibleGroups = TOKEN_GROUPS.map((group) => ({
     label: group.label,
     tokens: filterTerms.length === 0 ? group.tokens : group.tokens.filter((name) => filterTerms.includes(name.toLowerCase())),
@@ -297,9 +195,6 @@
     .map(([name, value]) => `--sm-${name}: ${value}`)
     .join('; ')
 
-  // Exported so App.svelte's global Ctrl+S handler can reach it via
-  // bind:this — the panel's own Save button is gone now that Ctrl+S covers
-  // it, but the underlying action still needs a callable entry point.
   export async function save() {
     if (!canSave) return
     const name = editedName.trim()
@@ -450,11 +345,6 @@
         <!-- svelte-ignore a11y-click-events-have-key-events -->
         <div class="theme-editor-preview-body" on:click={onPreviewBodyClick}>
           <div class="list">
-            <!-- Rows are clickable <div>s, not <button>s, so the run-status
-                 dots (all three at once, as script-manager-gui's Items/
-                 Actions rows show one of at the right edge) can be their own
-                 nested click targets — same reason as the section header
-                 below. -->
             <!-- svelte-ignore a11y-no-static-element-interactions -->
             <!-- svelte-ignore a11y-click-events-have-key-events -->
             <div class="row selected" on:click={onPreviewClick}>
@@ -533,19 +423,10 @@
               >
             </div>
           </div>
-          <!-- An empty collapsible-section header, as script-manager-gui's
-               Command pane renders them — the title/border preview
-               --sm-section-title, and the three status dots (running /
-               exit 0 / non-zero exit) are all shown at once so each
-               indicator color can be previewed without running anything. -->
           <!-- svelte-ignore a11y-no-static-element-interactions -->
           <!-- svelte-ignore a11y-click-events-have-key-events -->
           <div class="messages-group-header theme-editor-preview-section" on:click={onPreviewClick}>
             <span class="messages-group-title">{t('themeEditor.previewSectionTitle')}</span>
-            <!-- Clickable itself, not just its dot buttons: the label text
-                 nodes ("Running…"/"Exit code: X") would otherwise bubble to
-                 the header div and filter for section-title instead of the
-                 labels' own text color. -->
             <!-- svelte-ignore a11y-no-static-element-interactions -->
             <!-- svelte-ignore a11y-click-events-have-key-events -->
             <span class="output-status" on:click={onNestedPreviewClick}>
@@ -698,34 +579,11 @@
     font-size: 0.85rem;
   }
 
-  /* .field/.field input/.field select (including the select-arrow
-     override and its light-theme variant) and .color-field/.color-swatch*
-     (including the non-hex-token rationale) come from the shared design
-     system (@shared/theme.css) — not redefined here. */
-
   .token-name {
     font-family: "SF Mono", Consolas, monospace;
     font-size: 0.75rem;
   }
 
-  /* .messages-group(-header/-title) and .collapse-glyph come from the
-     shared design system (@shared/theme.css) — a scoped copy here would
-     shadow the shared rules and pin the headers to whatever tokens the
-     copy referenced (that's exactly how they missed the
-     --sm-section-title introduction). */
-
-  /* The preview pane is a self-contained little "app" — every --sm-* token
-     is overridden inline (see previewStyle) from the working palette, not
-     yet saved, so it reflects edits live without touching the real theme
-     anywhere else in this window. Reuses the app's actual shared classes
-     (.panel-title, .row, .chip, .btn) so it can't visually drift from the
-     real components; only the toast and code styling are re-declared here
-     since .toast's position:fixed and code's App.svelte-local scoping
-     don't make sense reused inside a preview box. */
-  /* --sm-bg is the page-level background the whole app sits on — keeping
-     this frame around .theme-editor-preview (--sm-bg-alt, the panel
-     surface) is the only place in the preview that's visible, exactly like
-     the gap around real panels in either app's own window. */
   .theme-editor-preview-pane {
     flex: 1 1 50%;
     min-width: 0;
@@ -755,20 +613,6 @@
     gap: 10px;
   }
 
-  /* Every preview element is a real <button> (or, for .theme-editor-preview-cmd/
-     -output-body, a plain clickable <div> — see onCopyBtnClick's comment for
-     why) — not just for the ones that already look like one (.row, .chip,
-     .btn, all originally designed as buttons, so they need no reset at all)
-     but also plain text/block ones (command, output, error, masked, toast)
-     that need their native button chrome neutralized. Only the display-
-     affecting/font/alignment properties are reset here — each element's own
-     class still owns its padding/margin/color/background, so this can't
-     clobber them regardless of stylesheet order. box-sizing: border-box
-     keeps width: 100% meaning "100% of the parent" even for the elements
-     among these (like .theme-editor-preview-output-body) that also carry
-     their own horizontal padding — without it, that padding would add to
-     the 100% instead of eating into it, making just that one element wider
-     than its siblings. */
   .theme-editor-preview-hotspot {
     display: block;
     width: 100%;
@@ -787,10 +631,6 @@
     outline-offset: 2px;
   }
 
-  /* Not .theme-editor-preview-hotspot — that sets display:block, which
-     would override the shared .messages-group-header's display:flex this
-     header's layout depends on. Just the hotspot's click affordance,
-     re-stated. */
   .theme-editor-preview-section {
     cursor: pointer;
   }
@@ -800,25 +640,15 @@
     outline-offset: 2px;
   }
 
-  /* The status dots stay <button>s (nested in the clickable header <div>,
-     same reason as the copy buttons — see onNestedPreviewClick); only the
-     native chrome needs resetting, their color/size come from the shared
-     .status-* classes. */
   .theme-editor-preview-dot {
     background: transparent;
     border: none;
     padding: 0;
     margin: 0;
     cursor: pointer;
-    /* Buttons don't inherit font by default — the header dots get their
-       size from .status-dot, but the row dots size off their container. */
     font: inherit;
   }
 
-  /* Stand-in for the messages editor's active tab (.messages-tab.active),
-     whose styling is scoped to MessagesEditor.svelte and unreachable from
-     here — same situation as the corner copy buttons — so the text-tab
-     token stays click-discoverable in the preview. */
   .theme-editor-preview-tab {
     background: none;
     border: none;
@@ -831,11 +661,6 @@
     cursor: pointer;
   }
 
-  /* Mirrors script-manager-gui's local flex-row + margin-left:auto layout
-     for its list dots (that override is scoped to App.svelte, so it can't
-     reach here — same stand-in situation as the corner copy buttons). The
-     1rem dot size matches the real rows' dots, overriding nothing shared:
-     the .status-* classes only set color. */
   .theme-editor-preview .row {
     display: flex;
     align-items: center;
@@ -849,10 +674,6 @@
     line-height: 1;
   }
 
-  /* .panel-title is already display:flex (global, theme.css) and already
-     fills its flex parent's width — only the native <button> chrome needs
-     resetting here, and specifically not display, or it'd break the
-     panel-title-text/right-side layout .panel-title relies on. */
   button.panel-title {
     width: 100%;
     text-align: left;
@@ -869,11 +690,6 @@
     gap: 2px;
   }
 
-  /* align-self: flex-start shrink-wraps these to their content instead of
-     stretching full width (the column flex container's default) — the
-     leftover space to their right is then the body's own box, not theirs,
-     so it falls through to onPreviewBodyClick's blank-space handler
-     (--sm-bg-alt) instead of being wrongly attributed to the chip/button. */
   .theme-editor-preview-chips,
   .theme-editor-preview-buttons {
     display: flex;
@@ -881,13 +697,6 @@
     align-self: flex-start;
   }
 
-  /* One row per text style, in a fixed order (Heading, Normal, Highlighted,
-     Masked, Warning, Error) so every text-related token has its own
-     unambiguous, individually clickable example instead of the old single
-     paragraph that mixed several of them together. align-items: flex-start
-     (rather than the column default of stretch) keeps each row shrink-wrapped
-     to its own content — see the .theme-editor-preview-chips/-buttons comment
-     above for why that matters for blank-space clicks. */
   .theme-editor-preview-text-examples {
     display: flex;
     flex-direction: column;
@@ -923,11 +732,6 @@
     color: var(--sm-text);
   }
 
-  /* {@html}-inserted content isn't scoped by Svelte, so styling the
-     <strong>/<em> tags inside .theme-editor-preview-normal's message would
-     need :global() — not needed here since neither gets its own color
-     override, they just inherit the button's own var(--sm-text) above. */
-
   .theme-editor-preview-highlighted {
     background: var(--sm-bg-deep);
     color: var(--sm-text-highlight);
@@ -937,9 +741,6 @@
     font-size: 0.78rem;
   }
 
-  /* Same hover treatment as the real .details-content code.copy-value:hover
-     it mirrors — the only difference is this preview element isn't
-     copyable itself, it just demonstrates the token pair. */
   .theme-editor-preview-highlighted:hover {
     background: var(--sm-tint-hover);
     outline: 1px solid var(--sm-text-highlight);
@@ -1018,10 +819,6 @@
     box-shadow: 0 4px 12px var(--sm-shadow);
   }
 
-  /* Mirrors script-manager-gui's .cmd-copy-btn(:hover) — the only real
-     consumer of --sm-overlay-soft — floated into the corner of the cmd/
-     output blocks below, same as .cmd-line-copy-btn/.cmd-output-copy-btn
-     do in the real Command pane. */
   .theme-editor-preview-copy-btn {
     display: flex;
     align-items: center;
@@ -1052,20 +849,6 @@
     align-self: flex-start;
   }
 
-  /* --sm-scrollbar styles a real ::-webkit-scrollbar-thumb here, not a
-     lookalike — the inner text is forced wider than the box via min-width,
-     so a horizontal scrollbar is always present regardless of the box's own
-     width (overflow-y stays hidden since only the horizontal bar is being
-     demonstrated, and a horizontal one reads more clearly here than the
-     app's usual thin vertical ones). The scrollbar itself still can't be
-     clicked (see onScrollbarClick above), so the click target is the label
-     text sitting inside the scrolling area. A fixed width (rather than
-     shrink-wrapped or stretched like its neighbors) keeps the box's own
-     size — and so the visible length of track behind the thumb — stable
-     regardless of how wide the toast next to it happens to be. No :hover
-     rule on the thumb — ::-webkit-scrollbar-thumb:hover's background-color
-     doesn't actually take effect, so the thumb's hover is left to the
-     browser/OS default rather than a custom color that wouldn't show. */
   .theme-editor-preview-scrollbar-box {
     flex: none;
     width: 180px;

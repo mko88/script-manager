@@ -2,16 +2,10 @@ package gui
 
 import "script-manager/internal/theme"
 
-// GetTheme returns the theme state persisted by either app (see
-// internal/theme), so this app's startup picks up a switch — or a saved
-// custom palette — made in the other one.
 func (a *App) GetTheme() theme.State {
 	return theme.Load(a.appDataDir)
 }
 
-// SetTheme switches the active theme, keeping whatever named custom
-// themes are already persisted (this app can select one but not edit it —
-// only sm-config-edit's SaveTheme does that).
 func (a *App) SetTheme(active string) error {
 	s := theme.Load(a.appDataDir)
 	s.Active = active

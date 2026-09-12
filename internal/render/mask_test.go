@@ -40,8 +40,6 @@ func TestProcessMaskSpansNoSpans(t *testing.T) {
 }
 
 func TestProcessMaskSpansInvalidMarker(t *testing.T) {
-	// A value that merely looks like a marker but holds invalid base64 must be
-	// passed through as a normal span, not dropped.
 	src := "`" + maskPrefix + "!!!not-base64!!!`"
 	displayMd, copyValues, copyMasked := ProcessMaskSpans(src)
 	if displayMd != src {
@@ -53,12 +51,6 @@ func TestProcessMaskSpansInvalidMarker(t *testing.T) {
 }
 
 func TestProcessMaskSpansMultiline(t *testing.T) {
-	// Mirrors the real pipeline: ExpandAllEnv (or a hand-written
-	// `{{.field}}` reference) can hand ProcessMaskSpans a code span whose
-	// real value spans multiple lines, embedded in a single-line construct
-	// (here, a bullet list) that a literal newline would otherwise break.
-	// It's treated exactly like a masked secret from here on — same
-	// copyMasked=true — just with a line-count placeholder instead of bullets.
 	cert := "-----BEGIN CERTIFICATE-----\nMIIB<dummy>\n-----END CERTIFICATE-----"
 	src := "- **A:** `plain`\n- **CERT:** `" + cert + "`\n- **B:** `other`\n"
 
@@ -70,9 +62,6 @@ func TestProcessMaskSpansMultiline(t *testing.T) {
 	if !strings.Contains(displayMd, "`(3-line value)`") {
 		t.Errorf("expected a 3-line placeholder, got %q", displayMd)
 	}
-	// The bullets before and after the multiline entry must be untouched —
-	// confirms the replacement didn't spill past its own code span and
-	// swallow neighboring lines.
 	if !strings.Contains(displayMd, "- **A:** `plain`\n") || !strings.Contains(displayMd, "\n- **B:** `other`\n") {
 		t.Errorf("neighboring entries altered: %q", displayMd)
 	}

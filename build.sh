@@ -46,6 +46,19 @@ fi
 
 mkdir -p bin
 
+# Stamped into internal/version at link time, so the binaries can report
+# which build they are instead of carrying a hand-edited constant.
+# `git describe` gives "v1.4.0.0" on a release tag, "v1.4.0.0-4-g94b2835"
+# past one, and a "-dirty" suffix with uncommitted changes. Outside a git
+# checkout the defaults in the package stand ("dev").
+version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)
+commit=$(git rev-parse --short HEAD 2>/dev/null || echo "")
+date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+ldflags="-X script-manager/internal/version.Version=$version"
+ldflags="$ldflags -X script-manager/internal/version.Commit=$commit"
+ldflags="$ldflags -X script-manager/internal/version.Date=$date"
+echo "Version: $version"
+
 # The TUI and the two Wails apps build as parallel background jobs. The two
 # platforms of the *same* Wails app stay sequential inside one job — both
 # `wails build` runs regenerate that app's frontend/dist and would race.
@@ -79,12 +92,12 @@ wait_jobs() {
 build_tui() {
 	if [ "$build_linux" = 1 ]; then
 		echo "Building Linux (amd64)..."
-		GOOS=linux GOARCH=amd64 go build -o bin/script-manager ./cmd/script-manager/
+		GOOS=linux GOARCH=amd64 go build -ldflags "$ldflags" -o bin/script-manager ./cmd/script-manager/
 	fi
 
 	if [ "$build_windows" = 1 ]; then
 		echo "Building Windows (amd64)..."
-		GOOS=windows GOARCH=amd64 go build -o bin/script-manager.exe ./cmd/script-manager/
+		GOOS=windows GOARCH=amd64 go build -ldflags "$ldflags" -o bin/script-manager.exe ./cmd/script-manager/
 	fi
 }
 
@@ -93,7 +106,7 @@ build_gui() { # build_gui <app>
 
 	if [ "$build_linux" = 1 ]; then
 		echo "Building GUI ($app, linux/amd64)..."
-		(cd "cmd/$app" && wails build)
+		(cd "cmd/$app" && wails build -ldflags "$ldflags")
 		cp "cmd/$app/build/bin/$app" bin/
 	fi
 
@@ -102,7 +115,7 @@ build_gui() { # build_gui <app>
 			echo "Building GUI ($app, windows/amd64)..."
 			(cd "cmd/$app" && GOOS=windows GOARCH=amd64 CGO_ENABLED=1 \
 				CC=x86_64-w64-mingw32-gcc CXX=x86_64-w64-mingw32-g++ \
-				wails build -platform windows/amd64)
+				wails build -platform windows/amd64 -ldflags "$ldflags")
 			cp "cmd/$app/build/bin/$app.exe" bin/
 		else
 			echo "mingw-w64 not found — skipping GUI Windows cross-compile for $app (see README)"

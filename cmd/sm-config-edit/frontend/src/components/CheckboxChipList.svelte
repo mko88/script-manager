@@ -1,7 +1,4 @@
 <script lang="ts">
-  // The multi-select checkbox-chip picker, duplicated (markup and the
-  // toggle-membership helper both) across ActionForm's Groups field and
-  // ItemsEditor's Actions/Action Groups fields.
   export let options: string[]
   export let selected: string[]
 

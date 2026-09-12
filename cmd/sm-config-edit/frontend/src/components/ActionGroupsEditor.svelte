@@ -2,15 +2,9 @@
   import ListToolbar from './ListToolbar.svelte'
   import { t } from '../messages'
   import { wrap, sortableList, syncList, type DndEntry } from '../lib/sortable'
+  import { deepCopy, copyLabel, copyId, insertAfter } from '../lib/duplicate'
   import type { configedit } from '../../wailsjs/go/models'
 
-  // The Action Groups section: edits the id/title/color catalog entries.
-  // Deleting a group also scrubs its id out of every action's and item's
-  // group lists, so actions and items are bound too — the picker UIs
-  // already hide unknown ids, but the underlying data would otherwise
-  // silently keep the stale id forever.
-
-  // Two-way bound slices of the parent's cfg.
   export let actionGroups: configedit.ActionGroupDTO[]
   export let actions: configedit.ActionDTO[]
   export let items: configedit.ItemDTO[]
@@ -25,8 +19,16 @@
     selectedActionGroup = actionGroups.length - 1
   }
 
-  // How many actions/items/custom-actions currently reference a group id —
-  // used to warn before deleting.
+  function copyActionGroup(i: number) {
+    const src = actionGroups[i]
+    if (!src) return
+    const dup = deepCopy(src)
+    dup.id = copyId(src.id, actionGroups.map((g) => g.id))
+    dup.title = copyLabel(src.title, actionGroups.map((g) => g.title))
+    actionGroups = insertAfter(actionGroups, i, dup)
+    selectedActionGroup = i + 1
+  }
+
   function actionGroupRefCount(id: string): number {
     let count = 0
     for (const a of actions) if (a.groups.includes(id)) count++
@@ -59,8 +61,6 @@
     if (confirm(t('confirm.removeActionGroup', { name, refSuffix }))) removeActionGroup(i)
   }
 
-  // See ItemsEditor for why reordering is an explicit opt-in mode and why
-  // entries aren't re-derived mid-drag.
   let reorderMode = false
   function toggleReorderMode() {
     reorderMode = !reorderMode
@@ -80,12 +80,15 @@
 
 <ListToolbar
   addLabel={t('tooltip.addActionGroup')}
+  copyLabel={t('tooltip.copyActionGroup')}
+  copyDisabled={selectedActionGroup < 0}
   removeLabel={t('tooltip.removeActionGroup')}
   removeDisabled={selectedActionGroup < 0}
   {reorderMode}
   reorderEnterLabel={t('tooltip.enterReorderMode')}
   reorderExitLabel={t('tooltip.exitReorderMode')}
   on:add={addActionGroup}
+  on:copy={() => copyActionGroup(selectedActionGroup)}
   on:remove={() => confirmRemoveActionGroup(selectedActionGroup)}
   on:toggleReorder={toggleReorderMode}
 />

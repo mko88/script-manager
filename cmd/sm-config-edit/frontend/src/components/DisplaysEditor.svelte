@@ -5,24 +5,14 @@
   import Icon from '@shared/components/Icon.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
   import { t } from '../messages'
+  import { deepCopy, copyLabel } from '../lib/duplicate'
   import { looksLikeSecretKey } from '../secretKey'
   import type { configedit } from '../../wailsjs/go/models'
 
-  // The Displays section: pick a display via combobox (no master-list
-  // sidebar — a display isn't tied to one item the way an item's own
-  // preview is), edit its list/details templates, and preview any item
-  // against it, with a layout toggle for how much space editing vs.
-  // previewing gets.
-
-  // Two-way bound slices of the parent's cfg.
   export let displays: configedit.DisplayDTO[]
   export let selectedDisplay: number
-  // Read-only context for the preview: the config's items (preview-item
-  // picker) and env fields (template expansion).
   export let items: configedit.ItemDTO[] = []
   export let envFields: configedit.FieldDTO[] = []
-  // The actual Wails binding, passed straight through like FieldGrid's
-  // validateField prop — this component doesn't import bindings itself.
   export let previewItem: (
     item: configedit.ItemDTO,
     envFields: configedit.FieldDTO[],
@@ -35,13 +25,6 @@
   let displayViewMode: DisplayViewMode = 'split-v'
   let displayPreview: configedit.PreviewDTO | null = null
 
-  // Split-v sizes the edit pane by width, split-h by height; the other pane
-  // always gets flex:1 to soak up whatever's left, so together they fill
-  // the full available width (split-v) or height (split-h) — same
-  // fixed-primary-pane-plus-flex:1-remainder pattern script-manager-gui's
-  // own resizer uses (leftWidth/itemsHeight there). Minimums match gui's
-  // MIN_COL/MIN_PANEL exactly — same reasoning: a width split needs more
-  // headroom for usable content than a height split does.
   const DISPLAY_MIN_WIDTH = 180
   const DISPLAY_MIN_HEIGHT = 60
   const DISPLAY_RESIZER = 6
@@ -49,16 +32,8 @@
   let displayEditHeight = 260
   let displaySplitEl: HTMLElement
 
-  // The Details template's helper toolbar (Insert env / formatting buttons)
-  // needs a real element handle for cursor/selection-based edits —
-  // setRangeText operates on the DOM element directly, not on Svelte's
-  // bound value.
   let detailsTextareaEl: HTMLTextAreaElement | undefined
 
-  // Env var names available to insert into the Details template: global
-  // Environment fields plus the currently-selected preview item's own
-  // fields (if any), deduped — both already loaded client-side for the
-  // preview feature, so no new backend call is needed just to list them.
   $: availableEnvKeys = Array.from(
     new Set([
       ...envFields.map((f) => f.key),
@@ -67,9 +42,6 @@
   ).filter((k) => k)
 
   function insertEnvVar(key: string) {
-    // A key that looks like it holds a secret (same heuristic FieldGrid uses
-    // to auto-lock a new field) is inserted already masked, not as a plain
-    // reference someone would otherwise have to remember to wrap themselves.
     if (looksLikeSecretKey(key)) insertAtCursor('`{{mask .' + key + '}}`')
     else insertAtCursor(`{{.${key}}}`)
   }
@@ -81,26 +53,19 @@
     select.selectedIndex = 0
   }
 
-  // Replaces [start, end) in the textarea with text via execCommand, which —
-  // unlike setRangeText — participates in the browser's native undo/redo, so
-  // Ctrl+Z/Ctrl+Y still work after a helper-button edit, the same as they
-  // would after ordinary typing. execCommand acts on the element's current
-  // selection, so it has to be focused with that range selected first.
-  // Falls back to setRangeText (functionally identical, just without undo
-  // support) if execCommand is ever unavailable.
+  type UndoableInsertText = { execCommand(commandId: string, showUI?: boolean, value?: string): boolean }
+
   function replaceRange(el: HTMLTextAreaElement, start: number, end: number, text: string) {
     el.focus()
     el.setSelectionRange(start, end)
     let handled = false
     try {
-      handled = document.execCommand('insertText', false, text)
+      const undoable: UndoableInsertText = document
+      handled = undoable.execCommand('insertText', false, text)
     } catch {
       handled = false
     }
     if (!handled) el.setRangeText(text, start, end, 'end')
-    // Either path mutates the element directly without firing an input event
-    // Svelte's bind:value would otherwise pick up, so the bound state has to
-    // be synced back explicitly.
     displays[selectedDisplay].details = el.value
   }
 
@@ -110,8 +75,6 @@
     const start = el.selectionStart ?? el.value.length
     const end = el.selectionEnd ?? el.value.length
     replaceRange(el, start, end, text)
-    // Highlight the just-inserted text, so it's clear what was inserted and
-    // easy to overtype/replace.
     el.setSelectionRange(start, start + text.length)
   }
 
@@ -122,9 +85,6 @@
     const end = el.selectionEnd ?? 0
     const selected = el.value.slice(start, end)
 
-    // Toggling the same button again on text it already wrapped removes the
-    // markers instead of stacking another layer around them (e.g. **hello**
-    // -> hello, not ****hello****).
     const alreadyWrapped =
       before.length > 0 &&
       el.value.slice(start - before.length, start) === before &&
@@ -138,25 +98,11 @@
     }
 
     replaceRange(el, start, end, before + selected + after)
-    // Re-select just the original text (not the before/after markers), so
-    // it stays visibly highlighted and a second formatting button or typed
-    // replacement acts on the content, not the markup around it.
     el.setSelectionRange(start + before.length, start + before.length + selected.length)
   }
 
-  // Matches a bare `{{.field}}`/`{{.field.nested}}` reference — the only
-  // shape `mask` can meaningfully wrap; wrapping arbitrary literal text in
-  // `{{mask ...}}` would just produce an invalid template. A `{{mask ...}}`
-  // reference itself doesn't match (it doesn't start with a bare dot), so
-  // re-selecting an already-masked span and clicking Mask again is already a
-  // harmless no-op rather than double-masking it.
   const FIELD_REF_RE = /^\{\{\s*(\.[\w.]+)\s*\}\}$/
 
-  // Turns a selected `{{.field}}` reference into a masked `` `{{mask .field}}` ``
-  // one — the same transform insertEnvVar applies automatically for a
-  // secret-looking key, but usable on a variable already in the template
-  // (e.g. one written by hand, or inserted before its key was recognized).
-  // No-ops with a flash if the selection isn't a bare field reference.
   function maskSelection() {
     const el = detailsTextareaEl
     if (!el) return
@@ -228,7 +174,9 @@
   function copyDisplay() {
     const src = displays[selectedDisplay]
     if (!src) return
-    displays = [...displays, { ...src, name: `${src.name} - copy` }]
+    const dup = deepCopy(src)
+    dup.name = copyLabel(src.name, displays.map((d) => d.name))
+    displays = [...displays, dup]
     selectedDisplay = displays.length - 1
   }
   function removeDisplay(i: number) {
@@ -242,10 +190,6 @@
   }
 
   let displayPreviewTimer: ReturnType<typeof setTimeout>
-  // previewItemForDisplay >= -1 is always true — it's just there so Svelte
-  // tracks it as a dependency of this statement (picking a different
-  // preview item must re-trigger this the same way editing the template
-  // does), not a real condition.
   $: if (selectedDisplay >= 0 && displays[selectedDisplay] && previewItemForDisplay >= -1) scheduleDisplayPreview()
   function scheduleDisplayPreview() {
     clearTimeout(displayPreviewTimer)
@@ -400,11 +344,6 @@
 </div>
 
 <style>
-  /* Displays has no master-list sidebar (a combobox picks the display
-     instead), so it doesn't use .master-detail/.detail at all. Its
-     edit/preview split still needs a real, bounded height to resize
-     within, so display-section fills the available height exactly and
-     lets display-edit-preview's two panes scroll internally instead. */
   .display-section {
     display: flex;
     flex-direction: column;
@@ -414,9 +353,6 @@
     overflow: hidden;
   }
 
-  /* .list-toolbar's own margin-bottom (global, shared with Items/Action
-     Groups/Actions) would stack with this column's gap above — flex gap
-     already spaces it consistently with every other child here. */
   .display-section > .list-toolbar {
     margin-bottom: 0;
   }
@@ -452,10 +388,6 @@
     gap: 4px;
   }
 
-  /* .btn.active partially :global — that class now renders inside
-     IconButton's own template, which Svelte's per-component CSS scoping
-     wouldn't otherwise reach; .view-mode-group itself stays scoped since
-     it's still this component's own element. */
   .view-mode-group :global(.btn.active) {
     background: var(--sm-bg-primary);
     border-color: var(--sm-bg-primary);
@@ -468,9 +400,6 @@
     margin-bottom: 0;
   }
 
-  /* Row by default (also covers single-pane Edit-only/Preview-only modes,
-     where whichever one pane is present just fills 100% via flex:1 below);
-     .split-h switches to a column so the panes stack instead. */
   .display-edit-preview {
     display: flex;
     flex: 1 1 auto;
@@ -482,16 +411,6 @@
     flex-direction: column;
   }
 
-  /* Base flex-basis is 0, not auto: with auto, an unconstrained pane's basis
-     is its max-content size — for the Preview pane that means the table's
-     *unwrapped* natural width, which can be huge regardless of the
-     word-wrap CSS below (max-content sizing ignores wrapping opportunities
-     by definition). That huge implicit basis was swamping the edit pane's
-     explicit pixel basis during flex-shrink, collapsing it to ~2px even
-     though its own flex-basis said otherwise. flex-basis:0 makes both
-     panes' share of space depend only on flex-grow/shrink and the explicit
-     pixel size below, never on content. A single visible pane (Edit-only/
-     Preview-only) still fills 100% via flex-grow regardless of basis. */
   .edit-pane,
   .preview-pane-inline {
     flex: 1 1 0;

@@ -45,8 +45,6 @@ func padToLines(content string, h int) string {
 	return strings.Join(lines[:h], "\n")
 }
 
-// scrollableContent tracks a scroll position and is embedded by tiles that
-// need scrollable text content.
 type scrollableContent struct {
 	scrollOffset int
 }
@@ -59,8 +57,6 @@ func (s *scrollableContent) ScrollUp() {
 func (s *scrollableContent) ScrollDown()  { s.scrollOffset++ }
 func (s *scrollableContent) ResetScroll() { s.scrollOffset = 0 }
 
-// visibleLines clamps the scroll offset, then returns the visible window of
-// lines joined and padded to innerH rows — ready to pass to renderBox.
 func (s *scrollableContent) visibleLines(lines []string, innerH int) string {
 	max := len(lines) - innerH
 	if max < 0 {
@@ -72,9 +68,6 @@ func (s *scrollableContent) visibleLines(lines []string, innerH int) string {
 	return padToLines(strings.Join(lines[s.scrollOffset:], "\n"), innerH)
 }
 
-// truncateToWidth cuts s so its display width is at most max cells, appending
-// … when anything was cut. Measures cells (not bytes or runes) so wide (CJK)
-// characters and multi-byte titles from the config are handled correctly.
 func truncateToWidth(s string, max int) string {
 	if max < 1 {
 		return ""
@@ -95,7 +88,6 @@ func truncateToWidth(s string, max int) string {
 	return b.String() + "…"
 }
 
-// wrapLine splits a raw (unstyled) line into segments of at most width runes.
 func wrapLine(line string, width int) []string {
 	if width <= 0 {
 		return []string{line}

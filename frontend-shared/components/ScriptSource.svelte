@@ -1,10 +1,4 @@
 <script lang="ts">
-  // Shared by script-manager-gui's Command pane (both a cmd: action's
-  // command text and a script: action's file content) and sm-config-edit's
-  // Action editor (a script: action's file content preview) — one
-  // line-numbered source display so both apps show code the same way.
-  // The default slot is an optional corner overlay (script-manager-gui puts
-  // its copy button there); sm-config-edit's simpler preview passes none.
   export let content: string
 </script>
 

@@ -1,10 +1,4 @@
 <script lang="ts">
-  // Every small line icon both apps use (1px-ish strokes, currentColor, no
-  // icon-font dependency), keyed by name. One shared component so a glyph
-  // used by both apps (e.g. copy, the folder) exists exactly once.
-  //
-  // 'load' and 'open' are aliases for the same folder glyph — the two apps
-  // name the action differently (Load config vs Open) but share the visual.
   export let name:
     | 'load'
     | 'open'
@@ -179,7 +173,6 @@
     />
   </svg>
 {:else if name === 'reorder'}
-  <!-- Drag-handle grip (2x3 dots) — a common, recognizable "reorder" glyph. -->
   <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
     <circle cx="5" cy="3.5" r="1.1" fill="currentColor" />
     <circle cx="5" cy="8" r="1.1" fill="currentColor" />

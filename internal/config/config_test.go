@@ -211,8 +211,6 @@ func TestLoadPathsSourcePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Mirrors LoadWithError's Windows precedence order: config-win.yaml is
-	// tried (in both candidate directories) before config.yaml.
 	cfg, err := loadPaths([]string{winPath, basePath})
 	if err != nil {
 		t.Fatal(err)
@@ -229,7 +227,6 @@ func TestLoadPathsParseErrorFallsBackWithWarning(t *testing.T) {
 	dir := t.TempDir()
 	broken := filepath.Join(dir, "config-win.yaml")
 	fallback := filepath.Join(dir, "config.yaml")
-	// Duplicate mapping key: a genuine YAML syntax error, not just "missing".
 	if err := os.WriteFile(broken, []byte("env:\n  a: 1\n  a: 2\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -291,7 +288,6 @@ func TestLoadOrCreateSeedsDefaultWhenNothingExists(t *testing.T) {
 func TestLoadOrCreateLeavesBrokenCandidateAlone(t *testing.T) {
 	dir := t.TempDir()
 	broken := filepath.Join(dir, "config.yaml")
-	// Duplicate mapping key: a genuine YAML syntax error, not just "missing".
 	if err := os.WriteFile(broken, []byte("env:\n  a: 1\n  a: 2\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -346,8 +342,6 @@ func TestParseCustomActionsScript(t *testing.T) {
 }
 
 func TestParseCustomActionsScriptOnlyStillValid(t *testing.T) {
-	// A script-only entry (no title, no cmd) must still survive the
-	// validity check ParseCustomActions applies to drop empty entries.
 	raw := []interface{}{
 		map[string]interface{}{"script": "./deploy.sh"},
 	}

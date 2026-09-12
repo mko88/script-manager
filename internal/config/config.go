@@ -19,8 +19,6 @@ var defaultConfigUnix string
 //go:embed templates/default-win.yaml
 var defaultConfigWindows string
 
-// defaultConfigYAML returns the OS-appropriate starter config content used
-// to seed the app-data directory when no config file exists anywhere.
 func defaultConfigYAML() string {
 	if runtime.GOOS == "windows" {
 		return defaultConfigWindows
@@ -28,46 +26,25 @@ func defaultConfigYAML() string {
 	return defaultConfigUnix
 }
 
-// Reserved item keys. Every other key in an item map is free-form data for
-// templates and the subprocess environment.
 const (
-	// KeyName is the item's display name, used in headers and titles.
-	KeyName = "name"
-	// KeyDisplay selects which DisplayConfig renders the item.
-	KeyDisplay = "display"
-	// KeyActions restricts the item to the global actions with these IDs.
-	KeyActions = "actions"
-	// KeyActionGroups restricts the item to global actions in these groups.
-	KeyActionGroups = "actionGroups"
-	// KeyCustomActions holds inline item-specific action definitions.
+	KeyName          = "name"
+	KeyDisplay       = "display"
+	KeyActions       = "actions"
+	KeyActionGroups  = "actionGroups"
 	KeyCustomActions = "customActions"
 )
 
 type Action struct {
-	ID          string `yaml:"id,omitempty"`
-	Title       string `yaml:"title"`
-	Description string `yaml:"description,omitempty"`
-	// Cmd and Script are mutually exclusive: Cmd is a shell-template command
-	// string (expanded and run through the configured shell); Script is a
-	// file path run directly, no shell/template wrapping. Script takes
-	// precedence if both are somehow set — see internal/configedit/validate.go
-	// for the editor-side check that keeps that from happening normally.
+	ID          string   `yaml:"id,omitempty"`
+	Title       string   `yaml:"title"`
+	Description string   `yaml:"description,omitempty"`
 	Cmd         string   `yaml:"cmd,omitempty"`
 	Script      string   `yaml:"script,omitempty"`
 	Groups      []string `yaml:"groups,omitempty"`
 	NoWait      bool     `yaml:"noWait,omitempty"`
-	// Interactive marks an action whose command needs to read from stdin
-	// (e.g. a prompt), so it can only run in a real terminal — the GUI hides
-	// "Run here" for it and inline.go's buildInlineCmd refuses to start it,
-	// since an inline run's stdin is deliberately left disconnected.
-	Interactive bool `yaml:"interactive,omitempty"`
+	Interactive bool     `yaml:"interactive,omitempty"`
 }
 
-// ActionGroup is the catalog entry for a group name: Action.Groups and an
-// item's "actionGroups" key still just reference groups by plain string
-// (matched against ID here), the same as before this existed — this only
-// adds an optional friendlier title and a color for the UI to use instead
-// of showing/coloring the bare ID everywhere.
 type ActionGroup struct {
 	ID    string `yaml:"id"`
 	Title string `yaml:"title,omitempty"`
@@ -80,8 +57,6 @@ type DisplayConfig struct {
 	Details string `yaml:"details,omitempty"`
 }
 
-// DisplayList is a slice of DisplayConfig that can be unmarshalled from either
-// a YAML sequence (new format) or a single mapping (legacy format).
 type DisplayList []DisplayConfig
 
 func (dl *DisplayList) UnmarshalYAML(value *yaml.Node) error {
@@ -102,8 +77,6 @@ func (dl *DisplayList) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-// FindDisplay returns the DisplayConfig matching item["display"], or the first
-// entry if no match is found or the item has no display key.
 func FindDisplay(displays DisplayList, item map[string]any) DisplayConfig {
 	if len(displays) == 0 {
 		return DisplayConfig{}
@@ -120,21 +93,8 @@ func FindDisplay(displays DisplayList, item map[string]any) DisplayConfig {
 	return displays[0]
 }
 
-// TerminalConfig selects which terminal emulator the GUI's Run button opens
-// actions in (internal/gui owns the built-in table and auto-detection; the
-// TUI ignores this field entirely since it runs actions inline). The zero
-// value means "auto-detect the most common terminal for this OS". A YAML
-// scalar names one specific built-in terminal, skipping auto-detection; a
-// YAML sequence gives a fully custom argv template for a terminal that isn't
-// built in — the same string-or-list convention Shell already established.
 type TerminalConfig struct {
-	// Name is a key into the GUI's built-in terminal table (e.g. "wt",
-	// "gnome-terminal", "alacritty"), set when the config gave a plain string.
 	Name string
-	// Argv is a custom launch command, set when the config gave a list: the
-	// first element is the terminal binary, the rest are its flags. Elements
-	// may contain the "{{title}}" and "{{dir}}" placeholders; the resolved
-	// shell command is always appended as the final arguments.
 	Argv []string
 }
 
@@ -148,13 +108,6 @@ func (t *TerminalConfig) UnmarshalYAML(value *yaml.Node) error {
 	return fmt.Errorf("terminal: expected a string or a list, got YAML node kind %v", value.Kind)
 }
 
-// MarshalYAML is the write-side counterpart to UnmarshalYAML, keeping the
-// same scalar-or-list convention: Name marshals as a plain string, Argv as a
-// sequence. A zero value marshals to nil, which combined with Config's
-// terminal,omitempty tag omits the key entirely — reflect-based omitempty
-// checks the field's own zero-ness before this method ever runs, so that
-// omission doesn't actually depend on this returning nil, but it's returned
-// for a consistent result if MarshalYAML is ever called directly.
 func (t TerminalConfig) MarshalYAML() (interface{}, error) {
 	if t.Name != "" {
 		return t.Name, nil
@@ -174,21 +127,9 @@ type Config struct {
 	ActionGroups []ActionGroup    `yaml:"actionGroups,omitempty"`
 	Actions      []Action         `yaml:"actions,omitempty"`
 
-	// SourcePath is the absolute path of the file this config was actually
-	// loaded from — not part of the YAML itself, but set by loadPaths so
-	// callers (e.g. the #CONFIG_FILE# template placeholder) can show which of
-	// several candidate paths (config-win.yaml vs. config.yaml, exe dir vs.
-	// working dir) won.
 	SourcePath string `yaml:"-"`
 }
 
-// ActionsForItem returns the actions available for the given item.
-//
-// If the item defines "actions" (list of IDs) or "actionGroups" (list of group
-// names), only matching global actions are included — in that order, without
-// duplicates. Item-level "customActions" are always appended at the end.
-//
-// If none of those keys are present the full allActions slice is returned as-is.
 func ActionsForItem(allActions []Action, item map[string]any) []Action {
 	if item == nil {
 		return allActions
@@ -241,13 +182,6 @@ func ActionsForItem(allActions []Action, item map[string]any) []Action {
 	return result
 }
 
-// AsStringSlice reads v as a YAML sequence of strings — the shape item keys
-// like "actions"/"actionGroups" (and a custom action's "groups") take once
-// decoded into a map[string]any. Non-string elements are dropped rather than
-// erroring, since a malformed entry shouldn't break the whole list. The bool
-// reports whether v was a non-empty sequence at all, distinguishing "absent"
-// from "present but empty" for callers like ActionsForItem that treat the two
-// differently.
 func AsStringSlice(v any) ([]string, bool) {
 	if v == nil {
 		return nil, false
@@ -265,9 +199,6 @@ func AsStringSlice(v any) ([]string, bool) {
 	return out, len(out) > 0
 }
 
-// ParseCustomActions decodes an item's "customActions" key (v) into inline
-// Actions. An entry without a title or cmd is dropped, matching the same
-// "nothing useful to run" rule ActionsForItem otherwise relies on.
 func ParseCustomActions(v any) []Action {
 	if v == nil {
 		return nil
@@ -305,7 +236,6 @@ func ParseCustomActions(v any) []Action {
 	return result
 }
 
-// StrVal reads v as a string, returning "" for nil or any other type.
 func StrVal(v any) string {
 	if v == nil {
 		return ""
@@ -314,19 +244,6 @@ func StrVal(v any) string {
 	return s
 }
 
-// LoadWithError resolves the config file automatically — next to the binary
-// first, then the working directory, then the shared app-data directory (see
-// internal/appdata; the same place theme/messages already live) — and
-// reports the last error encountered (e.g. a missing file or a YAML syntax
-// error) so callers can reload without losing the previous config on
-// failure. On Windows, config-win.yaml takes precedence in every location,
-// falling back to config.yaml when absent. If none of those candidates
-// exist anywhere — first-ever startup, nothing to fall back to — a minimal
-// OS-appropriate starter config is written to the app-data directory and
-// loaded from there, so there's always something to work with instead of an
-// empty app. Use LoadFromWithError to load an explicit path instead (never
-// auto-creates; an explicit path the user gave that doesn't exist is a real
-// error, not an invitation to invent one).
 func LoadWithError() (*Config, error) {
 	names := []string{"config.yaml"}
 	if runtime.GOOS == "windows" {
@@ -358,16 +275,10 @@ func LoadWithError() (*Config, error) {
 	return loadOrCreate(paths, filepath.Join(dataDir, names[0]), defaultConfigYAML())
 }
 
-// LoadFromWithError loads a config from an explicit file path.
 func LoadFromWithError(path string) (*Config, error) {
 	return loadPaths([]string{path})
 }
 
-// loadOrCreate tries each candidate path via loadPaths; if none of them
-// exist at all (as opposed to existing but failing to parse — see anyExists),
-// it writes defaultYAML to defaultPath and loads that instead. Split out
-// from LoadWithError so this fallback-creation behavior is testable without
-// the real os.Executable()/appdata.Dir() filesystem dependencies.
 func loadOrCreate(paths []string, defaultPath, defaultYAML string) (*Config, error) {
 	cfg, err := loadPaths(paths)
 	if cfg.SourcePath != "" || anyExists(paths) {
@@ -379,11 +290,6 @@ func loadOrCreate(paths []string, defaultPath, defaultYAML string) (*Config, err
 	return loadPaths([]string{defaultPath})
 }
 
-// anyExists reports whether any of the given paths exists on disk, whether
-// or not it parses successfully — used to tell "genuinely nothing found
-// anywhere" (safe to seed a default) apart from "something exists but every
-// candidate is broken" (a real error the user needs to see, not paper over
-// with a fresh default file elsewhere).
 func anyExists(paths []string) bool {
 	for _, p := range paths {
 		if _, err := os.Stat(p); err == nil {
@@ -393,14 +299,6 @@ func anyExists(paths []string) bool {
 	return false
 }
 
-// loadPaths tries each candidate path in order and returns the config from
-// the first one that parses. A candidate missing entirely is expected —
-// config-win.yaml/config.yaml are each tried in two locations — and is
-// skipped quietly. A candidate that exists but fails to parse (a YAML syntax
-// error) is a real problem worth knowing about even if a later candidate
-// succeeds, so that error is returned alongside the fallback config instead
-// of being silently swallowed; callers can tell "loaded with a warning" apart
-// from "nothing loaded at all" via cfg.SourcePath being non-empty.
 func loadPaths(paths []string) (*Config, error) {
 	var parseErr, lastErr error
 	for _, p := range paths {

@@ -9,16 +9,6 @@ import (
 	"script-manager/internal/config"
 )
 
-// TestEmptyConfigDTOHasNoNullSlices guards against a real incident: Go's JSON
-// encoder marshals a nil slice as `null`, and the frontend treats every DTO
-// slice field as always-iterable ({#each}, .map, .some, .includes). A null
-// reaching a Svelte reactive statement throws, which silently breaks all
-// further reactivity for the rest of the session — not a visible crash, just
-// every click quietly doing nothing from that point on. Confirmed
-// end-to-end (via the WebKit inspector) that ValidateConfig returning a nil
-// []ValidationIssueDTO for a clean config was exactly this bug. This test
-// marshals the DTOs an empty/near-empty config produces and asserts the raw
-// JSON never contains "null" for a slice field.
 func TestEmptyConfigDTOHasNoNullSlices(t *testing.T) {
 	dto := ToConfigDTO(&config.Config{})
 	assertNoNullSlices(t, "ToConfigDTO(empty)", dto)
@@ -42,19 +32,12 @@ func assertNoNullSlices(t *testing.T, label string, v any) {
 	if err != nil {
 		t.Fatalf("%s: marshal: %v", label, err)
 	}
-	// A conservative check: any bare `null` value in the JSON is suspect for
-	// these DTOs, since every slice field should default to `[]`.
 	if strings.Contains(string(out), ":null") || string(out) == "null" {
 		t.Errorf("%s: JSON contains a null field, want every slice defaulted to []:\n%s", label, out)
 	}
 }
 
 func TestClassifyAndDecodeValue(t *testing.T) {
-	// Numbers intentionally don't round-trip to the exact same Go type
-	// (int vs int64): decodeValue always produces int64 for whole numbers.
-	// What matters is that re-classifying the decoded value reproduces the
-	// same (kind, value) pair — i.e. the YAML text it marshals to is
-	// unchanged — not Go type identity.
 	tests := []struct {
 		name string
 		in   any
@@ -72,8 +55,6 @@ func TestClassifyAndDecodeValue(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// "field" deliberately doesn't match looksLikeSecretKey, so these
-			// cases exercise classification purely by value shape.
 			kind, value, _ := classifyValue("field", tt.in)
 			decoded, err := decodeValue(kind, value)
 			if err != nil {
@@ -95,8 +76,6 @@ func TestClassifyValueIntStaysUndotted(t *testing.T) {
 }
 
 func TestClassifyValueSecretKey(t *testing.T) {
-	// Secret is independent of kind — a secret-looking key still classifies
-	// by its value's shape as usual; only the secret flag differs.
 	tests := []struct {
 		key  string
 		want bool
@@ -106,7 +85,7 @@ func TestClassifyValueSecretKey(t *testing.T) {
 		{"ApiKey", true},
 		{"secretkey", true},
 		{"username", false},
-		{"keyboard", false}, // contains "key" but doesn't end with it
+		{"keyboard", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.key, func(t *testing.T) {
@@ -127,7 +106,7 @@ func TestDecodeValueErrors(t *testing.T) {
 	}{
 		{"bool", "not-a-bool"},
 		{"number", "not-a-number"},
-		{"yaml", "["}, // invalid YAML
+		{"yaml", "["},
 		{"bogus-kind", "x"},
 	}
 	for _, tt := range tests {

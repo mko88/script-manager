@@ -2,11 +2,6 @@ package configedit
 
 import "fmt"
 
-// ValidateConfig checks draft form state for problems ActionsForItem would
-// otherwise resolve silently (an unknown display/action/group reference just
-// falls back or drops the entry at runtime) or that would make IDs
-// ambiguous. Duplicate action IDs and duplicate action group IDs are the
-// only blocking errors — everything else is a warning.
 func ValidateConfig(dto ConfigDTO) []ValidationIssueDTO {
 	issues := []ValidationIssueDTO{}
 

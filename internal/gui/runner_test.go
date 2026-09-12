@@ -64,8 +64,6 @@ func TestCleanupTempScriptsIgnoresAge(t *testing.T) {
 	f.Close()
 	t.Cleanup(func() { os.Remove(path) })
 
-	// Backdate the file well past the old one-hour cutoff to prove cleanup no
-	// longer looks at age at all.
 	old := time.Now().Add(-48 * time.Hour)
 	if err := os.Chtimes(path, old, old); err != nil {
 		t.Fatal(err)

@@ -20,7 +20,6 @@ func TestTruncateToWidth(t *testing.T) {
 		{"hello", 1, "…"},
 		{"hello", 0, ""},
 		{"héllo wörld", 6, "héllo…"},
-		// Wide (2-cell) characters: 日本語 is 6 cells.
 		{"日本語", 6, "日本語"},
 		{"日本語", 5, "日本…"},
 		{"日本語", 4, "日…"},
