@@ -74,8 +74,11 @@
 {/if}
 
 <style>
+  /* Absolute against .app-root, not fixed against the viewport: the root is
+     zoomed for the interface-scale setting, and a fixed inset would be
+     measured in unzoomed pixels and then scaled past the window edge. */
   .pin-backdrop {
-    position: fixed;
+    position: absolute;
     inset: 0;
     z-index: 200;
     display: flex;

@@ -587,6 +587,7 @@
           />
         {:else if section === 'theme'}
           <div class="typography-settings">
+            <div class="subsection-title">{t('nav.fonts')}</div>
             <div class="field">
               <span>{t('field.fontUi')}</span>
               <input type="text" placeholder={t('placeholder.fontDefault')} bind:value={fontUiDraft} />
@@ -659,7 +660,11 @@
   .app-root {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    position: relative;
+    /* zoom multiplies every length, and 100vh resolves against the unzoomed
+       viewport — so the scaled root would be taller than the window (scroll
+       bars) or shorter (dead space). Dividing first cancels the zoom out. */
+    height: calc(100vh / var(--sm-ui-scale, 1));
   }
 
   .toolbar {

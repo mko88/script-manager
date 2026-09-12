@@ -50,6 +50,7 @@
   },
   "nav": {
     "pin": "PIN",
+    "fonts": "Fonts",
     "items": "Items",
     "actionGroups": "Action Groups",
     "actions": "Actions",
