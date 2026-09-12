@@ -84,7 +84,6 @@
           <CodeMirror
             bind:value={fields[i].value}
             language="yaml"
-            showLineNumbers={false}
             minHeight="3.2em"
             maxHeight="220px"
             onChange={() => check(i)}

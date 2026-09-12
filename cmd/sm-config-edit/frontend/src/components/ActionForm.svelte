@@ -19,6 +19,9 @@
   export let showId = true
   export let allActionGroups: string[] = []
   export let browseScriptFile: () => Promise<string>
+  // The shell the config is configured with, so an inline command is
+  // highlighted as what it will actually be run by.
+  export let cmdLanguage = 'plain'
   export let previewScriptFile: (path: string) => Promise<configedit.ScriptPreviewDTO>
 
   let mode: 'cmd' | 'script' = action.script ? 'script' : 'cmd'
@@ -78,9 +81,9 @@
     on:change={(e) => setMode(e.detail === 'script' ? 'script' : 'cmd')}
   />
   {#if mode === 'cmd'}
-    <label class="field cmd-field">
-      <textarea rows="3" bind:value={action.cmd}></textarea>
-    </label>
+    <div class="field cmd-field">
+      <CodeMirror bind:value={action.cmd} language={cmdLanguage} minHeight="4.5em" maxHeight="320px" />
+    </div>
   {:else}
     <label class="field cmd-field">
       <div class="script-path-row">
@@ -135,9 +138,6 @@
     padding: 5px 7px;
     font-family: inherit;
     font-size: var(--sm-type-base);
-  }
-  .cmd-field textarea {
-    font-family: var(--sm-font-mono);
   }
   .script-path-row {
     display: flex;

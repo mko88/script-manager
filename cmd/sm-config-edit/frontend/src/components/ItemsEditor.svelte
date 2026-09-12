@@ -13,6 +13,7 @@
   export let selectedItem: number
   export let actions: configedit.ActionDTO[] = []
   export let allActionGroups: string[] = []
+  export let cmdLanguage = 'plain'
   export let displays: configedit.DisplayDTO[] = []
   export let envFields: configedit.FieldDTO[] = []
   export let previewItem: (
@@ -201,6 +202,7 @@
               bind:action={items[selectedItem].customActions[j]}
               showId={false}
               {allActionGroups}
+              {cmdLanguage}
               {browseScriptFile}
               {previewScriptFile}
             />

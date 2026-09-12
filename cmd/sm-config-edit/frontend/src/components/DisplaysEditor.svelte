@@ -256,7 +256,6 @@
                 bind:this={detailsEditor}
                 bind:value={displays[selectedDisplay].details}
                 language="markdown"
-                showLineNumbers={false}
                 minHeight="100%"
                 maxHeight="100%"
               />

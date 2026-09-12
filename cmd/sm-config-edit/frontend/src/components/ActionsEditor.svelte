@@ -9,6 +9,7 @@
   export let actions: configedit.ActionDTO[]
   export let selectedAction: number
   export let allActionGroups: string[] = []
+  export let cmdLanguage = 'plain'
   export let browseScriptFile: () => Promise<string>
   export let previewScriptFile: (path: string) => Promise<configedit.ScriptPreviewDTO>
 
@@ -98,7 +99,13 @@
   </div>
   <div class="detail">
     {#if selectedAction >= 0 && actions[selectedAction]}
-      <ActionForm bind:action={actions[selectedAction]} {allActionGroups} {browseScriptFile} {previewScriptFile} />
+      <ActionForm
+        bind:action={actions[selectedAction]}
+        {allActionGroups}
+        {cmdLanguage}
+        {browseScriptFile}
+        {previewScriptFile}
+      />
     {:else}
       <div class="empty">{t('empty.selectActionOrAdd')}</div>
     {/if}

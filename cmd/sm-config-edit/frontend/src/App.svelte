@@ -21,6 +21,7 @@
   import RecentMenu from '@shared/components/RecentMenu.svelte'
   import PinDialog from '@shared/components/PinDialog.svelte'
   import { t } from './messages'
+  import { shellLanguage } from './lib/shellLanguage'
   import {
     InitialState,
     NewBlank,
@@ -156,6 +157,8 @@
   $: if (initialized && cfg) scheduleValidate()
 
   $: hasBlockingError = validation.some((v) => v.severity === 'error')
+
+  $: cmdLanguage = shellLanguage(cfg.shell?.[0])
 
   async function confirmDiscard(): Promise<boolean> {
     if (!dirty) return true
@@ -562,6 +565,7 @@
             bind:actions={cfg.actions}
             bind:selectedAction
             {allActionGroups}
+            {cmdLanguage}
             browseScriptFile={BrowseScriptFile}
             previewScriptFile={PreviewScriptFile}
           />
@@ -571,6 +575,7 @@
             bind:selectedItem
             actions={cfg.actions}
             {allActionGroups}
+            {cmdLanguage}
             displays={cfg.display}
             envFields={cfg.envFields}
             previewItem={PreviewItem}
