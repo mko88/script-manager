@@ -87,6 +87,9 @@
 
 <style>
   .recent-menu {
+    /* Both apps put this in a frameless window's draggable titlebar, where
+       an inherited drag region swallows the popover's hover and clicks. */
+    --wails-draggable: no-drag;
     position: relative;
     display: inline-flex;
   }

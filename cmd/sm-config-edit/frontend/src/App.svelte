@@ -686,7 +686,6 @@
   }
 
   .toolbar :global(.btn),
-  .toolbar :global(.recent-menu),
   .toolbar .save-state {
     --wails-draggable: no-drag;
   }

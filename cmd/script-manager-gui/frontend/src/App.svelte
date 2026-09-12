@@ -46,6 +46,7 @@
     SetWindowOpacity,
     GetVersion,
     RecentConfigs,
+    ConfigPath,
     GetUIPrefs,
     SetUIScale,
     LoadRecentConfig,
@@ -343,9 +344,11 @@
   }
 
   let recents: string[] = []
+  let configPath = ''
 
   async function refreshRecents() {
     recents = await RecentConfigs()
+    configPath = await ConfigPath()
   }
 
   async function loadRecent(path: string) {
@@ -667,6 +670,7 @@
     <RecentMenu
       title={t('tooltip.loadConfig')}
       {recents}
+      currentPath={configPath}
       recentsHeading={t('tooltip.recentHeading')}
       emptyLabel={t('tooltip.recentEmpty')}
       clearLabel={t('tooltip.recentClear')}

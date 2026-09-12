@@ -77,6 +77,12 @@ func (a *App) LogPath() string {
 	return applog.Path(a.appDataDir)
 }
 
+// ConfigPath is the config file in use, which the frontend marks in the
+// recent-configs list.
+func (a *App) ConfigPath() string {
+	return a.configSourcePath()
+}
+
 func (a *App) LoadError() string {
 	if a.loadErr == nil {
 		return ""
