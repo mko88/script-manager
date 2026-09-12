@@ -238,7 +238,9 @@ Which actions may use locked values is per action: tick **Requires PIN** on an a
 - **Requires PIN on** — running the action asks for the PIN first (a dialog in `script-manager-gui`, a prompt in the TUI), then passes the decrypted values to the script as normal environment variables.
 - **Requires PIN off** — the action runs with no prompt, and every PIN-locked variable is simply **not set**. A script that reads one gets an empty value. Nothing warns you: knowing which of your scripts need which variables is up to you.
 
-One PIN covers every locked value in a config, and stays unlocked until you close the app or load a different config; reloading the same one (F5) keeps it unlocked. Locked values render as `(locked)` in the Details pane until you enter the PIN.
+One PIN covers every locked value in a config, and stays unlocked until you close the app or load a different config; reloading the same one (F5) keeps it unlocked.
+
+A locked value is **never** rendered anywhere on screen — it shows as `(locked)` in the Details pane, in the list label, and in the Config Editor's preview, whether or not the PIN has been entered. Entering the PIN only lets a `requiresPin` action receive the value; it never puts it on screen or on the clipboard.
 
 What this protects against: someone reading your `config.yaml`, or the file ending up in a backup, a sync folder, or a repository. What it does **not** protect against: anything that can already run code as you while the app is unlocked. Choose a PIN you would choose for a password, not a 4-digit number — a short numeric PIN can be guessed offline by anyone holding the file, and the deliberately slow key derivation only buys time.
 

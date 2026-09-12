@@ -6,6 +6,7 @@ import (
 
 	"script-manager/internal/action"
 	"script-manager/internal/render"
+	"script-manager/internal/secret"
 
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
@@ -28,7 +29,7 @@ func PreviewItem(item ItemDTO, envFields []FieldDTO, displays []DisplayDTO, disp
 	if err != nil {
 		return PreviewDTO{Error: err.Error()}
 	}
-	merged := action.Merge(env, itemMap)
+	merged := secret.Redact(action.Merge(env, itemMap))
 
 	d := findDisplayDTO(displays, displayName)
 
@@ -82,7 +83,7 @@ func PreviewAction(item ItemDTO, envFields []FieldDTO, act ActionDTO) ActionPrev
 	if err != nil {
 		return ActionPreviewDTO{Error: err.Error()}
 	}
-	merged := action.Merge(env, itemMap)
+	merged := secret.Redact(action.Merge(env, itemMap))
 	return ActionPreviewDTO{
 		Description: action.Preview(act.Description, merged),
 		Cmd:         action.Preview(act.Cmd, merged),

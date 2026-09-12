@@ -35,6 +35,9 @@ the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 - Actions opt in with **Requires PIN** (`requiresPin: true`). Such an action
   asks for the PIN and receives the decrypted values; every other action
   runs without a prompt and simply doesn't have the locked variables set.
+- A locked value never renders on screen: details, list labels and the
+  editor's preview show `(locked)` whether or not the PIN has been entered.
+  Entering it only feeds the value to a `requiresPin` action.
 - `sm-config-edit`: a **PIN** section sets the config's PIN, changes it
   (re-encrypting every locked value in one step), or removes it (decrypting
   them back to plain text, still marked secret). The padlock on a value

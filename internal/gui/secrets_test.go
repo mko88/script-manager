@@ -77,6 +77,37 @@ func TestActionWithRequiresPINNeedsUnlockThenDecrypts(t *testing.T) {
 	}
 }
 
+func TestUnlockingNeverRevealsLockedValuesToTheDisplay(t *testing.T) {
+	cfg, _ := lockedConfig(t, "demo1234", "hunter2")
+	a := &App{cfg: cfg}
+
+	if got := a.mergedItem(cfg.Items[0])["password"]; got != secret.LockedDisplayText {
+		t.Errorf("locked value before unlocking = %v, want %q", got, secret.LockedDisplayText)
+	}
+
+	if err := a.UnlockSecrets("demo1234"); err != nil {
+		t.Fatalf("UnlockSecrets() error = %v", err)
+	}
+
+	got := a.mergedItem(cfg.Items[0])["password"]
+	if got == "hunter2" {
+		t.Fatal("an unlocked session showed the decrypted value to the templates; locked values must never render as plaintext")
+	}
+	if got != secret.LockedDisplayText {
+		t.Errorf("locked value after unlocking = %v, want %q", got, secret.LockedDisplayText)
+	}
+
+	// The run path is the only route to the plaintext, and only for an
+	// action that asked for it.
+	merged, err := a.mergedItemForRun(cfg.Items[0], cfg.Actions[pinAction])
+	if err != nil {
+		t.Fatalf("mergedItemForRun() error = %v", err)
+	}
+	if merged["password"] != "hunter2" {
+		t.Errorf("run path password = %v, want the decrypted value", merged["password"])
+	}
+}
+
 func TestSwitchingConfigDropsTheSessionKey(t *testing.T) {
 	first, _ := lockedConfig(t, "demo1234", "first-secret")
 	second, _ := lockedConfig(t, "demo1234", "second-secret")

@@ -213,11 +213,3 @@ func Strip(values map[string]any) map[string]any {
 	}
 	return out
 }
-
-func Display(values map[string]any, key []byte) map[string]any {
-	revealed, err := Reveal(values, key)
-	if err != nil {
-		return Redact(values)
-	}
-	return revealed
-}
