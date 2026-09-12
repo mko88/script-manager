@@ -421,12 +421,18 @@
       disabled={hasBlockingError}
       on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></IconButton
     >
-    <IconButton
-      active={autosave}
+    <button
+      class="save-state"
+      class:save-state-on={autosave}
+      type="button"
+      aria-pressed={autosave}
       title={autosave ? t('tooltip.autosaveOn') : t('tooltip.autosaveOff')}
-      aria={t('tooltip.autosaveAria')}
-      on:click={toggleAutosave}><Icon name="refresh" /></IconButton
+      on:click={toggleAutosave}
     >
+      <span class="save-dot" class:save-dot-unsaved={dirty}></span>
+      {autosave ? t('text.autosaveOn') : t('text.autosaveOff')}
+      {#if dirty}<span class="save-state-detail">{t('text.unsaved')}</span>{/if}
+    </button>
     <IconButton
       class="btn icon-btn open-data-folder-btn"
       disabled={!dataFolderPath}
@@ -608,8 +614,43 @@
     border-bottom: 1px solid var(--sm-border);
   }
 
-  :global(.open-data-folder-btn) {
+  .save-state {
     margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: none;
+    color: var(--sm-text-muted);
+    font-family: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+
+  .save-state:hover {
+    border-color: var(--sm-border);
+  }
+
+  .save-state-on {
+    color: var(--sm-text);
+  }
+
+  .save-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1px solid var(--sm-text-muted);
+  }
+
+  .save-dot-unsaved {
+    background: var(--sm-warning);
+    border-color: var(--sm-warning);
+  }
+
+  .save-state-detail {
+    color: var(--sm-warning);
   }
 
   .app-shell {

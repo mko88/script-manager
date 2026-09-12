@@ -93,10 +93,9 @@ body {
 @font-face {
   font-family: "Nunito";
   font-style: normal;
-  font-weight: 400;
-  src:
-    local(""),
-    url("./fonts/nunito-v16-latin-regular.woff2") format("woff2");
+  font-weight: 200 1000;
+  font-display: swap;
+  src: url("./fonts/nunito-v32-latin-variable.woff2") format("woff2");
 }
 
 .panel {
@@ -400,7 +399,7 @@ select.sm-select {
   margin-bottom: 8px;
 }
 
-.list-toolbar .btn.active {
+.btn.active {
   background: var(--sm-bg-primary);
   border-color: var(--sm-bg-primary);
   color: var(--sm-text-primary);
@@ -520,6 +519,12 @@ select.sm-select {
   50% { opacity: 0.3; }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .status-running {
+    animation: none;
+  }
+}
+
 .details-preview {
   font-size: 0.85rem;
   line-height: 1.5;
@@ -599,9 +604,19 @@ textarea:focus {
   outline-offset: -2px;
 }
 
-button:focus-visible {
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
   outline: 2px solid var(--sm-text-heading);
   outline-offset: -2px;
+}
+
+input[type="checkbox"]:focus-visible,
+input[type="radio"]:focus-visible,
+input[type="color"]:focus-visible {
+  outline-offset: 2px;
 }
 
 input[type="checkbox"],
