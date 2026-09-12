@@ -53,12 +53,15 @@
     select.selectedIndex = 0
   }
 
+  type UndoableInsertText = { execCommand(commandId: string, showUI?: boolean, value?: string): boolean }
+
   function replaceRange(el: HTMLTextAreaElement, start: number, end: number, text: string) {
     el.focus()
     el.setSelectionRange(start, end)
     let handled = false
     try {
-      handled = document.execCommand('insertText', false, text)
+      const undoable: UndoableInsertText = document
+      handled = undoable.execCommand('insertText', false, text)
     } catch {
       handled = false
     }
