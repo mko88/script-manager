@@ -1001,10 +1001,10 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    /* --sm-vh-fit is measured, not derived: what 100vh means inside a
-       zoomed element differs between WebView2 and WebKitGTK. See
-       fitRootToViewport in frontend-shared/uiprefs.ts. */
-    height: calc(100vh * var(--sm-vh-fit, 1));
+    /* Plain px from setRootHeight in frontend-shared/uiprefs.ts, because a
+       viewport unit inside the zoomed subtree means different things in
+       WebView2 and WebKitGTK. 100vh is the unscaled fallback. */
+    height: var(--sm-root-height, 100vh);
   }
 
   .toolbar {
