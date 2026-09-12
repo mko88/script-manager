@@ -7,6 +7,8 @@ export function BrowseConfig():Promise<string>;
 
 export function CancelInlineAction(arg1:number,arg2:number):Promise<void>;
 
+export function ClearRecentConfigs():Promise<Array<string>>;
+
 export function CopyToClipboard(arg1:string):Promise<void>;
 
 export function GetActionDetail(arg1:number,arg2:number):Promise<gui.ActionDetailDTO>;
@@ -30,6 +32,10 @@ export function GetVersion():Promise<Record<string, string>>;
 export function LaunchConfigEditor():Promise<boolean>;
 
 export function LoadError():Promise<string>;
+
+export function LoadRecentConfig(arg1:string):Promise<void>;
+
+export function RecentConfigs():Promise<Array<string>>;
 
 export function ReloadConfig():Promise<string>;
 

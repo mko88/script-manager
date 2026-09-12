@@ -10,6 +10,7 @@ import (
 	"script-manager/internal/appdata"
 	"script-manager/internal/config"
 	"script-manager/internal/exepath"
+	"script-manager/internal/recent"
 	"script-manager/internal/scriptsource"
 	"script-manager/internal/version"
 
@@ -38,11 +39,15 @@ type App struct {
 func NewApp(load func() (*config.Config, error)) *App {
 	cfg, err := load()
 	go cleanupTempScripts()
+	appDataDir := appdata.Dir()
+	if cfg != nil && cfg.SourcePath != "" {
+		recent.Add(appDataDir, cfg.SourcePath)
+	}
 	return &App{
 		cfg:        cfg,
 		load:       load,
 		exeDir:     exepath.Dir(),
-		appDataDir: appdata.Dir(),
+		appDataDir: appDataDir,
 		loadErr:    err,
 		inlineRuns: make(map[inlineKey]*inlineRun),
 		md: goldmark.New(

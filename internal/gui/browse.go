@@ -7,6 +7,7 @@ import (
 	"runtime"
 
 	"script-manager/internal/config"
+	"script-manager/internal/recent"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -26,6 +27,7 @@ func (a *App) BrowseConfig() (string, error) {
 	}
 	a.cfg = cfg
 	a.load = func() (*config.Config, error) { return config.LoadFromWithError(path) }
+	recent.Add(a.appDataDir, cfg.SourcePath)
 	return path, nil
 }
 

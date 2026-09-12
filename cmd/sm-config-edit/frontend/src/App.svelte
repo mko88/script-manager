@@ -15,11 +15,15 @@
   import RadioGroup from './components/RadioGroup.svelte'
   import Icon from '@shared/components/Icon.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
+  import RecentMenu from '@shared/components/RecentMenu.svelte'
   import { t } from './messages'
   import {
     InitialState,
     NewBlank,
     BrowseOpen,
+    RecentConfigs,
+    OpenRecent,
+    ClearRecentConfigs,
     BrowseSaveAs,
     BrowseScriptFile,
     PreviewScriptFile,
@@ -100,6 +104,7 @@
     applyState(state)
     knownTerminals = await KnownTerminals()
     dataFolderPath = await DataFolderPath()
+    await refreshRecents()
     initialized = true
   })
 
@@ -153,9 +158,31 @@
       const state = await BrowseOpen()
       applyState(state)
       resetSelection()
+      await refreshRecents()
     } catch (err) {
       flash(t('toast.openFailed', { error: String(err) }))
     }
+  }
+
+  let recents: string[] = []
+
+  async function refreshRecents() {
+    recents = await RecentConfigs()
+  }
+
+  async function openRecent(recentPath: string) {
+    if (!(await confirmDiscard())) return
+    try {
+      applyState(await OpenRecent(recentPath))
+      resetSelection()
+    } catch (err) {
+      flash(t('toast.openFailed', { error: String(err) }))
+    }
+    await refreshRecents()
+  }
+
+  async function clearRecents() {
+    recents = await ClearRecentConfigs()
   }
 
   async function doSave(target: string) {
@@ -163,6 +190,7 @@
       const result = await Save(cfg, target)
       path = result.path
       markClean()
+      await refreshRecents()
       flash(t('toast.saved'))
     } catch (err) {
       flash(t('toast.saveFailed', { error: String(err) }))
@@ -243,7 +271,19 @@
 <div class="app-root">
   <header class="toolbar">
     <IconButton title={t('tooltip.newTitle')} aria={t('tooltip.newAria')} on:click={newConfig}><ToolbarIcon mode="new" /></IconButton>
-    <IconButton title={t('tooltip.openTitle')} aria={t('tooltip.openAria')} on:click={openConfig}><ToolbarIcon mode="open" /></IconButton>
+    <RecentMenu
+      title={t('tooltip.openTitle')}
+      aria={t('tooltip.openAria')}
+      {recents}
+      currentPath={path}
+      recentsHeading={t('tooltip.recentHeading')}
+      emptyLabel={t('tooltip.recentEmpty')}
+      clearLabel={t('tooltip.recentClear')}
+      browseLabel={t('tooltip.recentBrowse')}
+      onOpen={openRecent}
+      onBrowse={openConfig}
+      onClear={clearRecents}><ToolbarIcon mode="open" /></RecentMenu
+    >
     <IconButton
       title={t('tooltip.saveTitle')}
       aria={t('tooltip.saveAria')}

@@ -7,6 +7,7 @@
   import Icon from '@shared/components/Icon.svelte'
   import CollapseToggle from '@shared/components/CollapseToggle.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
+  import RecentMenu from '@shared/components/RecentMenu.svelte'
   import ScriptSource from '@shared/components/ScriptSource.svelte'
   import Panel from './components/Panel.svelte'
   import GroupFilter from './components/GroupFilter.svelte'
@@ -42,6 +43,9 @@
     SetAlwaysOnTop,
     SetWindowOpacity,
     GetVersion,
+    RecentConfigs,
+    LoadRecentConfig,
+    ClearRecentConfigs,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
 
@@ -99,6 +103,7 @@
     if (loadErr) flash(t('toast.configLoadFailed', { error: loadErr }))
     items = await GetItems()
     actionGroupCatalog = await GetActionGroups()
+    await refreshRecents()
     if (items.length > 0) selectItem(0)
   })
 
@@ -216,7 +221,31 @@
     }
     if (!path) return
     await refreshAfterConfigChange()
+    await refreshRecents()
     flash(t('toast.loaded', { path }))
+  }
+
+  let recents: string[] = []
+
+  async function refreshRecents() {
+    recents = await RecentConfigs()
+  }
+
+  async function loadRecent(path: string) {
+    try {
+      await LoadRecentConfig(path)
+    } catch (err) {
+      await refreshRecents()
+      flash(t('toast.loadFailed', { error: String(err) }))
+      return
+    }
+    await refreshAfterConfigChange()
+    await refreshRecents()
+    flash(t('toast.loaded', { path }))
+  }
+
+  async function clearRecents() {
+    recents = await ClearRecentConfigs()
   }
 
   async function launchConfigEditor() {
@@ -524,7 +553,17 @@
 {:else}
 <div class="app-root">
   <header class="toolbar">
-    <IconButton title={t('tooltip.loadConfig')} on:click={browseConfig}><Icon name="load" /></IconButton>
+    <RecentMenu
+      title={t('tooltip.loadConfig')}
+      {recents}
+      recentsHeading={t('tooltip.recentHeading')}
+      emptyLabel={t('tooltip.recentEmpty')}
+      clearLabel={t('tooltip.recentClear')}
+      browseLabel={t('tooltip.recentBrowse')}
+      onOpen={loadRecent}
+      onBrowse={browseConfig}
+      onClear={clearRecents}><Icon name="load" /></RecentMenu
+    >
     <IconButton title={t('tooltip.refreshConfigTitle')} aria={t('tooltip.refreshConfigAria')} on:click={reloadConfig}><Icon name="refresh" /></IconButton>
     <IconButton
       class="btn icon-btn toolbar-right-start"
