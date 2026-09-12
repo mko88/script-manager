@@ -133,7 +133,7 @@
       <IconButton
         class="btn icon-btn field-icon-btn"
         active={fields[i].secret}
-        title={fields[i].secret ? t('tooltip.markedSecret') : t('tooltip.markSecret')}
+        title={t('tooltip.markSecret')}
         on:click={() => toggleSecret(i)}
       >
         {#if fields[i].secret}
@@ -152,7 +152,7 @@
         <IconButton
           class="btn icon-btn field-icon-btn"
           active={fields[i].locked}
-          title={fields[i].locked ? t('tooltip.lockedField') : t('tooltip.lockField')}
+          title={t('tooltip.pinProtected')}
           on:click={() => toggleLock(i)}
         >
           <svg viewBox="0 0 16 16" width="13" height="13" aria-hidden="true">
@@ -162,7 +162,7 @@
           </svg>
         </IconButton>
       {/if}
-      <IconButton class="btn icon-btn field-icon-btn" title={t('tooltip.removeField')} on:click={() => remove(i)}>{t('text.removeGlyph')}</IconButton>
+      <IconButton class="btn icon-btn field-icon-btn" title={t('tooltip.remove')} on:click={() => remove(i)}>{t('text.removeGlyph')}</IconButton>
     </div>
     {#if errors[i]}
       <div class="field-error">{errors[i]}</div>

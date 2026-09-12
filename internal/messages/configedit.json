@@ -102,8 +102,7 @@
     "recentEmpty": "No recent configs yet",
     "recentClear": "Clear recent",
     "recentBrowse": "Browse…",
-    "lockField": "Encrypt with the config PIN",
-    "lockedField": "PIN-protected — click to reveal",
+    "pinProtected": "PIN-protected",
     "pinSetTitle": "Set a PIN for this config",
     "pinSetMessage": "Values you lock are encrypted with this PIN and stored encrypted in config.yaml. There is no way to recover a forgotten PIN — the locked values would have to be re-entered.",
     "pinEnterTitle": "Enter config PIN",
@@ -148,9 +147,7 @@
     "pickColor": "Pick a color",
     "exitReorderMode": "Exit reorder mode",
     "enterReorderMode": "Enter reorder mode",
-    "markedSecret": "Marked as secret — click to unmark",
     "markSecret": "Mark as secret",
-    "removeField": "Remove field",
     "remove": "Remove"
   },
   "placeholder": {
