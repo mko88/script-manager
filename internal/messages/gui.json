@@ -30,7 +30,8 @@
     "noActionsForGroups": "No actions in the selected group{plural}",
     "noActionsForItem": "No actions for this item",
     "noItemSelected": "No item selected",
-    "selectActionToPreview": "Select an action to preview its command"
+    "selectActionToPreview": "Select an action to preview its command",
+    "noOutputYet": "No output yet — use Run here"
   },
   "warning": {
     "missingFields": "⚠ {count} missing value{plural} (shown as <nil>)"

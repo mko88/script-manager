@@ -11,7 +11,23 @@ export function applyUIPrefs(prefs: UIPrefs): void {
   const mono = (prefs.fontMono ?? '').trim()
   root.style.setProperty('--sm-font-ui', ui ? `"${ui}", "Nunito", ${UI_STACK}` : `"Nunito", ${UI_STACK}`)
   root.style.setProperty('--sm-font-mono', mono ? `"${mono}", ${MONO_STACK}` : MONO_STACK)
-  root.style.setProperty('--sm-ui-scale', String(clampScale(prefs.scalePercent) / 100))
+  scale = clampScale(prefs.scalePercent) / 100
+  root.style.setProperty('--sm-ui-scale', String(scale))
+  setRootHeight()
+}
+
+let scale = 1
+
+// The app root is zoomed (see theme.css) and must still be one window tall.
+// In px, pre-divided: WebView2 and WebKitGTK disagree on what a viewport
+// unit means inside a zoomed element, but not on what zoom does to a length.
+function setRootHeight(): void {
+  const root = document.documentElement
+  root.style.setProperty('--sm-root-height', `${root.clientHeight / scale}px`)
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', setRootHeight)
 }
 
 export function clampScale(percent: number | undefined): number {

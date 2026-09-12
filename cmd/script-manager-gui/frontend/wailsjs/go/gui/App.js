@@ -18,6 +18,10 @@ export function ClearRecentConfigs() {
   return window['go']['gui']['App']['ClearRecentConfigs']();
 }
 
+export function ConfigPath() {
+  return window['go']['gui']['App']['ConfigPath']();
+}
+
 export function CopyToClipboard(arg1) {
   return window['go']['gui']['App']['CopyToClipboard'](arg1);
 }

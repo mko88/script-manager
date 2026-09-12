@@ -12,6 +12,8 @@ export function CancelInlineAction(arg1:number,arg2:number):Promise<void>;
 
 export function ClearRecentConfigs():Promise<Array<string>>;
 
+export function ConfigPath():Promise<string>;
+
 export function CopyToClipboard(arg1:string):Promise<void>;
 
 export function GetActionDetail(arg1:number,arg2:number):Promise<gui.ActionDetailDTO>;

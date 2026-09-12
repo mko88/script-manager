@@ -61,14 +61,13 @@
       {#if recents.length === 0}
         <div class="recent-empty">{emptyLabel}</div>
       {:else}
-        <ul class="recent-list">
+        <ul class="recent-list list">
           {#each recents as path (path)}
             <li>
               <button
-                class="recent-item"
-                class:current={path === currentPath}
+                class="row recent-item"
+                class:selected={path === currentPath}
                 type="button"
-                title={path}
                 on:click={() => choose(path)}>{path}</button
               >
             </li>
@@ -87,6 +86,8 @@
 
 <style>
   .recent-menu {
+    /* The titlebar's drag region would swallow the popover's clicks. */
+    --wails-draggable: no-drag;
     position: relative;
     display: inline-flex;
   }
@@ -101,7 +102,7 @@
     padding: 6px;
     border: 1px solid var(--sm-border);
     border-radius: 6px;
-    background: var(--sm-panel-header);
+    background: var(--sm-bg-alt);
     box-shadow: 0 4px 12px var(--sm-shadow);
   }
 
@@ -127,29 +128,11 @@
     list-style: none;
   }
 
+  /* The rest of an entry comes from the global .list/.row pair. */
   .recent-item {
-    display: block;
-    width: 100%;
-    padding: 5px 8px;
-    border: 0;
-    border-radius: 4px;
-    background: none;
-    color: var(--sm-text);
-    font-family: inherit;
-    font-size: var(--sm-type-sm);
-    text-align: left;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    cursor: pointer;
-  }
-
-  .recent-item:hover {
-    background: var(--sm-tint-hover);
-  }
-
-  .recent-item.current {
-    color: var(--sm-text-highlight);
   }
 
   .recent-actions {

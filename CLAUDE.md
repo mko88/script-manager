@@ -170,15 +170,20 @@ binary — a docs-only (`README.md`, `CLAUDE.md`), comment-only, or test-only
 change. Those merges just ride along under the previous tag, which
 `git describe` reports as `v1.4.0-2-gabc1234`.
 
-Whichever segment is bumped, add a matching `## Major.Minor.Patch`
-heading to `CHANGELOG.md` (newest on top, no `v` prefix) in the feature
-branch's own commits — not in a separate post-merge commit, so the tag
-lands on a commit whose changelog already describes it. Write the entry
-per "Release notes are short" above.
+**Choosing the number is the user's call, not yours.** Write the entry
+under a `## Unreleased` heading at the top of `CHANGELOG.md`, in the
+feature branch's own commits — never invent a version heading, and never
+bump one. When the user says which version it is, rename `Unreleased` to
+that number and it is ready for the tag (`scripts/release.ps1` looks the
+section up by version, so the rename has to happen before a release).
 
-Do this before closing the task, same as the README update below. Creating
-the tag is the user's call — never tag or push tags automatically; say
-which tag the merge is due instead.
+The segment rules above are for answering "which version is this due?"
+when asked — not a licence to decide it. Creating the tag is the user's
+call too: never tag or push tags automatically; say which tag the merge
+is due and stop there.
+
+Write the entry per "Release notes are short" above, before closing the
+task, same as the README update below.
 
 ## Building binaries
 

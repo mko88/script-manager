@@ -668,10 +668,8 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    /* zoom multiplies every length, and 100vh resolves against the unzoomed
-       viewport — so the scaled root would be taller than the window (scroll
-       bars) or shorter (dead space). Dividing first cancels the zoom out. */
-    height: calc(100vh / var(--sm-ui-scale, 1));
+    /* Set by setRootHeight in frontend-shared/uiprefs.ts. */
+    height: var(--sm-root-height, 100vh);
   }
 
   .toolbar {
@@ -686,7 +684,6 @@
   }
 
   .toolbar :global(.btn),
-  .toolbar :global(.recent-menu),
   .toolbar .save-state {
     --wails-draggable: no-drag;
   }

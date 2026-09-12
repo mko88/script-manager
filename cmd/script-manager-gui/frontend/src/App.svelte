@@ -46,6 +46,7 @@
     SetWindowOpacity,
     GetVersion,
     RecentConfigs,
+    ConfigPath,
     GetUIPrefs,
     SetUIScale,
     LoadRecentConfig,
@@ -71,9 +72,7 @@
   onMount(() => EventsOn('config:changed', onConfigFileChanged))
   onMount(() => EventsOn('script:changed', reloadActionDetail))
 
-  // Follows whatever script the Command pane is showing, so an edit made
-  // outside the app — including from the button beside the path — refreshes
-  // it in place.
+  // Refreshes the pane when the script is edited outside the app.
   $: WatchScript(actionDetail?.script ?? '')
 
   async function reloadActionDetail() {
@@ -122,6 +121,15 @@
 
   $: missingFields = details?.missingFields ?? []
 
+  $: canRunInline = !!actionDetail && !actionDetail.interactive && !!(actionDetail.cmd || actionDetail.script)
+  $: hasInlineOutput = inlineRunning || !!inlineOutput || inlineExitCode !== null
+
+  // Follows the selected action's own run state, so nothing carries over
+  // from the action before it. A header click overrides until the selection
+  // changes; not persisted.
+  $: cmdSectionCollapsed = cmdCollapsedOverride ?? (inlineRunning || !!inlineOutput)
+  $: outputSectionCollapsed = outputCollapsedOverride ?? !hasInlineOutput
+
   $: selectedItemLabel = items.find((i) => i.index === selectedItem)?.label ?? ''
   $: selectedActionLabel = actions.find((a) => a.index === selectedActionIndex)?.title ?? ''
   $: selectedActionGroups = actions.find((a) => a.index === selectedActionIndex)?.groups ?? []
@@ -140,6 +148,7 @@
   async function selectItem(index: number) {
     selectedItem = index
     selectedActionIndex = -1
+    resetCommandPaneSections()
     selectedGroups = new Set()
     actionDetail = null
     detailsCollapsed = false
@@ -152,11 +161,18 @@
   function onGroupFilterChange() {
     selectedActionIndex = -1
     actionDetail = null
+    resetCommandPaneSections()
+  }
+
+  function resetCommandPaneSections() {
+    cmdCollapsedOverride = null
+    outputCollapsedOverride = null
   }
 
   async function selectAction(index: number) {
     if (selectedItem < 0) return
     selectedActionIndex = index
+    resetCommandPaneSections()
     detailsCollapsed = true
     commandCollapsed = false
     saveLayout()
@@ -185,9 +201,6 @@
     copyValue(Number(target.dataset.copyIdx))
   }
 
-  // What the pane is showing: a script's contents when they could be read,
-  // the command otherwise, and the path only when the file wouldn't open —
-  // where the path is the useful thing to have.
   async function openScriptInEditor() {
     if (!actionDetail?.script) return
     try {
@@ -197,6 +210,8 @@
     }
   }
 
+  // Copies what the pane shows: the script's contents, or its path when the
+  // file wouldn't open.
   function copyCmd() {
     const value = actionDetail?.scriptContent || actionDetail?.cmd || actionDetail?.script
     if (!value) return
@@ -253,6 +268,7 @@
   function runActionInline() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
     withUnlocked(() => {
+      resetCommandPaneSections()
       startInlineRun(selectedItem, selectedActionIndex)
     })
   }
@@ -314,9 +330,11 @@
   }
 
   let recents: string[] = []
+  let configPath = ''
 
   async function refreshRecents() {
     recents = await RecentConfigs()
+    configPath = await ConfigPath()
   }
 
   async function loadRecent(path: string) {
@@ -548,8 +566,8 @@
   let commandCollapsed = false
   let groupChipsCollapsed = true
   let detailsWarningCollapsed = true
-  let cmdSectionCollapsed = false
-  let outputSectionCollapsed = false
+  let cmdCollapsedOverride: boolean | null = null
+  let outputCollapsedOverride: boolean | null = null
 
   onMount(() => {
     ;({
@@ -562,8 +580,6 @@
       commandCollapsed,
       groupChipsCollapsed,
       detailsWarningCollapsed,
-      cmdSectionCollapsed,
-      outputSectionCollapsed,
     } = loadPersisted(LAYOUT_KEY, {
       leftWidth: 320,
       itemsHeight: 340,
@@ -574,8 +590,6 @@
       commandCollapsed: false,
       groupChipsCollapsed: false,
       detailsWarningCollapsed: true,
-      cmdSectionCollapsed: false,
-      outputSectionCollapsed: false,
     }))
   })
 
@@ -590,8 +604,6 @@
       commandCollapsed,
       groupChipsCollapsed,
       detailsWarningCollapsed,
-      cmdSectionCollapsed,
-      outputSectionCollapsed,
     })
   }
 
@@ -644,6 +656,7 @@
     <RecentMenu
       title={t('tooltip.loadConfig')}
       {recents}
+      currentPath={configPath}
       recentsHeading={t('tooltip.recentHeading')}
       emptyLabel={t('tooltip.recentEmpty')}
       clearLabel={t('tooltip.recentClear')}
@@ -864,43 +877,13 @@
                 {/if}
               </div>
             {/if}
-            {#if inlineRunning || inlineOutput || inlineExitCode !== null}
-              <div class="messages-group">
-                <button class="messages-group-header" type="button" on:click={() => { outputSectionCollapsed = !outputSectionCollapsed; saveLayout() }}>
-                  <span class="messages-group-title">{t('section.output')}</span>
-                  <span class="output-status">
-                    {#if inlineRunning}
-                      {t('text.running')}<span class="status-dot status-running">●</span>
-                    {:else if inlineExitCode !== null}
-                      {t('text.exitCode', { code: String(inlineExitCode) })}<span
-                        class="status-dot"
-                        class:status-ok={inlineExitCode === 0}
-                        class:status-fail={inlineExitCode !== 0}>●</span
-                      >
-                    {/if}
-                  </span>
-                  <span class="collapse-glyph">{outputSectionCollapsed ? '▸' : '▾'}</span>
-                </button>
-                {#if !outputSectionCollapsed && inlineOutput}
-                  <div class="cmd-output">
-                    <IconButton
-                      class="cmd-copy-btn cmd-output-copy-btn"
-                      title={t('tooltip.copyOutput')}
-                      on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></IconButton
-                    >
-                    <div class="cmd-output-body">
-                      <CodeMirror value={inlineOutput} readOnly followTail showLineNumbers={false} maxHeight="100%" />
-                    </div>
-                  </div>
-                {/if}
-              </div>
-            {/if}
-            <div class="messages-group">
-              <button class="messages-group-header" type="button" on:click={() => { cmdSectionCollapsed = !cmdSectionCollapsed; saveLayout() }}>
+            <div class="messages-group cmd-section" class:cmd-section-open={!cmdSectionCollapsed}>
+              <button class="messages-group-header" type="button" on:click={() => (cmdCollapsedOverride = !cmdSectionCollapsed)}>
                 <span class="messages-group-title">{t('section.command')}</span>
                 <span class="collapse-glyph">{cmdSectionCollapsed ? '▸' : '▾'}</span>
               </button>
               {#if !cmdSectionCollapsed}
+                <div class="cmd-section-body">
                 {#if actionDetail.description}
                   <p class="cmd-desc">{actionDetail.description}</p>
                 {/if}
@@ -928,19 +911,53 @@
                         value={actionDetail.scriptContent}
                         language={actionDetail.language}
                         readOnly
-                        maxHeight="420px"
                       />
                       <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
                     </div>
                   {/if}
                 {:else if actionDetail.cmd}
                   <div class="code-block">
-                    <CodeMirror value={actionDetail.cmd} language={actionDetail.language} readOnly maxHeight="420px" />
+                    <CodeMirror value={actionDetail.cmd} language={actionDetail.language} readOnly />
                     <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
                   </div>
                 {/if}
+                </div>
               {/if}
             </div>
+            {#if canRunInline}
+              <div class="messages-group cmd-section" class:cmd-section-open={!outputSectionCollapsed && inlineOutput}>
+                <button class="messages-group-header" type="button" on:click={() => (outputCollapsedOverride = !outputSectionCollapsed)}>
+                  <span class="messages-group-title">{t('section.output')}</span>
+                  <span class="output-status">
+                    {#if inlineRunning}
+                      {t('text.running')}<span class="status-dot status-running">●</span>
+                    {:else if inlineExitCode !== null}
+                      {t('text.exitCode', { code: String(inlineExitCode) })}<span
+                        class="status-dot"
+                        class:status-ok={inlineExitCode === 0}
+                        class:status-fail={inlineExitCode !== 0}>●</span
+                      >
+                    {/if}
+                  </span>
+                  <span class="collapse-glyph">{outputSectionCollapsed ? '▸' : '▾'}</span>
+                </button>
+                {#if !outputSectionCollapsed && !hasInlineOutput}
+                  <p class="cmd-desc cmd-output-empty">{t('empty.noOutputYet')}</p>
+                {/if}
+                {#if !outputSectionCollapsed && inlineOutput}
+                  <div class="cmd-output">
+                    <IconButton
+                      class="cmd-copy-btn cmd-output-copy-btn"
+                      title={t('tooltip.copyOutput')}
+                      on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></IconButton
+                    >
+                    <div class="cmd-output-body">
+                      <CodeMirror value={inlineOutput} readOnly followTail showLineNumbers={false} maxHeight="100%" />
+                    </div>
+                  </div>
+                {/if}
+              </div>
+            {/if}
           {:else}
             <div class="empty">{t('empty.selectActionToPreview')}</div>
           {/if}
@@ -970,10 +987,8 @@
     display: flex;
     flex-direction: column;
     position: relative;
-    /* zoom multiplies every length, and 100vh resolves against the unzoomed
-       viewport — so the scaled root would be taller than the window (scroll
-       bars) or shorter (dead space). Dividing first cancels the zoom out. */
-    height: calc(100vh / var(--sm-ui-scale, 1));
+    /* Set by setRootHeight in frontend-shared/uiprefs.ts. */
+    height: var(--sm-root-height, 100vh);
   }
 
   .toolbar {
@@ -1232,10 +1247,6 @@
     color: var(--sm-masked);
   }
 
-  .command-content {
-    font-size: var(--sm-type-base);
-  }
-
   .cmd-desc {
     margin: 0 0 8px;
     color: var(--sm-text-muted);
@@ -1247,11 +1258,21 @@
     color: var(--sm-error);
   }
 
+  .cmd-output-empty {
+    margin: 0;
+    padding: 2px 2px 4px;
+    font-style: italic;
+    color: var(--sm-text-faint);
+  }
+
   .cmd-output {
     position: relative;
     background: var(--sm-bg-deep);
     border-radius: 4px;
-    margin: 0 0 8px;
+    margin: 0;
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
   }
   :global(.cmd-output-copy-btn) {
     position: absolute;
@@ -1286,9 +1307,55 @@
   .cmd-output-body {
     margin: 0;
     padding: 6px;
-    max-height: 260px;
+    flex: 1 1 auto;
+    min-height: 0;
     overflow: hidden;
     display: flex;
+  }
+
+  /* The pane is a column of sections: the run buttons take what they need,
+     and every open section shares what is left rather than the whole pane
+     scrolling as one long strip. */
+  .command-content {
+    font-size: var(--sm-type-base);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .cmd-actions {
+    flex: none;
+  }
+
+  .command-content .cmd-section {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    margin: 0;
+  }
+
+  /* An open section gets an equal share, but never less than about three
+     lines plus its header — below that it is a title bar with a sliver. */
+  .command-content .cmd-section-open {
+    flex: 1 1 0;
+    min-height: 104px;
+  }
+
+  .command-content :global(.messages-group-header) {
+    flex: none;
+  }
+
+  .cmd-section-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  .cmd-section-body :global(.sm-code) {
+    max-height: none;
   }
 
   .cmd-output-body :global(.sm-code) {

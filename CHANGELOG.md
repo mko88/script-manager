@@ -4,6 +4,27 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
+## Unreleased
+
+### Changes
+
+- `script-manager-gui`: the Command pane puts COMMAND above OUTPUT, gives each
+  open section a share of the pane's height with its own scrollbar, and
+  collapses COMMAND in favour of OUTPUT when an inline run starts.
+- `script-manager-gui`: OUTPUT is shown for any action that can run inline.
+  Which of the two sections is open now follows the selected action's own run
+  state instead of carrying over from the action before it: OUTPUT opens once
+  that action has something to show, and COMMAND stays open otherwise —
+  including for an action that can't run inline or a run that printed nothing.
+- The recent-configs list is styled like the item lists elsewhere in both
+  apps, and marks the config in use — which `script-manager-gui` didn't.
+
+### Bug fixes
+
+- `script-manager-gui`: entries in the recent-configs list had no hover
+  highlight and needed a second click to open.
+- On Linux, scaling the interface up left empty space below the app.
+
 ## 1.4.1
 
 ### Changes
