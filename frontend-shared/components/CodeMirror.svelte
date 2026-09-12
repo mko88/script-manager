@@ -1,5 +1,6 @@
 <script lang="ts" context="module">
-  import { EditorView } from '@codemirror/view'
+  import { Decoration, EditorView, MatchDecorator, ViewPlugin } from '@codemirror/view'
+  import type { DecorationSet, ViewUpdate } from '@codemirror/view'
   import { HighlightStyle, StreamLanguage, syntaxHighlighting } from '@codemirror/language'
   import { shell } from '@codemirror/legacy-modes/mode/shell'
   import { powerShell } from '@codemirror/legacy-modes/mode/powershell'
@@ -46,6 +47,11 @@
     '.cm-scroller::-webkit-scrollbar-thumb': { backgroundColor: 'var(--sm-scrollbar)', borderRadius: '3px' },
     '&.cm-focused': { outline: 'none' },
     '.cm-placeholder': { color: 'var(--sm-text-faint)' },
+    '.sm-template-ref': {
+      color: 'var(--sm-text-tab)',
+      backgroundColor: 'var(--sm-warning-tint)',
+      borderRadius: '3px',
+    },
     '.cm-tooltip': {
       backgroundColor: 'var(--sm-panel-header)',
       border: '1px solid var(--sm-border)',
@@ -100,6 +106,27 @@
   }
 
   export const smSyntax = syntaxHighlighting(smHighlight)
+
+  // A {{ }} reference is the point of a template, but no grammar here knows
+  // about it: markdown sees prose, and the list template has no grammar at
+  // all. Decorating the spans directly is independent of both.
+  const templateRefMatcher = new MatchDecorator({
+    regexp: /\{\{[^{}]*\}\}/g,
+    decoration: Decoration.mark({ class: 'sm-template-ref' }),
+  })
+
+  export const templateRefHighlighter = ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet
+      constructor(view: EditorView) {
+        this.decorations = templateRefMatcher.createDeco(view)
+      }
+      update(update: ViewUpdate) {
+        this.decorations = templateRefMatcher.updateDeco(update, this.decorations)
+      }
+    },
+    { decorations: (v) => v.decorations },
+  )
 </script>
 
 <script lang="ts">
@@ -124,6 +151,8 @@
   // One line only, for a field that stands in for a text input: no gutter,
   // no wrapping, and anything that would add a line is refused.
   export let singleLine = false
+  // Tints {{ }} references, for the editors whose content is a template.
+  export let templateRefs = false
   // Called after an edit made in this editor, for callers that validate or
   // react to the new text. A callback rather than a dispatched event: these
   // components are consumed as plain props everywhere else.
@@ -165,6 +194,7 @@
       EditorView.editable.of(!readOnly),
       EditorState.readOnly.of(readOnly),
       bracketMatching(),
+      ...(templateRefs ? [templateRefHighlighter] : []),
       EditorView.updateListener.of((u) => {
         if (u.docChanged && !readOnly) {
           value = u.state.doc.toString()

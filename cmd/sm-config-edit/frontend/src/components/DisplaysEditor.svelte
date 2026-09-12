@@ -259,6 +259,7 @@
               <CodeMirror
                 bind:value={displays[selectedDisplay].list}
                 completions={templateCompletions}
+                templateRefs
                 singleLine
               />
             </div>
@@ -284,6 +285,7 @@
                 bind:value={displays[selectedDisplay].details}
                 language="markdown"
                 completions={templateCompletions}
+                templateRefs
                 minHeight="100%"
                 maxHeight="100%"
               />
