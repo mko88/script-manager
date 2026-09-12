@@ -16,8 +16,8 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
   state instead of carrying over from the action before it: OUTPUT opens once
   that action has something to show, and COMMAND stays open otherwise —
   including for an action that can't run inline or a run that printed nothing.
-- `script-manager-gui`: the recent-configs list marks the config in use, as
-  the config editor's already did.
+- The recent-configs list is styled like the item lists elsewhere in both
+  apps, and marks the config in use — which `script-manager-gui` didn't.
 
 ### Bug fixes
 
