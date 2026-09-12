@@ -127,13 +127,15 @@
   // collapsed as a reminder that the pane is there.
   $: canRunInline = !!actionDetail && !actionDetail.interactive && !!(actionDetail.cmd || actionDetail.script)
   $: hasInlineOutput = inlineRunning || !!inlineOutput || inlineExitCode !== null
-  $: if (actionDetail && !hasInlineOutput) outputSectionCollapsed = true
-  // COMMAND is expanded whenever OUTPUT has nothing to show: an action that
-  // can't run inline has no OUTPUT section at all, and a finished run that
-  // printed nothing leaves an empty one. Either way a collapsed COMMAND
-  // would leave the pane showing nothing but its own header.
-  $: inlineRanSilently = inlineExitCode !== null && !inlineRunning && !inlineOutput
-  $: if (actionDetail && (!canRunInline || inlineRanSilently)) cmdSectionCollapsed = false
+
+  // Which section is open follows the selected action's own run state, so it
+  // never carries over from the action looked at before: OUTPUT opens once
+  // there is something to watch, and COMMAND yields to it only then. A run
+  // that printed nothing therefore leaves COMMAND open, as does an action
+  // that can't run inline at all. Toggling a header overrides this until the
+  // selection changes — the overrides are deliberately not persisted.
+  $: cmdSectionCollapsed = cmdCollapsedOverride ?? (inlineRunning || !!inlineOutput)
+  $: outputSectionCollapsed = outputCollapsedOverride ?? !hasInlineOutput
 
   $: selectedItemLabel = items.find((i) => i.index === selectedItem)?.label ?? ''
   $: selectedActionLabel = actions.find((a) => a.index === selectedActionIndex)?.title ?? ''
@@ -153,6 +155,7 @@
   async function selectItem(index: number) {
     selectedItem = index
     selectedActionIndex = -1
+    resetCommandPaneSections()
     selectedGroups = new Set()
     actionDetail = null
     detailsCollapsed = false
@@ -165,11 +168,20 @@
   function onGroupFilterChange() {
     selectedActionIndex = -1
     actionDetail = null
+    resetCommandPaneSections()
+  }
+
+  // Drops a manual collapse/expand of the COMMAND and OUTPUT sections, so the
+  // next selection opens whichever section has something to show.
+  function resetCommandPaneSections() {
+    cmdCollapsedOverride = null
+    outputCollapsedOverride = null
   }
 
   async function selectAction(index: number) {
     if (selectedItem < 0) return
     selectedActionIndex = index
+    resetCommandPaneSections()
     detailsCollapsed = true
     commandCollapsed = false
     saveLayout()
@@ -266,11 +278,10 @@
   function runActionInline() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
     withUnlocked(() => {
-      // The output is what you want to watch once it starts, and the command
-      // is what you just read to decide to run it.
-      cmdSectionCollapsed = true
-      outputSectionCollapsed = false
-      saveLayout()
+      // Hand both sections back to the run: the output is what you want to
+      // watch once it starts, and the command is what you just read to decide
+      // to run it.
+      resetCommandPaneSections()
       startInlineRun(selectedItem, selectedActionIndex)
     })
   }
@@ -566,8 +577,8 @@
   let commandCollapsed = false
   let groupChipsCollapsed = true
   let detailsWarningCollapsed = true
-  let cmdSectionCollapsed = false
-  let outputSectionCollapsed = false
+  let cmdCollapsedOverride: boolean | null = null
+  let outputCollapsedOverride: boolean | null = null
 
   onMount(() => {
     ;({
@@ -580,8 +591,6 @@
       commandCollapsed,
       groupChipsCollapsed,
       detailsWarningCollapsed,
-      cmdSectionCollapsed,
-      outputSectionCollapsed,
     } = loadPersisted(LAYOUT_KEY, {
       leftWidth: 320,
       itemsHeight: 340,
@@ -592,8 +601,6 @@
       commandCollapsed: false,
       groupChipsCollapsed: false,
       detailsWarningCollapsed: true,
-      cmdSectionCollapsed: false,
-      outputSectionCollapsed: false,
     }))
   })
 
@@ -608,8 +615,6 @@
       commandCollapsed,
       groupChipsCollapsed,
       detailsWarningCollapsed,
-      cmdSectionCollapsed,
-      outputSectionCollapsed,
     })
   }
 
@@ -883,7 +888,7 @@
               </div>
             {/if}
             <div class="messages-group cmd-section" class:cmd-section-open={!cmdSectionCollapsed}>
-              <button class="messages-group-header" type="button" on:click={() => { cmdSectionCollapsed = !cmdSectionCollapsed; saveLayout() }}>
+              <button class="messages-group-header" type="button" on:click={() => (cmdCollapsedOverride = !cmdSectionCollapsed)}>
                 <span class="messages-group-title">{t('section.command')}</span>
                 <span class="collapse-glyph">{cmdSectionCollapsed ? '▸' : '▾'}</span>
               </button>
@@ -931,7 +936,7 @@
             </div>
             {#if canRunInline}
               <div class="messages-group cmd-section" class:cmd-section-open={!outputSectionCollapsed && inlineOutput}>
-                <button class="messages-group-header" type="button" on:click={() => { outputSectionCollapsed = !outputSectionCollapsed; saveLayout() }}>
+                <button class="messages-group-header" type="button" on:click={() => (outputCollapsedOverride = !outputSectionCollapsed)}>
                   <span class="messages-group-title">{t('section.output')}</span>
                   <span class="output-status">
                     {#if inlineRunning}
