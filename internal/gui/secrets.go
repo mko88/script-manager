@@ -31,6 +31,7 @@ func (a *App) setConfig(cfg *config.Config) {
 	}
 	a.secretMu.Unlock()
 	a.cfg = cfg
+	a.watchConfigPath(cfg.SourcePath)
 }
 
 func (a *App) forgetSessionKey() {

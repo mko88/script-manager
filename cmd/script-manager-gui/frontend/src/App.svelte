@@ -63,6 +63,7 @@
   let selectedGroups = new Set<string>()
 
   onMount(() => watchTheme(EventsOn, () => {}))
+  onMount(() => EventsOn('config:changed', onConfigFileChanged))
 
   let inlineOutputEl: HTMLElement | undefined
 
@@ -251,6 +252,17 @@
     }
     await refreshAfterConfigChange()
     flash(warning ? t('toast.configReloadedWithWarning', { warning }) : t('toast.configReloaded'))
+  }
+
+  async function onConfigFileChanged() {
+    let warning = ''
+    try {
+      warning = await ReloadConfig()
+    } catch {
+      return
+    }
+    await refreshAfterConfigChange()
+    if (warning) flash(t('toast.configReloadedWithWarning', { warning }))
   }
 
   async function browseConfig() {

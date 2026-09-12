@@ -7,6 +7,13 @@ the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 
 ### Changes
 
+- `sm-config-edit` autosaves, on by default: once a config has a path, edits
+  are written about a second after you stop typing. A toolbar button toggles
+  it and the choice is remembered. Autosave holds off while a blocking
+  validation error is showing.
+- `script-manager-gui` watches the config file and reloads when it changes on
+  disk, so edits made in the editor appear without pressing F5.
+
 - Environment values can be locked behind a config PIN: `sm-config-edit`
   encrypts the value in place and `config.yaml` stores only the ciphertext.
   One PIN per config, entered once per app run and again after loading a
