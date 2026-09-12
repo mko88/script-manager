@@ -123,7 +123,7 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
   }
   .field input,
@@ -134,10 +134,10 @@
     border-radius: 4px;
     padding: 5px 7px;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
   }
   .cmd-field textarea {
-    font-family: "SF Mono", Consolas, monospace;
+    font-family: var(--sm-font-mono);
   }
   .script-path-row {
     display: flex;
@@ -146,13 +146,13 @@
   .script-path-row input {
     flex: 1 1 auto;
     min-width: 0;
-    font-family: "SF Mono", Consolas, monospace;
+    font-family: var(--sm-font-mono);
   }
   .field-checkbox {
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
     margin-bottom: 10px;
   }

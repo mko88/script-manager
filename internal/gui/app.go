@@ -126,7 +126,7 @@ func (a *App) renderListLabel(item map[string]any) string {
 }
 
 func (a *App) mergedItem(item map[string]any) map[string]any {
-	return secret.Display(action.Merge(a.cfg.Env, item), a.sessionKey())
+	return secret.Redact(action.Merge(a.cfg.Env, item))
 }
 
 func (a *App) mergedItemForRun(item map[string]any, act config.Action) (map[string]any, error) {

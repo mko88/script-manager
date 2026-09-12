@@ -13,6 +13,10 @@
   export let deleteTheme: (name: string) => Promise<void>
   export let setActiveTheme: (active: string) => Promise<void>
   export let flash: (msg: string) => void
+  export let fontUi = ''
+  export let fontMono = ''
+  export let uiScale = 100
+  export let onSaveFonts: (fontUi: string, fontMono: string) => void
 
   const NEW_THEME_ENTRY = '__new-theme__'
 
@@ -106,6 +110,37 @@
 
   function persistThemePanelCollapsed() {
     localStorage.setItem(THEME_PANEL_KEY, JSON.stringify({ collapsed: themePanelCollapsed }))
+  }
+
+  const FONTS_GROUP_KEY = 'sm-config-edit:fontsGroup'
+  let fontsCollapsed = true
+
+  onMount(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(FONTS_GROUP_KEY) ?? '{"collapsed":true}')
+      fontsCollapsed = !!saved.collapsed
+    } catch {
+    }
+  })
+
+  function toggleFonts() {
+    fontsCollapsed = !fontsCollapsed
+    localStorage.setItem(FONTS_GROUP_KEY, JSON.stringify({ collapsed: fontsCollapsed }))
+  }
+
+  // Seeded from the saved prefs when they arrive, and again whenever they
+  // change, without overwriting what's being typed in between.
+  let fontUiDraft = ''
+  let fontMonoDraft = ''
+  let lastFontUi = ''
+  let lastFontMono = ''
+  $: if (fontUi !== lastFontUi) {
+    lastFontUi = fontUi
+    fontUiDraft = fontUi
+  }
+  $: if (fontMono !== lastFontMono) {
+    lastFontMono = fontMono
+    fontMonoDraft = fontMono
   }
 
   let collapsedGroups = new Set<string>()
@@ -290,6 +325,28 @@
               bind:this={nameInputEl}
             />
           </label>
+        </div>
+
+        <div class="messages-group theme-editor-fonts">
+          <button class="messages-group-header" type="button" on:click={toggleFonts}>
+            <span class="messages-group-title">{t('nav.fonts')}</span>
+            <span class="collapse-glyph">{fontsCollapsed ? '▸' : '▾'}</span>
+          </button>
+          {#if !fontsCollapsed}
+            <label class="field">
+              <span>{t('field.fontUi')}</span>
+              <input type="text" placeholder={t('placeholder.fontDefault')} bind:value={fontUiDraft} />
+            </label>
+            <label class="field">
+              <span>{t('field.fontMono')}</span>
+              <input type="text" placeholder={t('placeholder.fontDefaultMono')} bind:value={fontMonoDraft} />
+            </label>
+            <p class="hint">{t('hint.fonts')}</p>
+            <p class="hint">{t('hint.uiScale', { percent: uiScale })}</p>
+            <button class="btn" type="button" on:click={() => onSaveFonts(fontUiDraft, fontMonoDraft)}
+              >{t('button.applyFonts')}</button
+            >
+          {/if}
         </div>
       </div>
     {/if}
@@ -514,6 +571,14 @@
     flex: none;
   }
 
+  .theme-editor-fonts {
+    margin-top: 4px;
+  }
+
+  .theme-editor-fonts .btn {
+    align-self: flex-start;
+  }
+
   .theme-editor-panel-body {
     display: flex;
     flex-direction: column;
@@ -576,12 +641,12 @@
     border-radius: 4px;
     padding: 5px 7px;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
   }
 
   .token-name {
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.75rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
   }
 
   .theme-editor-preview-pane {
@@ -655,7 +720,7 @@
     border-bottom: 2px solid var(--sm-text-tab);
     padding: 6px 4px 8px;
     color: var(--sm-text-tab);
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
     font-weight: 700;
     font-family: inherit;
     cursor: pointer;
@@ -670,7 +735,7 @@
     gap: 6px;
     margin-left: auto;
     padding-left: 8px;
-    font-size: 1rem;
+    font-size: var(--sm-type-xl);
     line-height: 1;
   }
 
@@ -723,12 +788,12 @@
 
   .theme-editor-preview-heading {
     color: var(--sm-text-heading);
-    font-size: 0.95rem;
+    font-size: var(--sm-type-lg);
     font-weight: 700;
   }
 
   .theme-editor-preview-normal {
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
     color: var(--sm-text);
   }
 
@@ -737,8 +802,8 @@
     color: var(--sm-text-highlight);
     padding: 1px 5px;
     border-radius: 3px;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.78rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
   }
 
   .theme-editor-preview-highlighted:hover {
@@ -751,8 +816,8 @@
     background: var(--sm-bg-deep);
     border-radius: 4px;
     padding: 8px 0;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.8rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
     color: var(--sm-text);
   }
 
@@ -776,8 +841,8 @@
     border-radius: 4px;
     margin: 0;
     padding: 8px 10px;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.78rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
     white-space: pre-wrap;
   }
@@ -786,7 +851,7 @@
     align-self: flex-start;
     width: auto;
     margin: 0;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-error);
   }
 
@@ -794,7 +859,7 @@
     align-self: flex-start;
     width: auto;
     margin: 0;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-warning);
   }
 
@@ -802,8 +867,8 @@
     align-self: flex-start;
     width: auto;
     margin: 0;
-    font-size: 0.8rem;
-    font-family: "SF Mono", Consolas, monospace;
+    font-size: var(--sm-type-sm);
+    font-family: var(--sm-font-mono);
     color: var(--sm-masked);
   }
 
@@ -815,7 +880,7 @@
     border: 1px solid var(--sm-border);
     border-radius: 6px;
     padding: 8px 16px;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
     box-shadow: 0 4px 12px var(--sm-shadow);
   }
 
@@ -882,7 +947,7 @@
     border: none;
     padding: 0;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
     color: var(--sm-text-muted);
     cursor: pointer;
     white-space: nowrap;

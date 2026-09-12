@@ -6,6 +6,7 @@
     "pinNotSet": "Set a PIN first — see the \"PIN\" section.",
     "pinSet": "PIN set. Save the config to write it to disk.",
     "pinChanged": "PIN changed and every locked value re-encrypted. Save the config to write it to disk.",
+    "fontsSaved": "Fonts applied. They also take effect in script-manager-gui the next time it starts.",
     "pinRemoved": "PIN removed and every locked value decrypted. Save the config to write it to disk.",
     "openInEditorFailed": "Failed to open in default editor: {error}",
     "openDataFolderFailed": "Failed to open data folder: {error}",
@@ -49,6 +50,7 @@
   },
   "nav": {
     "pin": "PIN",
+    "fonts": "Fonts",
     "items": "Items",
     "actionGroups": "Action Groups",
     "actions": "Actions",
@@ -87,7 +89,9 @@
     "itemActionGroupsList": "Action groups",
     "customActions": "Custom actions",
     "previewDisplay": "Preview display",
-    "previewAction": "Preview action"
+    "previewAction": "Preview action",
+    "fontUi": "Interface font",
+    "fontMono": "Monospace font"
   },
   "tooltip": {
     "newTitle": "New (Ctrl+N)",
@@ -158,7 +162,9 @@
     "actionGroupTitle": "display name (optional)",
     "actionGroupColor": "#7fd4ff or a CSS color name",
     "fieldKey": "key",
-    "scriptPath": "e.g. C:\\scripts\\deploy.ps1 or ./deploy.sh"
+    "scriptPath": "e.g. C:\\scripts\\deploy.ps1 or ./deploy.sh",
+    "fontDefault": "Nunito (bundled)",
+    "fontDefaultMono": "SF Mono, Consolas"
   },
   "option": {
     "selectDisplay": "(select a display)",
@@ -183,6 +189,8 @@
     "selectItemOrAdd": "Select an item, or add one."
   },
   "hint": {
+    "fonts": "Names of fonts installed on this machine. Leave either empty for the bundled default. A name that isn't installed falls back rather than breaking. Shared with script-manager-gui.",
+    "uiScale": "Interface scale: {percent}%. Ctrl and + or - to change it, Ctrl 0 to reset. Each app remembers the same setting.",
     "shellCommandPrefix": "The command used to launch actions, e.g. ",
     "terminalArgvPrefix": "First entry is the terminal binary; the rest are its flags. Use ",
     "terminalArgvSuffix": " as placeholders.",
@@ -204,6 +212,7 @@
     "removeCustomAction": "Remove custom action",
     "addCustomAction": "+ Add custom action",
     "addField": "+ Add environment variable",
+    "applyFonts": "Apply fonts",
     "add": "+ Add",
     "browse": "Browse…"
   },

@@ -243,7 +243,7 @@ func (a *App) onItemChanged() {
 }
 
 func (a *App) mergedItem(item map[string]any) map[string]any {
-	return secret.Display(action.Merge(a.globalEnv, item), a.secretKey)
+	return secret.Redact(action.Merge(a.globalEnv, item))
 }
 
 func (a *App) mergedItemForRun(item map[string]any, act config.Action) (map[string]any, error) {

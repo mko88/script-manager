@@ -22,8 +22,8 @@
     padding: 8px 0;
     margin: 0 0 8px;
     color: var(--sm-text);
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.85rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-base);
   }
 
   .script-source-row {

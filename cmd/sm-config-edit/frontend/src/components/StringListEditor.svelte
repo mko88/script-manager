@@ -43,6 +43,6 @@
     border-radius: 4px;
     padding: 4px 6px;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
   }
 </style>

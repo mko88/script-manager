@@ -7,6 +7,20 @@ the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 
 ### Changes
 
+- The interface scales with **Ctrl +** / **Ctrl -**, and **Ctrl 0** resets
+  it — in both GUI apps, 70% to 200%, spacing included rather than the text
+  alone. The setting is shared by both apps.
+- The interface and monospace fonts can be set to any font installed on the
+  machine, from `sm-config-edit`'s Theme section; empty keeps the bundled
+  Nunito.
+- Bold text is real bold: Nunito now ships as a variable font, so weights
+  are drawn rather than synthesized by the browser.
+- Type sizes come from a five-step scale, and every colour comes from a
+  theme token — including two new ones, `warning-tint` and `scrim`, which
+  the theme editor can now customise.
+- Inputs, selects and textareas show a focus ring, and the running-status
+  animations respect `prefers-reduced-motion`.
+
 - `sm-config-edit` autosaves, on by default: once a config has a path, edits
   are written about a second after you stop typing. A toolbar button toggles
   it and the choice is remembered. Autosave holds off while a blocking
@@ -21,6 +35,9 @@ the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 - Actions opt in with **Requires PIN** (`requiresPin: true`). Such an action
   asks for the PIN and receives the decrypted values; every other action
   runs without a prompt and simply doesn't have the locked variables set.
+- A locked value never renders on screen: details, list labels and the
+  editor's preview show `(locked)` whether or not the PIN has been entered.
+  Entering it only feeds the value to a `requiresPin` action.
 - `sm-config-edit`: a **PIN** section sets the config's PIN, changes it
   (re-encrypting every locked value in one step), or removes it (decrypting
   them back to plain text, still marked secret). The padlock on a value

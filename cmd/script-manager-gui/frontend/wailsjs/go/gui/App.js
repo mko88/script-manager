@@ -54,6 +54,10 @@ export function GetTheme() {
   return window['go']['gui']['App']['GetTheme']();
 }
 
+export function GetUIPrefs() {
+  return window['go']['gui']['App']['GetUIPrefs']();
+}
+
 export function GetVersion() {
   return window['go']['gui']['App']['GetVersion']();
 }
@@ -100,6 +104,10 @@ export function SetAlwaysOnTop(arg1) {
 
 export function SetTheme(arg1) {
   return window['go']['gui']['App']['SetTheme'](arg1);
+}
+
+export function SetUIScale(arg1) {
+  return window['go']['gui']['App']['SetUIScale'](arg1);
 }
 
 export function SetWindowOpacity(arg1) {

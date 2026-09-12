@@ -3,6 +3,7 @@
   import Toast from '@shared/components/Toast.svelte'
   import { flash } from '@shared/toast'
   import { loadPersisted, savePersisted } from '@shared/persist'
+  import { applyUIPrefs, clampScale, scaleFromKeydown, UI_SCALE } from '@shared/uiprefs'
   import { getTheme, getThemes, type Theme, type CustomPalette } from '@shared/theme'
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
@@ -25,6 +26,9 @@
     NewBlank,
     BrowseOpen,
     RecentConfigs,
+    GetUIPrefs,
+    SetUIScale,
+    SetUIFonts,
     OpenRecent,
     ClearRecentConfigs,
     CreateSecretsPIN,
@@ -174,6 +178,32 @@
     } catch (err) {
       flash(t('toast.openFailed', { error: String(err) }))
     }
+  }
+
+  let uiScale: number = UI_SCALE.default
+  let uiPrefs: { fontUi?: string; fontMono?: string; scalePercent?: number } = {}
+
+  onMount(async () => {
+    uiPrefs = await GetUIPrefs()
+    uiScale = clampScale(uiPrefs.scalePercent)
+    applyUIPrefs(uiPrefs)
+  })
+
+  async function onScaleKeydown(e: KeyboardEvent) {
+    const next = scaleFromKeydown(e, uiScale)
+    if (next === null) return
+    e.preventDefault()
+    if (next === uiScale) return
+    uiScale = next
+    uiPrefs = await SetUIScale(next)
+    applyUIPrefs(uiPrefs)
+  }
+
+  async function saveFonts(fontUi: string, fontMono: string) {
+    uiPrefs = await SetUIFonts(fontUi, fontMono)
+    uiScale = clampScale(uiPrefs.scalePercent)
+    applyUIPrefs(uiPrefs)
+    flash(t('toast.fontsSaved'))
   }
 
   let recents: string[] = []
@@ -391,7 +421,7 @@
 
 </script>
 
-<svelte:window on:keydown={handleGlobalKeydown} />
+<svelte:window on:keydown|capture={onScaleKeydown} on:keydown={handleGlobalKeydown} />
 
 <div class="app-root">
   <header class="toolbar">
@@ -559,6 +589,10 @@
             deleteTheme={DeleteTheme}
             setActiveTheme={SetTheme}
             {flash}
+            fontUi={uiPrefs.fontUi ?? ''}
+            fontMono={uiPrefs.fontMono ?? ''}
+            {uiScale}
+            onSaveFonts={saveFonts}
           />
         {:else if section === 'secrets'}
           <SecretsEditor
@@ -582,26 +616,31 @@
     </div>
 
     <Toast />
-  </main>
+
+    <PinDialog
+    open={pinDialogOpen}
+    title={t('tooltip.pinEnterTitle')}
+    message={t('tooltip.pinEnterMessage')}
+    pinLabel={t('tooltip.pinLabel')}
+    confirmLabel={t('tooltip.pinConfirmButton')}
+    cancelLabel={t('tooltip.pinCancelButton')}
+    error={pinError}
+    onSubmit={submitPin}
+    onCancel={cancelPin}
+  />
+</main>
 </div>
 
-<PinDialog
-  open={pinDialogOpen}
-  title={t('tooltip.pinEnterTitle')}
-  message={t('tooltip.pinEnterMessage')}
-  pinLabel={t('tooltip.pinLabel')}
-  confirmLabel={t('tooltip.pinConfirmButton')}
-  cancelLabel={t('tooltip.pinCancelButton')}
-  error={pinError}
-  onSubmit={submitPin}
-  onCancel={cancelPin}
-/>
 
 <style>
   .app-root {
     display: flex;
     flex-direction: column;
-    height: 100vh;
+    position: relative;
+    /* zoom multiplies every length, and 100vh resolves against the unzoomed
+       viewport — so the scaled root would be taller than the window (scroll
+       bars) or shorter (dead space). Dividing first cancels the zoom out. */
+    height: calc(100vh / var(--sm-ui-scale, 1));
   }
 
   .toolbar {
@@ -625,7 +664,7 @@
     background: none;
     color: var(--sm-text-muted);
     font-family: inherit;
-    font-size: 0.75rem;
+    font-size: var(--sm-type-sm);
     cursor: pointer;
   }
 
@@ -671,14 +710,14 @@
     gap: 2px;
     max-height: 120px;
     overflow-y: auto;
-    background: rgba(232, 163, 61, 0.1);
+    background: var(--sm-warning-tint);
     border: 1px solid var(--sm-border);
     border-radius: 6px;
     padding: 6px 10px;
   }
 
   .validation-issue {
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
   }
 
@@ -711,7 +750,7 @@
 
   .hint {
     color: var(--sm-text-muted);
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     margin: 0 0 8px;
   }
 
