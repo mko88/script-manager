@@ -30,6 +30,7 @@
       backgroundColor: 'var(--sm-bg-deep)',
       color: 'var(--sm-line-number)',
       border: 'none',
+      paddingLeft: '4px',
       fontFamily: 'var(--sm-font-mono)',
     },
     '.cm-activeLine': { backgroundColor: 'var(--sm-overlay-soft)' },
@@ -42,7 +43,7 @@
     '.cm-scroller': { scrollbarWidth: 'thin', scrollbarColor: 'var(--sm-scrollbar) transparent' },
     '.cm-scroller::-webkit-scrollbar': { width: '5px', height: '5px' },
     '.cm-scroller::-webkit-scrollbar-thumb': { backgroundColor: 'var(--sm-scrollbar)', borderRadius: '3px' },
-    '&.cm-focused': { outline: '2px solid var(--sm-text-heading)', outlineOffset: '-2px' },
+    '&.cm-focused': { outline: 'none' },
     '.cm-placeholder': { color: 'var(--sm-text-faint)' },
   })
 
@@ -224,7 +225,6 @@
 <style>
   .sm-code {
     min-width: 0;
-    border: 1px solid var(--sm-border);
     border-radius: 4px;
     overflow: hidden;
   }
