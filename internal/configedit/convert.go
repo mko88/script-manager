@@ -11,22 +11,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// looksLikeSecretKey reports whether a field's key suggests its value is
-// sensitive (an API key, password, or secret) — used to default such a
-// field's Secret flag without the user having to notice and toggle it
-// themselves.
 func looksLikeSecretKey(key string) bool {
 	lower := strings.ToLower(key)
 	return strings.HasSuffix(lower, "secret") || strings.HasSuffix(lower, "password") || strings.HasSuffix(lower, "key")
 }
 
-// classifyValue picks the FieldDTO kind/value/secret for an existing
-// map[string]any value, decoded moments earlier by yaml.v3. Anything that
-// isn't a plain string/bool/number falls back to a YAML snippet, which is
-// the same shape decodeValue's "yaml" case parses back. secret is a hint
-// only — independent of kind, so e.g. a multi-line value can be masked too —
-// and never round-trips through the saved YAML itself; it's re-derived from
-// looksLikeSecretKey every time a field is freshly classified.
 func classifyValue(key string, v any) (kind, value string, secret bool) {
 	secret = looksLikeSecretKey(key)
 	switch t := v.(type) {
@@ -56,10 +45,6 @@ func classifyValue(key string, v any) (kind, value string, secret bool) {
 	}
 }
 
-// decodeValue is classifyValue's inverse (ignoring secret, which never
-// affects encoding). Number decoding tries ParseInt before ParseFloat so an
-// integer like 42 doesn't round-trip back out reformatted through a float
-// path (42.0, exponential notation, ...).
 func decodeValue(kind, value string) (any, error) {
 	switch kind {
 	case "string", "multiline":
@@ -90,10 +75,6 @@ func decodeValue(kind, value string) (any, error) {
 	}
 }
 
-// FieldsFromMap converts every key of m not in exclude into a FieldDTO,
-// sorted alphabetically by key — map[string]any has no stable order to begin
-// with, and yaml.v3 sorts map keys on marshal anyway, so alphabetical is
-// simply the one true order end-to-end.
 func FieldsFromMap(m map[string]any, exclude map[string]bool) []FieldDTO {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -112,9 +93,6 @@ func FieldsFromMap(m map[string]any, exclude map[string]bool) []FieldDTO {
 	return fields
 }
 
-// FieldsToMap decodes a []FieldDTO back into a map[string]any. A field with
-// an empty key is skipped (the frontend's "add field" row before a key is
-// typed).
 func FieldsToMap(fields []FieldDTO) (map[string]any, error) {
 	out := make(map[string]any, len(fields))
 	for _, f := range fields {
@@ -130,13 +108,6 @@ func FieldsToMap(fields []FieldDTO) (map[string]any, error) {
 	return out, nil
 }
 
-// nonNil returns s, or a non-nil empty slice if s is nil. Go's JSON encoder
-// marshals a nil slice as `null` rather than `[]`; the frontend treats every
-// DTO slice field as always-iterable (Svelte {#each}, .map, .some, .includes),
-// so a nil slice reaching the frontend throws — and since that throw happens
-// inside a Svelte reactive statement, it silently breaks all further
-// reactivity for the rest of the session, not just the one expression. Every
-// slice field exposed on a DTO must go through this before being returned.
 func nonNil[T any](s []T) []T {
 	if s == nil {
 		return []T{}
@@ -186,9 +157,6 @@ func actionGroupFromDTO(dto ActionGroupDTO) config.ActionGroup {
 	return config.ActionGroup{ID: dto.ID, Title: dto.Title, Color: dto.Color}
 }
 
-// actionDTOToMap encodes an ActionDTO the same way a hand-written
-// customActions entry is shaped, for round-tripping through
-// config.ParseCustomActions.
 func actionDTOToMap(a ActionDTO) map[string]any {
 	m := map[string]any{"title": a.Title, "cmd": a.Cmd}
 	if a.Script != "" {
@@ -220,10 +188,6 @@ var reservedItemKeys = map[string]bool{
 	config.KeyCustomActions: true,
 }
 
-// ToItemDTO decodes one config.Items entry, reusing config.AsStringSlice/
-// config.ParseCustomActions — the exact same logic config.ActionsForItem
-// relies on at runtime — so the editor's interpretation of a reserved key
-// can never drift from how it's actually consumed.
 func ToItemDTO(item map[string]any) ItemDTO {
 	dto := ItemDTO{
 		Name:          config.StrVal(item[config.KeyName]),
@@ -245,8 +209,6 @@ func ToItemDTO(item map[string]any) ItemDTO {
 	return dto
 }
 
-// FromItemDTO is ToItemDTO's inverse: reserved keys are omitted entirely
-// when empty, matching the hand-written style config.yaml examples use.
 func FromItemDTO(dto ItemDTO) (map[string]any, error) {
 	item := make(map[string]any)
 	if dto.Name != "" {
@@ -304,7 +266,6 @@ func terminalFromDTO(dto TerminalDTO) config.TerminalConfig {
 	}
 }
 
-// ToConfigDTO converts a whole loaded config for editing.
 func ToConfigDTO(cfg *config.Config) ConfigDTO {
 	dto := ConfigDTO{
 		Shell:        nonNil(append([]string(nil), cfg.Shell...)),
@@ -330,7 +291,6 @@ func ToConfigDTO(cfg *config.Config) ConfigDTO {
 	return dto
 }
 
-// FromConfigDTO is ToConfigDTO's inverse, used by Save.
 func FromConfigDTO(dto ConfigDTO) (*config.Config, error) {
 	cfg := &config.Config{
 		Shell:    append([]string(nil), dto.Shell...),

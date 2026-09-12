@@ -4,15 +4,6 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import { t } from '../messages'
 
-  // The Messages section: edits either app's runtime message-override file
-  // (script-manager-gui.messages.json / sm-config-edit.messages.json),
-  // flattened into dotted-key rows for a simple key+text-input editor — the
-  // same dotted paths t() itself resolves. A different file from the config
-  // itself, but saved by the same global Save (toolbar / Ctrl+S) via the
-  // exported save() below.
-
-  // The actual Wails bindings, passed straight through like FieldGrid's
-  // validateField prop — this component doesn't import bindings itself.
   export let getEditableMessages: (target: string) => Promise<unknown>
   export let getDefaultMessages: (target: string) => Promise<unknown>
   export let saveMessages: (target: string, messages: Record<string, unknown>) => Promise<void>
@@ -20,16 +11,10 @@
   type MessagesTarget = 'gui' | 'configedit'
   let messagesTarget: MessagesTarget = 'gui'
   let messagesRows: { key: string; value: string }[] = []
-  // Shipped default per dotted key, for the current target — drives the
-  // per-row restore button (shown only where the value differs).
   let messagesDefaults = new Map<string, string>()
-  // Serialized rows as last loaded/saved — save() no-ops while they match.
   let savedSnapshot = ''
   let messagesError = ''
   let messagesSearch = ''
-  // Which category groups are collapsed, by name — not reset on target
-  // switch, so a layout you've arranged (e.g. collapsing categories you
-  // don't care about) carries over between script-manager-gui/sm-config-edit.
   let collapsedMessageGroups = new Set<string>()
 
   function toggleMessageGroup(category: string) {
@@ -82,8 +67,6 @@
     return Array.from(groups, ([category, rows]) => ({ category, rows }))
   })()
 
-  // Runs once on mount (reactive statements fire initially) and again on
-  // every tab switch.
   $: loadMessages(messagesTarget)
 
   async function loadMessages(target: MessagesTarget) {
@@ -104,10 +87,6 @@
     }
   }
 
-  // Exported so App.svelte's global Save (toolbar button / Ctrl+S) can reach
-  // it via bind:this — the section has no Save button of its own. A no-op
-  // when the form matches what's already on disk, so a routine config save
-  // doesn't flash the "restart {app}" reminder for nothing.
   export async function save() {
     if (messagesError || JSON.stringify(messagesRows) === savedSnapshot) return
     try {
@@ -127,8 +106,6 @@
     messagesRows = messagesRows
   }
 
-  // Resets the in-memory form to the target's compiled defaults — Save is
-  // still required afterward to persist it, same as any other edit here.
   async function restoreDefaults() {
     if (!confirm(t('messagesEditor.confirmRestoreDefaults'))) return
     try {

@@ -25,9 +25,6 @@ func TestSetThemeRoundTrip(t *testing.T) {
 
 func TestSetThemePreservesExistingCustomPalette(t *testing.T) {
 	dir := t.TempDir()
-	// Simulate sm-config-edit having saved a named custom theme out from
-	// under this process — this app can't edit one, only switch to/from
-	// it, and SetTheme must not clobber it when switching away and back.
 	themes := map[string]map[string]string{"Custom": {"bg": "#123456"}}
 	if err := theme.Save(dir, theme.State{Active: "Custom", Themes: themes}); err != nil {
 		t.Fatal(err)

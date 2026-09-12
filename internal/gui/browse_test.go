@@ -41,9 +41,6 @@ func TestConfigEditorArgvOmitsConfigPathWhenUnknown(t *testing.T) {
 }
 
 func TestLaunchConfigEditorSkipsWhenAlreadyRunning(t *testing.T) {
-	// A non-nil configEditorCmd means a previously launched instance hasn't
-	// exited yet (see the cmd.Wait() goroutine in LaunchConfigEditor) — it
-	// never actually needs to run for this guard to be exercised.
 	sentinel := exec.Command("echo")
 	a := &App{configEditorCmd: sentinel}
 

@@ -3,10 +3,6 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import Icon from '@shared/components/Icon.svelte'
 
-  // The Add/Remove/Reorder-toggle row above a reorderable master list —
-  // identical in shape across the Actions/Action Groups/Items sections, so
-  // a future change (a new button, a tweak to the reorder-toggle behavior)
-  // touches this one file instead of all three editors.
   export let addLabel: string
   export let copyLabel: string
   export let copyDisabled: boolean

@@ -1,9 +1,3 @@
-// Tracks every "Run here" (inline) execution for the session: one entry per
-// item/action pair that's ever been run, keyed by inlineKey — not just the
-// single currently-viewed one, so a run started on one action keeps going
-// (and stays pollable) after switching to a different action, and switching
-// back shows however far it's gotten (or its finished result) instead of
-// losing track of it.
 import { writable, get } from 'svelte/store'
 import { flash } from '@shared/toast'
 import { t } from '../messages'
@@ -14,9 +8,6 @@ export type InlineState = {
   actionIndex: number
   output: string
   running: boolean
-  // null until the run has actually finished (still running, or it never
-  // started) — the backend's ExitCode field is only meaningful once
-  // Running is false, so it's withheld here until then.
   exitCode: number | null
 }
 
@@ -33,15 +24,6 @@ function setInlineState(itemIndex: number, actionIndex: number, state: Omit<Inli
   }))
 }
 
-// How the frontend gets a live-updating view of an inline run: polling
-// GetInlineStatus on a short timer, not a pushed event — every other bound
-// method here is a plain request/response call, and this matches.
-//
-// A poll loop keeps going until its own run finishes, whether or not the
-// user is still looking at that action. That's what makes "switch away,
-// switch back" work: inlineStates already holds whatever the loop captured
-// while away. onUpdate fires after every tick so the caller can run its
-// scroll-into-view side effect for the on-screen action.
 const INLINE_POLL_INTERVAL_MS = 300
 
 async function pollInlineStatus(itemIndex: number, actionIndex: number, onUpdate: (itemIndex: number, actionIndex: number) => void) {
@@ -62,8 +44,6 @@ async function pollInlineStatus(itemIndex: number, actionIndex: number, onUpdate
   }
 }
 
-// Starts an inline run and its poll loop. Starting the same pair again while
-// it's still running is rejected (a no-op); different pairs may overlap.
 export async function startInlineRun(itemIndex: number, actionIndex: number, onUpdate: (itemIndex: number, actionIndex: number) => void) {
   if (get(inlineStates)[inlineKey(itemIndex, actionIndex)]?.running) return
   setInlineState(itemIndex, actionIndex, { output: '', running: true, exitCode: null })

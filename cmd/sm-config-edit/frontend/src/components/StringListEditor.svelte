@@ -1,15 +1,8 @@
 <script lang="ts">
   import { t } from '../messages'
 
-  // A reusable ordered string-list editor: Shell, Terminal's custom-argv mode,
-  // an Action's Groups, and an item's Actions/ActionGroups all edit a plain
-  // string[] this way.
   export let items: string[] = []
   export let placeholder = ''
-  // Opt-in per usage: most lists here (Terminal argv, an Action's Groups)
-  // are reordered/pruned freely and a confirm would just be friction, but
-  // Shell's entries are load-bearing enough to warrant one. Unset means no
-  // confirmation, matching every other list here's existing behavior.
   export let confirmRemoveMessage: ((value: string) => string) | null = null
 
   function add() {

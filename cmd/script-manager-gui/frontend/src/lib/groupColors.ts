@@ -1,10 +1,5 @@
-// Chip coloring for action groups, shared by the group-filter chips and the
-// Command pane's group tags.
 import type { gui } from '../../wailsjs/go/models'
 
-// Only groups with a configured color get an entry — a group with no catalog
-// entry (or an entry with no color set) just keeps the default chip styling,
-// so this feature is fully opt-in per group.
 export function buildGroupColors(catalog: gui.ActionGroupDTO[]): Record<string, string> {
   return Object.fromEntries(
     catalog.filter((g) => /^#[0-9a-fA-F]{6}$/.test(g.color)).map((g) => [g.id, g.color]),
@@ -19,8 +14,6 @@ function readableTextColor(hex: string): string {
   return brightness > 128 ? '#1b2636' : '#d7dee8'
 }
 
-// Active/selected chips keep the existing accent-warm highlight regardless
-// of the group's own color, so "this filter is active" stays unambiguous.
 export function groupChipStyle(colors: Record<string, string>, group: string, active: boolean): string {
   const color = colors[group]
   if (active || !color) return ''

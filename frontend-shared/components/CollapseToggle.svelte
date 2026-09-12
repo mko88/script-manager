@@ -1,11 +1,4 @@
 <script lang="ts">
-  // The standalone ▾/▸ toggle button used by both apps' collapsible
-  // panels/sections. collapsed is bindable for the plain case; onToggle
-  // additionally fires on every flip for callers that need a side effect
-  // (e.g. persisting layout state). A plain callback prop, not a dispatched
-  // event: frontend-shared sits outside both apps' node_modules, so a bare
-  // `svelte` import (needed for createEventDispatcher) doesn't resolve from
-  // here — see toast.ts for the same constraint.
   export let collapsed: boolean
   export let expandTitle: string
   export let collapseTitle: string

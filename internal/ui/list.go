@@ -19,7 +19,6 @@ var (
 	selNormalStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
 )
 
-// selectableList is embedded by tiles that show a scrollable, selectable list of rows.
 type selectableList struct {
 	selected int
 	offset   int
@@ -76,13 +75,12 @@ func (s *selectableList) renderRows(labels []string, innerW, innerH int, focused
 	return rows
 }
 
-// ListTile renders a scrollable list of items whose labels come from a Go template.
 type ListTile struct {
 	*tl.BaseTile
 	selectableList
 	items    []map[string]any
 	displays []config.DisplayConfig
-	tmpls    map[string]*template.Template // keyed by DisplayConfig.Name
+	tmpls    map[string]*template.Template
 	title    string
 }
 
@@ -98,8 +96,6 @@ func newListTile(items []map[string]any, displays []config.DisplayConfig) *ListT
 	return t
 }
 
-// SetItems replaces the item list and display templates, e.g. after a config
-// reload. The current selection is preserved when still in range.
 func (t *ListTile) SetItems(items []map[string]any, displays []config.DisplayConfig) {
 	tmpls := make(map[string]*template.Template, len(displays))
 	for _, d := range displays {
@@ -119,8 +115,6 @@ func (t *ListTile) SetItems(items []map[string]any, displays []config.DisplayCon
 	}
 }
 
-// renderLabel expands the list template for the item, falling back to the
-// item's name when the template failed to parse or execute.
 func (t *ListTile) renderLabel(item map[string]any) string {
 	d := config.FindDisplay(t.displays, item)
 	tmpl := t.tmpls[d.Name]

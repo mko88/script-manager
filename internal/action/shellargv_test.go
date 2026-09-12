@@ -7,8 +7,6 @@ import (
 )
 
 func TestShellBasename(t *testing.T) {
-	// Backslash paths are deliberately absent: filepath.Base splits them only
-	// when the test itself runs on Windows, and these tests run on Linux.
 	tests := map[string]string{
 		"pwsh.exe":                   "pwsh",
 		"cmd.exe":                    "cmd",

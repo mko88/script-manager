@@ -1,26 +1,17 @@
-// Package configedit is the Wails-bound backend for sm-config-edit, the
-// structured config.yaml editor. It mirrors internal/gui's shape (an App
-// struct whose exported methods become the frontend's bindings) but reads
-// and writes config.Config instead of just reading it.
 package configedit
 
-// DisplayDTO mirrors config.DisplayConfig.
 type DisplayDTO struct {
 	Name    string `json:"name"`
 	List    string `json:"list"`
 	Details string `json:"details"`
 }
 
-// TerminalDTO flattens config.TerminalConfig's scalar-or-list ambiguity into
-// an explicit mode a radio group can drive directly.
 type TerminalDTO struct {
-	Mode string   `json:"mode"` // "auto" | "name" | "argv"
+	Mode string   `json:"mode"`
 	Name string   `json:"name"`
 	Argv []string `json:"argv"`
 }
 
-// ActionDTO mirrors config.Action. It's used both for the global actions
-// list and for an item's customActions, since both are []Action-shaped.
 type ActionDTO struct {
 	ID          string   `json:"id"`
 	Title       string   `json:"title"`
@@ -32,36 +23,19 @@ type ActionDTO struct {
 	Interactive bool     `json:"interactive"`
 }
 
-// ActionGroupDTO mirrors config.ActionGroup — the catalog entry. Actions
-// and items reference a group by plain string ID (via Groups/actionGroups).
 type ActionGroupDTO struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
 	Color string `json:"color"`
 }
 
-// FieldDTO edits one entry of a map[string]any (Env, or an item's
-// non-reserved keys) without needing a widget per possible YAML shape.
-// String/bool/number values get their own kind and a plain-value widget;
-// anything else (nested map/list, unrecognized type) becomes Kind "yaml",
-// edited as a raw YAML snippet and re-parsed on save. "multiline" saves as
-// a plain string like "string" — it only picks a textarea widget for values
-// with embedded newlines.
-//
-// Secret is independent of Kind — a lock toggle, not a kind of its own — so
-// any field can be edited masked. Like Kind it's a display hint that never
-// round-trips through the saved YAML: it's re-derived from the key's name
-// (see looksLikeSecretKey) each time the field is classified, so a
-// secret-looking key defaults to masked without the user toggling anything.
 type FieldDTO struct {
 	Key    string `json:"key"`
-	Kind   string `json:"kind"` // "string" | "multiline" | "number" | "bool" | "yaml"
+	Kind   string `json:"kind"`
 	Value  string `json:"value"`
 	Secret bool   `json:"secret"`
 }
 
-// ItemDTO mirrors one entry of config.Items: the five reserved keys get
-// dedicated fields; everything else is a generic Fields grid.
 type ItemDTO struct {
 	Name          string      `json:"name"`
 	Display       string      `json:"display"`
@@ -71,7 +45,6 @@ type ItemDTO struct {
 	Fields        []FieldDTO  `json:"fields"`
 }
 
-// ConfigDTO mirrors config.Config as a whole.
 type ConfigDTO struct {
 	Shell        []string         `json:"shell"`
 	Display      []DisplayDTO     `json:"display"`
@@ -82,28 +55,21 @@ type ConfigDTO struct {
 	Actions      []ActionDTO      `json:"actions"`
 }
 
-// StateDTO is what the frontend fetches after any operation that (re)loads a
-// config: InitialState, NewBlank, BrowseOpen.
 type StateDTO struct {
 	Config  ConfigDTO `json:"config"`
 	Path    string    `json:"path"`
 	Warning string    `json:"warning"`
 }
 
-// SaveResultDTO is Save's result: the path actually written to, so the
-// frontend can update its "current file" display after a Save-As.
 type SaveResultDTO struct {
 	Path string `json:"path"`
 }
 
-// ValidationIssueDTO is one finding from ValidateConfig.
 type ValidationIssueDTO struct {
-	Severity string `json:"severity"` // "error" | "warning"
+	Severity string `json:"severity"`
 	Message  string `json:"message"`
 }
 
-// PreviewDTO is an item's rendered list label + details HTML, built from
-// draft (not-yet-saved) form state.
 type PreviewDTO struct {
 	ListLabel     string   `json:"listLabel"`
 	DetailsHTML   string   `json:"detailsHtml"`
@@ -111,8 +77,6 @@ type PreviewDTO struct {
 	Error         string   `json:"error"`
 }
 
-// ActionPreviewDTO is an action's rendered description/command, built from
-// draft form state.
 type ActionPreviewDTO struct {
 	Description string `json:"description"`
 	Cmd         string `json:"cmd"`

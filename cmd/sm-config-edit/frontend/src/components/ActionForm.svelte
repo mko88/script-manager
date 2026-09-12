@@ -5,8 +5,6 @@
   import ScriptSource from '@shared/components/ScriptSource.svelte'
   import type { configedit } from '../../wailsjs/go/models'
 
-  // Shared by the global Actions section and an item's Custom Actions list —
-  // both edit the same []Action-shaped data (internal/configedit.ActionDTO).
   export let action: {
     id: string
     title: string
@@ -18,23 +16,10 @@
     interactive: boolean
   }
   export let showId = true
-  // The Action Groups catalog's IDs — Groups is a picker against this list
-  // (like Items' Actions/Action groups pickers), not free text, so an
-  // action can only belong to a group that's actually been catalogued.
   export let allActionGroups: string[] = []
-  // Opens a native file picker and returns the chosen path ("" if cancelled).
   export let browseScriptFile: () => Promise<string>
-  // Reads path's content and returns it as syntax-highlighted HTML (or an
-  // error, e.g. "no such file") for the script-file source preview below.
   export let previewScriptFile: (path: string) => Promise<configedit.ScriptPreviewDTO>
 
-  // cmd and script are mutually exclusive. mode starts derived from which
-  // one is currently populated, but from then on is tracked as its own
-  // piece of state — deriving it from action.script's truthiness on every
-  // keystroke would snap back to "cmd" the instant a user picks "Script
-  // file" and the field is still empty (nothing typed yet). It's re-derived
-  // only when a genuinely different action is bound (switching the selected
-  // action/custom action), not on every edit to the same one.
   let mode: 'cmd' | 'script' = action.script ? 'script' : 'cmd'
   let modeFor = action
   $: if (action !== modeFor) {
@@ -53,8 +38,6 @@
     if (path) action.script = path
   }
 
-  // Debounced the same way ItemsEditor's live preview is (250ms) — this
-  // fires on every keystroke in the path field, not just on Browse.
   let scriptPreview: configedit.ScriptPreviewDTO | null = null
   let scriptPreviewTimer: ReturnType<typeof setTimeout>
   $: if (mode === 'script') scheduleScriptPreview(action.script)
@@ -127,10 +110,6 @@
 </div>
 
 <style>
-  /* No gap here — .field already carries its own margin-bottom (shared
-     theme.css), the same single spacing mechanism every other section's
-     detail pane relies on. A flex gap on top of that was double-spacing
-     every field (8px gap + 10px margin-bottom = 18px instead of 10px). */
   .action-form {
     display: flex;
     flex-direction: column;
@@ -164,9 +143,6 @@
     min-width: 0;
     font-family: "SF Mono", Consolas, monospace;
   }
-  /* The script-source preview itself comes from the shared
-     @shared/components/ScriptSource.svelte, used identically by
-     script-manager-gui's Command pane — no local styling needed here. */
   .field-checkbox {
     display: flex;
     align-items: center;
@@ -175,6 +151,4 @@
     color: var(--sm-text-muted);
     margin-bottom: 10px;
   }
-  /* .checkbox-list/.checkbox-chip come from the shared design system
-     (@shared/theme.css) — not redefined here. */
 </style>

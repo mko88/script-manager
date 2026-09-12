@@ -8,22 +8,12 @@
   import { deepCopy, copyLabel, insertAfter } from '../lib/duplicate'
   import type { configedit } from '../../wailsjs/go/models'
 
-  // The Items section: a reorderable master list, a detail form (reserved
-  // keys get dedicated widgets, everything else is a FieldGrid), and a live
-  // preview of the selected item against any display plus any action's
-  // expanded command.
-
-  // Two-way bound slices of the parent's cfg.
   export let items: configedit.ItemDTO[]
   export let selectedItem: number
-  // Read-only context: the global actions/groups/displays/env the detail
-  // form and previews reference.
   export let actions: configedit.ActionDTO[] = []
   export let allActionGroups: string[] = []
   export let displays: configedit.DisplayDTO[] = []
   export let envFields: configedit.FieldDTO[] = []
-  // The actual Wails bindings, passed straight through like FieldGrid's
-  // validateField prop — this component doesn't import bindings itself.
   export let previewItem: (
     item: configedit.ItemDTO,
     envFields: configedit.FieldDTO[],
@@ -41,9 +31,6 @@
 
   $: allActionIds = actions.map((a) => a.id).filter((id) => id)
 
-  // The generated DTO classes for nested-object fields carry a
-  // convertValues method, so a plain object literal isn't structurally
-  // assignable — cast new entries the same way the initial state does.
   function newItem(): configedit.ItemDTO {
     return { name: '', display: '', actions: [], actionGroups: [], customActions: [], fields: [] } as unknown as configedit.ItemDTO
   }
@@ -65,9 +52,6 @@
     selectedItem = items.length - 1
     previewActionIdx = -1
   }
-  // Duplicates the selected item — custom actions, fields and all — and
-  // selects the copy, so the common "same item, one value different" case
-  // starts from a filled-in form instead of a blank one.
   function copyItem(i: number) {
     const src = items[i]
     if (!src) return
@@ -100,28 +84,16 @@
     if (confirm(t('confirm.removeCustomAction', { name }))) removeCustomAction(itemIdx, i)
   }
 
-  // Reordering is opt-in, toggled per-visit from the toolbar and never
-  // persisted: without the gate, a click-to-select is one accidental pixel
-  // of movement away from silently reordering the list. Turning it on
-  // clears the selection — holding a selection through a reorder would mean
-  // tracking its index across every live-shifting consider event.
   let reorderMode = false
   function toggleReorderMode() {
     reorderMode = !reorderMode
     if (reorderMode) selectedItem = -1
   }
 
-  // Re-derived from items on any change EXCEPT while a drag is active:
-  // dndzone owns itemEntries via consider (below) for the duration, and
-  // overwriting it with freshly wrapped objects corrupts its drag tracking
-  // — the dragged entry vanishes on drop instead of moving.
   let dragging = false
   let itemEntries: DndEntry<configedit.ItemDTO>[] = wrap(items)
   $: if (!dragging) itemEntries = wrap(items)
 
-  // consider fires continuously during the drag (giving the live-shifting
-  // preview via dndzone's own flip animation); finalize fires once,
-  // settled, on drop or cancel. Only finalize commits to the real data.
   const syncItems = syncList<configedit.ItemDTO>({
     setEntries: (v) => (itemEntries = v),
     setDragging: (v) => (dragging = v),

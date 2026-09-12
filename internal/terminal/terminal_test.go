@@ -48,9 +48,6 @@ func TestNamedTerminal(t *testing.T) {
 		}
 	})
 	t.Run("known name not on PATH", func(t *testing.T) {
-		// konsole is unlikely to be installed in a headless test
-		// environment; skip gracefully if it happens to be present rather
-		// than asserting a specific environment.
 		if _, err := namedTerminal("konsole"); err == nil {
 			t.Skip("konsole happens to be on PATH in this environment")
 		}

@@ -1,11 +1,5 @@
-/* Shared design system for script-manager's Wails frontends
-   (script-manager-gui, sm-config-edit). Import via `@import '@shared/theme.css';`
-   — see each app's vite.config.ts for the `@shared` alias. Layout-specific
-   rules (resizable panes, app-specific shells) stay local to each app; only
-   generic, reusable classes and the color palette live here. */
 
 :root {
-  /* Backgrounds */
   --sm-bg: #1b2636;
   --sm-bg-alt: #1f2c3d;
   --sm-row-bg: #243145;
@@ -15,7 +9,6 @@
   --sm-border: #3a4a63;
   --sm-bg-primary: #e8a33d;
 
-  /* Text */
   --sm-text: #d7dee8;
   --sm-text-muted: #a9b6c8;
   --sm-text-faint: #6b7a90;
@@ -32,7 +25,6 @@
   --sm-run-error: #e0645c;
   --sm-line-number: #4a5b74;
 
-  /* Effects */
   --sm-secondary-hover: #2b3b52;
   --sm-tint-hover: #1f3346;
   --sm-overlay-soft: rgba(255, 255, 255, 0.08);
@@ -41,18 +33,7 @@
   --sm-primary-hover: #f0b25a;
 }
 
-/* Light theme — toggled by setting data-theme="light" on <html> (see
-   frontend-shared/theme.ts). Every token below is deliberately re-picked
-   for contrast on a light ground, not just lightness-inverted: a pale
-   accent that reads fine on the dark palette's near-black background
-   (--sm-text-heading, --sm-bg-primary, --sm-text-highlight, --sm-error) would be
-   low-contrast on white, so those four are darkened instead. --sm-text-primary
-   and --sm-warning are independent tokens, not var()-aliases of --sm-bg/
-   --sm-bg-primary — they just start out equal to them (own values, not
-   references) so nothing looks different yet; each can be recolored on its
-   own without dragging the page background or the primary hue along. */
 :root[data-theme="light"] {
-  /* Backgrounds */
   --sm-bg: #eef1f6;
   --sm-bg-alt: #ffffff;
   --sm-row-bg: #f5f7fa;
@@ -62,7 +43,6 @@
   --sm-border: #c7d0dc;
   --sm-bg-primary: #a8660a;
 
-  /* Text */
   --sm-text: #1c2733;
   --sm-text-muted: #55647a;
   --sm-text-faint: #8996a8;
@@ -79,7 +59,6 @@
   --sm-run-error: #c0392b;
   --sm-line-number: #94a1b5;
 
-  /* Effects */
   --sm-secondary-hover: #e2e8f0;
   --sm-tint-hover: #dbe9f2;
   --sm-overlay-soft: rgba(0, 0, 0, 0.05);
@@ -274,10 +253,6 @@ body {
   cursor: default;
 }
 
-/* .copy-cmd-btn/.run-cmd-btn are script-manager-gui's existing button class
-   names, sharing these same rules so its markup didn't need renaming during
-   this extraction; .btn/.btn-primary are the names new UIs (sm-config-edit)
-   should use going forward. */
 .btn,
 .copy-cmd-btn {
   border-radius: 4px;
@@ -309,8 +284,6 @@ body {
   background: var(--sm-primary-hover);
 }
 
-/* Square padding for an icon-only .btn — the plain .btn/.btn-primary
-   padding above assumes a text label. */
 .icon-btn {
   display: flex;
   align-items: center;
@@ -323,8 +296,6 @@ body {
   cursor: default;
 }
 
-/* Labeled form field: a small muted caption above its widget. Forms that
-   space rows with a flex gap instead override the margin locally. */
 .field {
   display: flex;
   flex-direction: column;
@@ -352,12 +323,6 @@ body {
   cursor: default;
 }
 
-/* Without appearance: none, <select> keeps its native dropdown-arrow chrome
-   in Chromium/WebView2 regardless of the background/color set above, showing
-   as a jarring light box behind the arrow against the dark theme.
-   appearance: none removes that entirely (including the arrow itself), so a
-   plain custom chevron replaces it. .sm-select opts in a select that isn't
-   inside a .field label (e.g. FieldGrid's compact row selects). */
 .field select,
 select.sm-select {
   appearance: none;
@@ -369,26 +334,11 @@ select.sm-select {
   padding-right: 28px;
 }
 
-/* The arrow color is baked into the SVG's URL-encoded string, so it can't
-   reference --sm-text-muted via var() — swap the whole background-image for
-   the light-theme equivalent (%2355647a = --sm-text-muted's light value)
-   instead. */
 [data-theme="light"] .field select,
 [data-theme="light"] select.sm-select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2355647a' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
-/* Color value editor: a native picker swatch next to a free-text field, so
-   any CSS color can be typed, not just what the native picker supports.
-   input[type="color"] only accepts a 6-digit hex — it silently ignores
-   anything else (rgba(), named colors, …), so its own native swatch would
-   always show the same fallback color for any non-hex value rather than
-   the value actually in effect. .color-swatch is a plain div instead,
-   which CSS's background property renders correctly for any valid color
-   including alpha — laid under the real <input>, which is kept but made
-   fully transparent (not display:none — it must stay a real, clickable
-   element for the native picker to still open on click) so picking still
-   works for hex-editable values without misrepresenting the rest. */
 .color-field {
   display: flex;
   align-items: center;
@@ -443,9 +393,6 @@ select.sm-select {
   border-radius: 3px;
 }
 
-/* Master list + detail form, the layout the config editor's Items/Action
-   Groups/Actions sections share, with .list-toolbar's add/remove/reorder
-   buttons above it. */
 .list-toolbar {
   flex: none;
   display: flex;
@@ -511,10 +458,6 @@ select.sm-select {
   font-weight: 700;
 }
 
-/* Collapsible category group with an uppercase heading — the Messages and
-   Theme sections' shared list shape. The heading's teal matches the color
-   already used for code spans (.details-preview code) rather than
-   introducing a new accent. */
 .messages-group {
   margin-bottom: 14px;
 }
@@ -545,10 +488,6 @@ select.sm-select {
   color: var(--sm-text-muted);
 }
 
-/* Run-status indicator inside a section header (script-manager-gui's OUTPUT
-   section; also mirrored in the config editor's theme preview). The header
-   is display:flex space-between, so margin-left:auto parks this against the
-   collapse glyph rather than centered between title and glyph. */
 .output-status {
   display: flex;
   align-items: center;
@@ -581,11 +520,6 @@ select.sm-select {
   50% { opacity: 0.3; }
 }
 
-/* goldmark-rendered live-preview content (the config editor's Items and
-   Displays sections). Mirrors script-manager-gui's .details-content rules
-   for the same rendered HTML; table-layout: fixed is the important
-   difference — without it an unstyled <table> sizes itself to its widest
-   cell and refuses to shrink below that, fighting drag-to-resize panes. */
 .details-preview {
   font-size: 0.85rem;
   line-height: 1.5;
@@ -629,9 +563,6 @@ select.sm-select {
   font-size: 0.85rem;
 }
 
-/* Draggable divider between two resizable panes — see each app's own drag*
-   handler (mousedown here, mousemove/mouseup on window) for the resize
-   logic itself; this is just the hit target/visual. */
 .resizer {
   flex: none;
   background: transparent;
@@ -661,13 +592,6 @@ select.sm-select {
   cursor: row-resize;
 }
 
-/* An inset outline instead of the browser default: the default draws
-   *outside* the element's border box, which gets visibly clipped on
-   whichever edge sits flush against a padded/scrolling ancestor (e.g. a
-   field near the left edge of a panel) — reported as "the white border is
-   cut on the left" for fields in sm-config-edit. outline-offset: -2px
-   keeps the ring entirely inside the element's own box, immune to
-   ancestor clipping regardless of padding or overflow. */
 input:focus,
 select:focus,
 textarea:focus {
@@ -675,24 +599,11 @@ textarea:focus {
   outline-offset: -2px;
 }
 
-/* Buttons (.row list items included) get the same inset ring, but only
-   via :focus-visible rather than :focus — a plain click, or the mousedown
-   that starts a drag gesture, still focuses the button in Chromium/
-   WebView2, and a mouse-triggered focus ring on every list row you drag
-   or click reads as a wide, distracting border rather than useful
-   feedback. :focus-visible's own heuristic already skips that case and
-   only fires for keyboard navigation (Tab), which is exactly where the
-   ring is actually useful. */
 button:focus-visible {
   outline: 2px solid var(--sm-text-heading);
   outline-offset: -2px;
 }
 
-/* Tints the native checkbox/radio "checked" fill to match the theme
-   instead of whatever the browser/OS default is (plain blue on Windows,
-   varies elsewhere) — much simpler than reimplementing these controls
-   from scratch, and enough to stop them looking out of place against a
-   dark theme. */
 input[type="checkbox"],
 input[type="radio"] {
   accent-color: var(--sm-text-heading);

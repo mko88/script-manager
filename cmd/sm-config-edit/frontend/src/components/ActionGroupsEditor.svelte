@@ -5,13 +5,6 @@
   import { deepCopy, copyLabel, copyId, insertAfter } from '../lib/duplicate'
   import type { configedit } from '../../wailsjs/go/models'
 
-  // The Action Groups section: edits the id/title/color catalog entries.
-  // Deleting a group also scrubs its id out of every action's and item's
-  // group lists, so actions and items are bound too — the picker UIs
-  // already hide unknown ids, but the underlying data would otherwise
-  // silently keep the stale id forever.
-
-  // Two-way bound slices of the parent's cfg.
   export let actionGroups: configedit.ActionGroupDTO[]
   export let actions: configedit.ActionDTO[]
   export let items: configedit.ItemDTO[]
@@ -26,9 +19,6 @@
     selectedActionGroup = actionGroups.length - 1
   }
 
-  // Like copyAction, the copy gets a fresh id (duplicate group ids block
-  // Save) — which also means nothing references the new group yet: the
-  // color and title are copied, the membership isn't.
   function copyActionGroup(i: number) {
     const src = actionGroups[i]
     if (!src) return
@@ -39,8 +29,6 @@
     selectedActionGroup = i + 1
   }
 
-  // How many actions/items/custom-actions currently reference a group id —
-  // used to warn before deleting.
   function actionGroupRefCount(id: string): number {
     let count = 0
     for (const a of actions) if (a.groups.includes(id)) count++
@@ -73,8 +61,6 @@
     if (confirm(t('confirm.removeActionGroup', { name, refSuffix }))) removeActionGroup(i)
   }
 
-  // See ItemsEditor for why reordering is an explicit opt-in mode and why
-  // entries aren't re-derived mid-drag.
   let reorderMode = false
   function toggleReorderMode() {
     reorderMode = !reorderMode

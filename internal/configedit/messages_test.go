@@ -47,9 +47,6 @@ func TestGetEditableMessagesSelf(t *testing.T) {
 }
 
 func TestGetEditableMessagesGuiFallsBackToDefaultsWhenNeverRun(t *testing.T) {
-	// script-manager-gui hasn't run, so it has no override file — this must
-	// not error, since this process has script-manager-gui's compiled
-	// defaults too (see internal/messages).
 	a := &App{appDataDir: t.TempDir()}
 
 	got, err := a.GetEditableMessages("gui")
@@ -65,9 +62,6 @@ func TestGetEditableMessagesGuiFallsBackToDefaultsWhenNeverRun(t *testing.T) {
 func TestGetEditableMessagesGuiReconcilesAgainstDefaults(t *testing.T) {
 	dir := t.TempDir()
 	guiPath := filepath.Join(dir, messages.GUIFilename)
-	// A stale override missing keys defaults has, and carrying one defaults
-	// no longer has — GetEditableMessages should reconcile this in memory
-	// (without writing it back — that's the "in memory only" contract).
 	if err := os.WriteFile(guiPath, []byte(`{"panel":{"stale":"drop me"}}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -120,8 +114,6 @@ func TestSaveMessagesUnknownTarget(t *testing.T) {
 }
 
 func TestGetDefaultMessagesWorksWithoutAnyFileOnDisk(t *testing.T) {
-	// GetDefaultMessages reads compiled bytes, not a file — it must work
-	// even in a directory where neither app has ever run.
 	a := &App{appDataDir: t.TempDir()}
 
 	got, err := a.GetDefaultMessages("gui")

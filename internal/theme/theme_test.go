@@ -123,8 +123,6 @@ func TestLoadMigratesOldCustomFormat(t *testing.T) {
 		t.Errorf("Load().Themes[\"Custom\"] = %v, want %v", got.Themes["Custom"], want)
 	}
 
-	// A load-then-save cycle finishes the migration for good: the file on
-	// disk should never carry the legacy "custom" key again.
 	if err := Save(dir, got); err != nil {
 		t.Fatal(err)
 	}

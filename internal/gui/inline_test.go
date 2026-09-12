@@ -20,10 +20,6 @@ func inlineTestApp(actions ...config.Action) *App {
 	})
 }
 
-// waitForInlineDone polls GetInlineStatus until Running is false, returning
-// the final status — used by tests exercising RunActionInline, which starts
-// the process and returns immediately, with GetInlineStatus as the only way
-// to observe progress and completion.
 func waitForInlineDone(t *testing.T, a *App, itemIndex, actionIndex int) InlineStatusDTO {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
@@ -73,10 +69,6 @@ func TestRunActionInlineInvalidItemOrAction(t *testing.T) {
 	}
 }
 
-// TestRunActionInlineRejectsInteractiveAction guards the backend half of
-// hiding "Run here" for an interactive action: even a direct call (bypassing
-// whatever the frontend hides) must not start a process whose stdin an
-// inline run leaves disconnected.
 func TestRunActionInlineRejectsInteractiveAction(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Prompt", Cmd: "read -r x", Interactive: true})
 
@@ -88,12 +80,6 @@ func TestRunActionInlineRejectsInteractiveAction(t *testing.T) {
 	}
 }
 
-// TestRunActionInlineClearsStaleEntryOnFailedRestart guards against a real
-// but hard-to-hit-through-the-UI gap: a key with a finished run's entry
-// still in a.inlineRuns must not keep reporting that run's exit code/output
-// once a later RunActionInline call for the same key fails before ever
-// starting a new process — the whole entry, not just its output file, has
-// to be cleared, or GetInlineStatus would misreport a stale result.
 func TestRunActionInlineClearsStaleEntryOnFailedRestart(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hi"})
 
@@ -114,11 +100,6 @@ func TestRunActionInlineClearsStaleEntryOnFailedRestart(t *testing.T) {
 	}
 }
 
-// waitForInlineRunning blocks until GetInlineStatus reports Running for the
-// given item/action pair — used by tests that need RunActionInline's
-// background process still active so the test's own goroutine can act
-// concurrently against it (CancelInlineAction, or a second RunActionInline
-// for the same pair expected to be rejected).
 func waitForInlineRunning(t *testing.T, a *App, itemIndex, actionIndex int) {
 	t.Helper()
 	deadline := time.Now().Add(3 * time.Second)
@@ -149,10 +130,6 @@ func TestRunActionInlineRejectsConcurrentRunsOfSameAction(t *testing.T) {
 	waitForInlineDone(t, a, 0, 0)
 }
 
-// TestRunActionInlineAllowsConcurrentDifferentActions is the backend half of
-// "switch to another action while one is running" — a second, different
-// action must be free to start and run to completion independently while
-// the first is still going, each tracked under its own item/action key.
 func TestRunActionInlineAllowsConcurrentDifferentActions(t *testing.T) {
 	a := inlineTestApp(
 		config.Action{Title: "Slow", Cmd: "sleep 2; echo slow-done"},
@@ -172,7 +149,6 @@ func TestRunActionInlineAllowsConcurrentDifferentActions(t *testing.T) {
 		t.Errorf("fast action final status = %+v, want exit 0 and output containing %q", fastStatus, "fast-done")
 	}
 
-	// The slow action should still be unaffected, running independently.
 	if !a.GetInlineStatus(0, 0).Running {
 		t.Error("slow action status = not running, want it still running after the fast one finished")
 	}
@@ -182,10 +158,6 @@ func TestRunActionInlineAllowsConcurrentDifferentActions(t *testing.T) {
 	}
 }
 
-// TestGetInlineStatusPersistsAfterCompletion is the backend half of
-// "switching back to a finished action still shows its result" — a
-// completed run's status must stay readable indefinitely (not just once)
-// until a new run for that same key replaces it.
 func TestGetInlineStatusPersistsAfterCompletion(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hello-inline"})
 
@@ -235,9 +207,6 @@ func TestGetInlineStatusReflectsPartialOutputWhileRunning(t *testing.T) {
 }
 
 func TestCancelInlineActionKillsProcessTree(t *testing.T) {
-	// A child process the shell spawns and waits on, so cancel only truly
-	// works if it kills the whole process group/tree — killing just the
-	// shell would silently orphan this sleep, leaving it running.
 	a := inlineTestApp(config.Action{Title: "Sleep", Cmd: "sleep 30"})
 
 	if err := a.RunActionInline(0, 0); err != nil {

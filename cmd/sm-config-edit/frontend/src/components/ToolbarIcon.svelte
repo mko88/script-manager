@@ -1,6 +1,4 @@
 <script lang="ts">
-  // Icons for the top toolbar's New/Open/Save/Save As — same style as
-  // ViewModeIcon/ListActionIcon (1px strokes, currentColor).
   export let mode: 'new' | 'open' | 'save' | 'save-as' | 'restore' | 'expand-all' | 'collapse-all'
 </script>
 

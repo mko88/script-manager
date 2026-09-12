@@ -27,7 +27,7 @@ func TestShouldAutoMask(t *testing.T) {
 		"region":      false,
 		"name":        false,
 		"description": false,
-		"keyboard":    false, // contains "key" but doesn't end with it
+		"keyboard":    false,
 	}
 	for key, want := range tests {
 		if got := ShouldAutoMask(key); got != want {
@@ -105,8 +105,6 @@ func TestExpandAllEnvExcludesReservedKeys(t *testing.T) {
 }
 
 func TestExpandAllEnvCaseCollision(t *testing.T) {
-	// Two keys that only differ by case collide once uppercased for export;
-	// exactly one row should be present, not two.
 	item := map[string]any{"Region": "eu", "region": "us"}
 	out := ExpandAllEnv(AllEnvListPlaceholder, item)
 	if n := strings.Count(out, "REGION:"); n != 1 {

@@ -22,7 +22,6 @@ func TestMerge(t *testing.T) {
 		t.Errorf("merged has %d keys, want %d", len(merged), len(want))
 	}
 
-	// The inputs must not be mutated.
 	if env["user"] != "admin" || item["region"] != nil {
 		t.Error("Merge mutated an input map")
 	}

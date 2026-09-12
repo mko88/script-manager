@@ -17,14 +17,6 @@ var previewMarkdown = goldmark.New(
 	goldmark.WithRendererOptions(html.WithUnsafe()),
 )
 
-// PreviewItem renders how item would look under the named display, entirely
-// from draft (not-yet-saved) form state — env/displays come from the
-// frontend's in-memory edits, not a loaded config, so the preview updates
-// live as the user types. configPath backs #CONFIG_FILE#; pass the file's
-// current path (empty if never saved). This mirrors gui.App.GetItemDetails'
-// pipeline (including #ALL_ENV_LIST#/#ALL_ENV_TABLE# expansion and masking)
-// so the preview matches what the real GUI would actually show, minus the
-// copy-to-clipboard wiring, which has no meaning in a not-yet-saved draft.
 func PreviewItem(item ItemDTO, envFields []FieldDTO, displays []DisplayDTO, displayName string, configPath string) (result PreviewDTO) {
 	defer func() { result.MissingFields = nonNil(result.MissingFields) }()
 
@@ -81,10 +73,6 @@ func findDisplayDTO(displays []DisplayDTO, name string) DisplayDTO {
 	return displays[0]
 }
 
-// PreviewAction renders act's description/cmd templates against draft form
-// state, the same read-only-preview semantics gui.App.GetActionDetail uses
-// (action.Preview falls back to the raw template text on error instead of
-// failing outright).
 func PreviewAction(item ItemDTO, envFields []FieldDTO, act ActionDTO) ActionPreviewDTO {
 	itemMap, err := FromItemDTO(item)
 	if err != nil {

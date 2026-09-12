@@ -7,8 +7,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// The status bar must always render exactly one row: content wider than the
-// tile makes lipgloss wrap it onto a second line.
 func TestStatusBarSingleLineAtAnyWidth(t *testing.T) {
 	contexts := []statusContext{
 		ctxItemSelect, ctxActionsFocused, ctxDetailsFocused, ctxDetailsCopyMode, ctxCommandFocused,

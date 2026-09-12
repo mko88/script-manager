@@ -14,24 +14,8 @@ import (
 	"script-manager/internal/terminal"
 )
 
-// cleanupTempScriptMinAge is how old a matched file must be before
-// cleanupTempScripts will remove it. NewApp spawns the sweep in the
-// background (not to slow down startup waiting on a directory scan) — with
-// no minimum age at all, that sweep can race a script this same instance is
-// about to write moments later (e.g. the window opens and the user
-// immediately clicks Run/Run here) and delete it out from under the shell
-// that's about to read it. Something orphaned by a previous, crashed run is
-// at least this old by the time a new instance starts; anything newer is
-// left for a later sweep rather than risked.
 const cleanupTempScriptMinAge = 2 * time.Second
 
-// cleanupTempScripts removes every action script left behind by previous
-// runs, regardless of how old that makes it — as long as it's older than
-// cleanupTempScriptMinAge (see there for why that floor exists). Every
-// script wrapScript produces deletes itself once the launched shell actually
-// starts executing it (see wrapScript); this is only the fallback for
-// whatever that missed — e.g. the terminal or shell never started at all —
-// so nothing lingers across restarts, however old it is.
 func cleanupTempScripts() {
 	cutoff := time.Now().Add(-cleanupTempScriptMinAge)
 	for _, pattern := range []string{action.TempScriptPattern, inlineOutPattern} {
@@ -48,11 +32,6 @@ func cleanupTempScripts() {
 	}
 }
 
-// RunAction launches the item/action pair in a terminal window. Which
-// terminal is used is resolved by terminal.Resolve: an explicit config.
-// Terminal override takes precedence, otherwise it auto-detects the most
-// common terminal for the current OS (see internal/terminal). macOS and
-// other platforms get a clear error instead of a silent no-op.
 func (a *App) RunAction(itemIndex, actionIndex int) error {
 	if runtime.GOOS != "windows" && runtime.GOOS != "linux" {
 		return fmt.Errorf("running actions is not supported on %s", runtime.GOOS)
@@ -77,8 +56,6 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 		title = act.Title + " · " + name
 	}
 
-	// Resolve the terminal before writing anything to disk, so a missing or
-	// misconfigured terminal fails fast without leaving a temp script behind.
 	term, err := terminal.Resolve(a.cfg.Terminal, runtime.GOOS, title, a.appDataDir)
 	if err != nil {
 		return err
@@ -120,16 +97,6 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 	return nil
 }
 
-// wrapScript wraps the expanded command with a self-delete of its own temp
-// file, so cleanup is tied to actual execution rather than to an external
-// timer: whichever line runs the delete, the interpreter has already read
-// the file that far, so it can't race a terminal/shell that is merely slow
-// to start.
-//
-// Placement per shell matches action.WrapScriptFile — first line for pwsh
-// and POSIX shells (also the earliest a secret-bearing script leaves disk),
-// last line for cmd, whose line-by-line reads misbehave when a batch file
-// deletes itself up front. stayOpen adds the POSIX pause epilogue.
 func wrapScript(shellBase, script string, stayOpen bool) string {
 	switch shellBase {
 	case "pwsh", "powershell":
@@ -149,9 +116,3 @@ func wrapScript(shellBase, script string, stayOpen bool) string {
 		return b.String()
 	}
 }
-
-// wrapScriptFile, writeTempScript, psQuote, and shQuote moved to
-// script-manager/internal/action (as WrapScriptFile/WriteTempScript) so
-// internal/ui's TUI could share the same script-mode wrapping the GUI
-// already used — see action.WrapScriptFile's doc comment for the full
-// reasoning.

@@ -1,10 +1,6 @@
 <script lang="ts">
   import CollapseToggle from '@shared/components/CollapseToggle.svelte'
 
-  // The collapsible/resizable panel header+body shape shared by all four of
-  // this app's panels (Items, Actions, Details, Command) — same title bar,
-  // collapse toggle, and conditional-body-when-expanded structure, so a
-  // future layout tweak touches this one file instead of all four.
   export let collapsed: boolean
   export let title: string
   export let titleWrap = false
@@ -15,10 +11,6 @@
   let className = ''
   export { className as class }
 
-  // Clicking anywhere on the header toggles collapse, not just the
-  // chevron — except a click on the chevron itself, which CollapseToggle
-  // below already handles on its own; toggling again here would just flip
-  // it straight back.
   function onHeaderClick(e: MouseEvent) {
     if ((e.target as HTMLElement).closest('.collapse-btn')) return
     collapsed = !collapsed

@@ -10,7 +10,6 @@ async function bootstrap() {
   try {
     setMessageOverride(await GetMessages())
   } catch {
-    // Missing/invalid override file — t() falls back to compiled defaults.
   }
   await syncTheme(GetTheme)
 

@@ -53,58 +53,28 @@
 
   let selectedItem = -1
   let selectedActionIndex = -1
-  // Two-way bound into GroupFilter; empty set means "All" — no filter.
   let selectedGroups = new Set<string>()
 
-  // Live reload: internal/gui/themewatch.go watches sm-theme.json and
-  // pushes a Wails event whenever sm-config-edit changes it, so a theme
-  // switched or saved there shows up here without needing to relaunch.
-  // This app never switches themes itself, so there's no reactive state to
-  // update here — watchTheme applies the change internally regardless.
   onMount(() => watchTheme(EventsOn, () => {}))
 
   let inlineOutputEl: HTMLElement | undefined
 
-  // Autoscrolls the inline output box to the newest line as it streams in.
-  // Called directly from the poll loop below when it's updating the
-  // currently-viewed action, not from a `$:` reactive statement watching
-  // output/inlineOutputEl together — that shape was tried first and
-  // reliably broke Wails' own bound-method delivery (and, separately, an
-  // EventSource-based version of this feature) in WebKitGTK:
-  // inlineOutputEl is only bound once the <pre> below actually renders
-  // (there must already be output for that), so the reactive statement's
-  // own dependency on both variables together, right as new output
-  // arrived, was the trigger. Root-caused by bisection, not fully
-  // understood at the WebKitGTK level.
   async function scrollInlineOutputToEnd() {
     await tick()
     if (inlineOutputEl) inlineOutputEl.scrollTop = inlineOutputEl.scrollHeight
   }
 
-  // What the Command pane actually displays — derived from the shared
-  // inlineRuns store (see lib/inlineRuns) for whatever's currently selected,
-  // defaulting to "never run" (blank, not running) when there's no entry yet.
   $: currentInline = selectedItem >= 0 && selectedActionIndex >= 0 ? $inlineStates[inlineKey(selectedItem, selectedActionIndex)] : undefined
   $: inlineRunning = currentInline?.running ?? false
   $: inlineOutput = currentInline?.output ?? ''
   $: inlineExitCode = currentInline?.exitCode ?? null
 
-  // Which items/actions to show a running indicator for — every entry
-  // still running, cross-referenced by itemIndex for the Items list and by
-  // actionIndex (within the selected item) for the Actions list. Pure data
-  // derivations, no DOM access — safe alongside the bug described above,
-  // which was specifically about a reactive statement that touched the DOM.
   $: runningItemIndices = new Set(Object.values($inlineStates).filter((s) => s.running).map((s) => s.itemIndex))
   $: runningActionIndicesForSelectedItem = new Set(
     Object.values($inlineStates)
       .filter((s) => s.running && s.itemIndex === selectedItem)
       .map((s) => s.actionIndex),
   )
-  // Last finished exit code per action of the selected item, for the
-  // persistent green/red dot on action rows — the store keeps every pair
-  // ever run this session, so this survives switching items/actions. While
-  // a pair is running again its exitCode is null, so the row falls back to
-  // the pulsing running indicator until the new result replaces the old.
   $: lastExitCodeByActionForSelectedItem = new Map(
     Object.values($inlineStates)
       .filter((s) => !s.running && s.exitCode !== null && s.itemIndex === selectedItem)
@@ -137,9 +107,6 @@
     selectedActionIndex = -1
     selectedGroups = new Set()
     actionDetail = null
-    // Picking an item is about inspecting it, not the command from
-    // whatever action happened to be selected before — so Details takes
-    // over the space and Command steps aside until an action is chosen.
     detailsCollapsed = false
     commandCollapsed = true
     saveLayout()
@@ -147,8 +114,6 @@
     details = await GetItemDetails(index)
   }
 
-  // A group-filter change can hide the selected action, so the selection is
-  // always reset alongside it.
   function onGroupFilterChange() {
     selectedActionIndex = -1
     actionDetail = null
@@ -157,9 +122,6 @@
   async function selectAction(index: number) {
     if (selectedItem < 0) return
     selectedActionIndex = index
-    // Mirrors selectItem above: picking an action is about running or
-    // inspecting its command, so Command takes over and Details steps
-    // aside.
     detailsCollapsed = true
     commandCollapsed = false
     saveLayout()
@@ -204,10 +166,6 @@
     }
   }
 
-  // The run/poll mechanics live in lib/inlineRuns — these wrappers just tie
-  // them to the current selection, plus the scroll side effect for whichever
-  // run is on screen right now (a DOM concern that stays in this component;
-  // see scrollInlineOutputToEnd's doc comment above).
   function runActionInline() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
     startInlineRun(selectedItem, selectedActionIndex, (itemIndex, actionIndex) => {
@@ -222,10 +180,6 @@
     cancelInlineRun(selectedItem, selectedActionIndex)
   }
 
-  // Shared by reloadConfig (F5 / Refresh config) and browseConfig (Load
-  // config) — both swap the backend's in-memory config out from under the
-  // frontend, so both need the same items/actions/details re-fetch and
-  // reselect-something-sane dance afterward.
   async function refreshAfterConfigChange() {
     actionGroupCatalog = await GetActionGroups()
     const newItems = await GetItems()
@@ -260,7 +214,7 @@
       flash(t('toast.loadFailed', { error: String(err) }))
       return
     }
-    if (!path) return // dialog cancelled
+    if (!path) return
     await refreshAfterConfigChange()
     flash(t('toast.loaded', { path }))
   }
@@ -289,7 +243,6 @@
     }
   }
 
-  // --- Window controls (pin-on-top / transparency toolbar buttons) ---
   const WINDOW_KEY = 'script-manager-gui:window'
   const MIN_OPACITY = 20
 
@@ -298,26 +251,6 @@
   let opacityPopoverOpen = false
   let opacityControlEl: HTMLElement
 
-  // --- Shrink-on-blur: while pinned always-on-top, fades the window down
-  // to a tiny nub parked at the vertical center of the screen's right edge
-  // whenever it loses OS focus. Hovering pops it out to a bigger,
-  // fully-opaque badge; moving away shrinks it back after a short delay so
-  // it doesn't flicker shut mid-hover. Clicking it in either state restores
-  // the saved size, position, and opacity. Gated on alwaysOnTop itself (not
-  // just this checkbox): unpinned, a shrunk window would vanish behind
-  // whatever's focused.
-  //
-  // The nub and badge share a height and a right edge — only the width
-  // animates — so the pop grows leftward from a fixed edge and can't
-  // overflow the screen.
-  //
-  // Both widths sit below Windows' minimum tracking width for a resizable
-  // frameless window (SM_CXMINTRACK, ~120px), which would otherwise clamp
-  // WindowSetSize: the window stays wider than requested, overhangs the
-  // fixed right edge, and pushes the flex-centred icon off to the right.
-  // Lowering the window's min size to the nub's dimensions on the way in
-  // (restored on the way out) makes the requested widths stick. Only the
-  // horizontal axis needs that — SHRUNK_HEIGHT is above SM_CYMINTRACK.
   const NUB_WIDTH = 36
   const BADGE_WIDTH = 100
   const SHRUNK_HEIGHT = 100
@@ -332,7 +265,7 @@
   let shrunkRightEdgeX = 0
   let shrunkY = 0
   let hideShrunkTimer: ReturnType<typeof setTimeout> | null = null
-  let popProgress = 0 // 0 = nub width/opacity, 1 = badge width/opacity
+  let popProgress = 0
   let popAnimFrame: number | null = null
   let savedGeometry: { x: number; y: number; w: number; h: number } | null = null
 
@@ -344,10 +277,6 @@
     SetWindowOpacity(badgeOpacity)
   }
 
-  // Animates popProgress toward 0 (nub) or 1 (badge) with an ease-out curve.
-  // Reads from whatever popProgress currently is, so reversing direction
-  // mid-animation (e.g. the pointer leaves before the pop-out finishes)
-  // continues smoothly from there instead of jumping.
   function animatePopTo(target: number) {
     if (popAnimFrame !== null) cancelAnimationFrame(popAnimFrame)
     const start = popProgress
@@ -384,9 +313,6 @@
     aboutPopoverOpen = false
   }
 
-  // Applies opacity live as the slider is dragged (on:input fires on every
-  // tick); commitOpacity below only persists once the drag settles, so
-  // dragging through several values doesn't spam localStorage writes.
   function applyOpacity() {
     SetWindowOpacity(opacity)
   }
@@ -401,9 +327,6 @@
     if (!shrinkOnBlur && isShrunk) restoreFromShrink()
   }
 
-  // Native window blur fires when the OS moves focus to another window —
-  // reliable here because Wails hosts the whole UI in one real OS window,
-  // unlike a browser tab where "blur" can mean other things.
   async function onWindowBlur() {
     if (!alwaysOnTop || !shrinkOnBlur || isShrunk) return
     isShrunk = true
@@ -412,23 +335,16 @@
     const [pos, size] = await Promise.all([WindowGetPosition(), WindowGetSize()])
     savedGeometry = { x: pos.x, y: pos.y, w: size.w, h: size.h }
 
-    // WindowSetPosition is relative to the monitor the window is currently
-    // on, so the nub only needs that monitor's own width/height, not its
-    // absolute desktop offset.
     const screens = await ScreenGetAll()
     const screen = screens.find((s) => s.isCurrent) ?? screens.find((s) => s.isPrimary) ?? screens[0]
     const screenW = screen?.width ?? size.w
     shrunkRightEdgeX = screenW - SHRUNK_MARGIN
     shrunkY = Math.max(0, ((screen?.height ?? size.h) - SHRUNK_HEIGHT) / 2)
 
-    // Drop the OS min-size floor so the nub/badge widths aren't clamped
-    // wider than requested; restoreFromShrink puts it back.
     WindowSetMinSize(NUB_WIDTH, SHRUNK_HEIGHT)
     applyPopProgress()
   }
 
-  // Pops the nub out to the bigger badge width on hover. Cancels any
-  // pending shrink-back from a previous mouseleave.
   function revealPopOut() {
     if (!isShrunk) return
     if (hideShrunkTimer) {
@@ -440,8 +356,6 @@
     animatePopTo(1)
   }
 
-  // Shrinks back to the nub width after a short delay, so briefly crossing
-  // the pointer off it (e.g. moving toward its edge) doesn't snap it shut.
   function scheduleShrinkBack() {
     if (!isShrunk) return
     if (hideShrunkTimer) clearTimeout(hideShrunkTimer)
@@ -464,13 +378,8 @@
     }
     isShrunk = false
     isPoppedOut = false
-    // Undo the shrunk-mode min-size floor (0 = no minimum, as configured).
     WindowSetMinSize(0, 0)
     if (savedGeometry) {
-      // Growing back to the saved (larger) size, so reposition first — a
-      // resize keeps the top-left corner fixed and grows rightward/downward,
-      // so sizing up before moving would briefly balloon the window past
-      // the screen from its right-edge-hugging shrunk position.
       WindowSetPosition(savedGeometry.x, savedGeometry.y)
       WindowSetSize(savedGeometry.w, savedGeometry.h)
     }
@@ -487,7 +396,6 @@
     }
   }
 
-  // --- About popover ---
   const GITHUB_URL = 'https://github.com/mko88/script-manager'
 
   let appVersion = ''
@@ -495,11 +403,6 @@
   let aboutControlEl: HTMLElement
 
   onMount(async () => {
-    // The version string alone: it's `git describe` output, which already
-    // carries the short hash whenever the build isn't sitting exactly on a
-    // release tag, so appending the separate commit field would read as
-    // "v1.4.0.0-4-g94b2835 (94b2835)". The backend returns it anyway, for
-    // a bug report that needs the hash from a tagged build too.
     appVersion = (await GetVersion()).version ?? ''
   })
 
@@ -512,7 +415,6 @@
     BrowserOpenURL(GITHUB_URL)
   }
 
-  // --- Resizable / collapsible panel layout (geometry: lib/panelLayout) ---
   const LAYOUT_KEY = 'script-manager-gui:layout'
 
   let shellEl: HTMLElement
@@ -533,10 +435,6 @@
   let outputSectionCollapsed = false
 
   onMount(() => {
-    // Defaults here are the effective first-run values, not necessarily the
-    // `let` initializers above (e.g. group chips start expanded on a fresh
-    // profile, matching the pre-loadPersisted `!!saved.groupChipsCollapsed`
-    // coercion this replaced).
     ;({
       leftWidth,
       itemsHeight,
@@ -580,8 +478,6 @@
     })
   }
 
-  // The drag/flex geometry lives in lib/panelLayout — these wrappers just
-  // bind it to this window's panels and persist the result.
   function dragLeftColumn(e: MouseEvent) {
     dragColumn(e, {
       getTotal: () => shellEl.getBoundingClientRect().width,
@@ -922,12 +818,6 @@
   }
 
   .toolbar {
-    /* The window is frameless (main.go) — this bar is its only drag
-       handle. --wails-draggable is a CSS custom property Wails itself
-       watches for (not app-defined), and it inherits to every descendant
-       by default, so every clickable child below has to opt back out with
-       --wails-draggable: no-drag or it'd drag the window instead of
-       responding to clicks. */
     --wails-draggable: drag;
     flex: none;
     display: flex;
@@ -938,30 +828,16 @@
     border-bottom: 1px solid var(--sm-border);
   }
 
-  /* .icon-btn comes from the shared design system (@shared/theme.css),
-     same as .btn. */
-
-  /* Opts every toolbar button (and the opacity/about popovers, which nest
-     a range input and a link respectively) back out of the .toolbar drag
-     region above — otherwise clicking any of them would drag the window
-     instead of activating it. */
   .toolbar :global(.btn),
   .toolbar .opacity-control,
   .toolbar .about-control {
     --wails-draggable: no-drag;
   }
 
-  /* Pushes the pin/transparency/settings group as a whole to the toolbar's
-     right edge, leaving load/refresh at the left. :global because the class
-     renders inside IconButton's own template (via its class prop), out of
-     reach of Svelte's per-component scoping. */
   :global(.toolbar-right-start) {
     margin-left: auto;
   }
 
-  /* Highlights the pin/transparency buttons while toggled on — .toolbar
-     isn't .list-toolbar, so it doesn't already get that shared rule's
-     .btn.active styling. */
   .toolbar :global(.btn.active) {
     background: var(--sm-bg-primary);
     border-color: var(--sm-bg-primary);
@@ -1018,13 +894,6 @@
     opacity: 0.6;
   }
 
-  /* The shrunk-on-blur nub/badge: at this point the native window itself
-     has been animated between NUB_WIDTH and BADGE_WIDTH (always at
-     SHRUNK_HEIGHT — see applyPopProgress/animatePopTo), so this replaces
-     .app-root entirely rather than overlaying it. box-sizing: border-box
-     keeps the 1px border inside those dimensions rather than added on top
-     of them, which would otherwise push the box a couple of pixels past
-     the window's actual bounds and throw off the icon's centering. */
   .shrunk-widget {
     display: flex;
     align-items: center;
@@ -1090,9 +959,6 @@
     font-size: 0.8rem;
   }
 
-  /* Stands in for the native title-bar buttons the frameless window no
-     longer has — tighter gap than the rest of the toolbar, matching the
-     conventional Windows minimize/maximize/close grouping. */
   .window-controls {
     display: flex;
     gap: 2px;
@@ -1126,11 +992,6 @@
     flex: 1 1 auto;
   }
 
-  /* .resizer(.vertical/.horizontal/.disabled), .panel, .panel-title(-text/-selected), .collapse-btn, .panel-body, .list,
-     .row, .chip, .empty, .toast, .copy-cmd-btn, .run-cmd-btn come from the
-     shared design system (@shared/theme.css, imported via style.css) — not
-     redefined here. */
-
   .details-warning {
     flex: none;
     display: flex;
@@ -1147,9 +1008,6 @@
     gap: 4px;
   }
 
-  /* :global, not scoped — the button this styles now renders inside
-     CollapseToggle's own template (a different component), which
-     Svelte's per-component CSS scoping wouldn't otherwise reach. */
   :global(.warning-toggle) {
     flex: none;
     padding: 2px 4px;
@@ -1242,19 +1100,11 @@
     border-radius: 4px;
     margin: 0 0 8px;
   }
-  /* :global — these buttons now render inside IconButton's own template
-     (via its class prop), which Svelte's per-component CSS scoping
-     wouldn't otherwise reach. */
   :global(.cmd-output-copy-btn) {
     position: absolute;
     top: 4px;
     right: 4px;
   }
-  /* The list dots (running pulse / last exit code) sit at the row's right
-     edge: rows go flex here — the shared .row stays display:block for the
-     config editor's use — so margin-left:auto can push the dot over
-     regardless of label length. The exit dot's ok/fail colors come from
-     the shared .status-ok/.status-fail classes (@shared/theme.css). */
   .list .row {
     display: flex;
     align-items: center;
@@ -1270,10 +1120,6 @@
     color: var(--sm-run-active);
     animation: running-pulse 1.5s ease-in-out infinite;
   }
-  /* .output-status, .status-dot, .status-running/.status-ok/.status-fail
-     (the OUTPUT section header's run status) come from the shared design
-     system (@shared/theme.css) — also reused by the config editor's theme
-     preview. */
   @keyframes running-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.3; }
@@ -1296,15 +1142,6 @@
     margin: 0 0 8px;
   }
 
-  /* Minimal, borderless copy button meant to sit inside a code block —
-     .cmd-line-copy-btn and .cmd-output-copy-btn both float it in the
-     top-right corner, the placement docs sites commonly use for a code
-     block's copy action. .cmd-line-copy-btn positions against
-     ScriptSource's own position:relative card (@shared/components/
-     ScriptSource.svelte) — it's passed into that component's default slot,
-     not rendered as a sibling here, but stays :global() since Svelte scopes
-     slotted content to the component that fills the slot (this one), not
-     the one that declares it. */
   :global(.cmd-copy-btn) {
     display: flex;
     align-items: center;

@@ -15,12 +15,8 @@ import (
 	"script-manager/internal/config"
 )
 
-// actionFinishedMsg is delivered when an action subprocess completes.
 type actionFinishedMsg struct{ err error }
 
-// execAction builds the tea.Cmd that runs the action in the configured
-// shell. Bubble Tea suspends the TUI, hands the terminal to the subprocess,
-// and resumes the same model afterwards — no state is lost.
 func (a *App) execAction(act config.Action) tea.Cmd {
 	merged := a.MergedItem()
 
@@ -35,15 +31,6 @@ func (a *App) execAction(act config.Action) tea.Cmd {
 		if err != nil {
 			return a.flashMessage("Script path template error: "+err.Error(), 3*time.Second)
 		}
-		// Same wrapper-file route the GUI uses for script-mode actions.
-		// Exec'ing the path directly only works where the OS can run the
-		// file natively (a plain .ps1 fails on Windows with "%1 is not a
-		// valid Win32 application"), and handing it to action.ScriptArgv
-		// would make e.g. bash read a Python script as bash source instead
-		// of respecting its shebang. The wrapper self-deletes, so the
-		// explicit cleanup below is only a fallback for a shell that never
-		// starts reading it. No stayOpen epilogue: this app prompts for a
-		// keypress itself once the process exits.
 		wrapped := action.WrapScriptFile(action.ShellBasename(a.cfg.Shell[0]), expandedScript, false)
 		scriptPath, err := action.WriteTempScript(a.cfg.Shell[0], wrapped)
 		if err != nil {
@@ -72,18 +59,11 @@ func (a *App) execAction(act config.Action) tea.Cmd {
 	return tea.Exec(proc, func(err error) tea.Msg { return actionFinishedMsg{err} })
 }
 
-// actionProcess adapts the shell subprocess to tea.ExecCommand so a header is
-// printed before it runs and, unless the action sets noWait, a keypress is
-// awaited after it exits — all while Bubble Tea has released the terminal.
 type actionProcess struct {
-	cmd      *exec.Cmd
-	title    string
-	itemName string
-	wait     bool
-	// cleanupPath is a script-mode action's temp wrapper file, "" for a
-	// cmd-mode action (which never writes one). The wrapper already deletes
-	// itself once the shell starts reading it — this is only the fallback
-	// for whatever that missed (e.g. the shell never actually started).
+	cmd         *exec.Cmd
+	title       string
+	itemName    string
+	wait        bool
 	cleanupPath string
 
 	stdin  io.Reader
@@ -106,8 +86,6 @@ func (p *actionProcess) Run() error {
 		os.Remove(p.cleanupPath)
 	}
 	if err != nil {
-		// Report here so the user sees it before the keypress prompt; the
-		// error also travels back via actionFinishedMsg for the status bar.
 		fmt.Fprintf(p.stderr, "action exited: %v\n", err)
 	}
 
@@ -117,9 +95,6 @@ func (p *actionProcess) Run() error {
 	return err
 }
 
-// waitForKey blocks until a single keypress. The terminal is in cooked mode
-// while Bubble Tea has released it, so switch to raw mode for the read —
-// otherwise the user would have to press Enter.
 func waitForKey(in io.Reader, out io.Writer) {
 	fmt.Fprint(out, "\nPress any key to return...")
 
