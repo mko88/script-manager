@@ -15,6 +15,8 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 - Actions opt in with **Requires PIN** to receive those values decrypted;
   others run without a prompt and simply don't have them set.
 - `sm-config-edit` has a **PIN** section to set, change or remove the PIN.
+- `sm-config-edit` drops its native title bar, like `script-manager-gui`: the
+  toolbar is the drag handle and carries the window controls.
 - Both GUI apps list the last 10 configs opened, shared between them.
 - `sm-config-edit` autosaves, and `script-manager-gui` reloads when the config
   changes on disk.

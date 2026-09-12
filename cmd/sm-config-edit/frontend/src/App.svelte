@@ -20,6 +20,7 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import RecentMenu from '@shared/components/RecentMenu.svelte'
   import PinDialog from '@shared/components/PinDialog.svelte'
+  import { WindowMinimise, WindowToggleMaximise, Quit } from '../wailsjs/runtime'
   import { t } from './messages'
   import { shellLanguage } from './lib/shellLanguage'
   import {
@@ -480,6 +481,11 @@
       aria={t('tooltip.openInEditorAria')}
       on:click={openInEditor}><Icon name="edit" /></IconButton
     >
+    <div class="window-controls">
+      <IconButton title={t('tooltip.minimizeWindow')} on:click={() => WindowMinimise()}><Icon name="minimize" /></IconButton>
+      <IconButton title={t('tooltip.maximizeWindow')} on:click={() => WindowToggleMaximise()}><Icon name="maximize" /></IconButton>
+      <IconButton class="btn icon-btn window-close-btn" title={t('tooltip.closeWindow')} on:click={() => Quit()}><Icon name="cancel" /></IconButton>
+    </div>
   </header>
 
   <main class="app-shell">
@@ -649,6 +655,7 @@
   }
 
   .toolbar {
+    --wails-draggable: drag;
     flex: none;
     display: flex;
     align-items: center;
@@ -656,6 +663,24 @@
     padding: 6px 8px;
     background: var(--sm-panel-header);
     border-bottom: 1px solid var(--sm-border);
+  }
+
+  .toolbar :global(.btn),
+  .toolbar :global(.recent-menu),
+  .toolbar .save-state {
+    --wails-draggable: no-drag;
+  }
+
+  .window-controls {
+    display: flex;
+    gap: 2px;
+    margin-left: 8px;
+  }
+
+  :global(.window-close-btn:hover) {
+    background: var(--sm-error);
+    border-color: var(--sm-error);
+    color: var(--sm-bg-alt);
   }
 
   .save-state {
