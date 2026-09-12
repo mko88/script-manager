@@ -8,6 +8,7 @@ import (
 
 	"script-manager/internal/appdata"
 	"script-manager/internal/config"
+	"script-manager/internal/recent"
 	"script-manager/internal/terminal"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -32,6 +33,7 @@ func (a *App) Startup(ctx context.Context) {
 func (a *App) stateFor(cfg *config.Config) StateDTO {
 	a.cfg = cfg
 	a.path = cfg.SourcePath
+	recent.Add(a.appDataDir, cfg.SourcePath)
 	return StateDTO{Config: ToConfigDTO(cfg), Path: cfg.SourcePath}
 }
 
@@ -121,6 +123,7 @@ func (a *App) Save(state ConfigDTO, path string) (SaveResultDTO, error) {
 	cfg.SourcePath = path
 	a.cfg = cfg
 	a.path = path
+	recent.Add(a.appDataDir, path)
 	return SaveResultDTO{Path: path}, nil
 }
 

@@ -7,6 +7,10 @@ the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 
 ### Changes
 
+- The Load config button (`script-manager-gui`) and Open button
+  (`sm-config-edit`) now open a dropdown listing the last 10 configs
+  opened, by full path, with Clear recent and Browse… below it. The list
+  is shared by both apps, and an entry that no longer loads drops off it.
 - `sm-config-edit`: a copy button on the Items, Action Groups and Actions
   toolbars duplicates the selected entry below the original and selects it.
 - `sm-config-edit`: copies are named "Server - Copy", then "Server - Copy 2";

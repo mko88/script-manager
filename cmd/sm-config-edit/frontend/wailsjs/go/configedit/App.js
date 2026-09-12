@@ -14,6 +14,10 @@ export function BrowseScriptFile() {
   return window['go']['configedit']['App']['BrowseScriptFile']();
 }
 
+export function ClearRecentConfigs() {
+  return window['go']['configedit']['App']['ClearRecentConfigs']();
+}
+
 export function DataFolderPath() {
   return window['go']['configedit']['App']['DataFolderPath']();
 }
@@ -58,6 +62,10 @@ export function OpenInEditor() {
   return window['go']['configedit']['App']['OpenInEditor']();
 }
 
+export function OpenRecent(arg1) {
+  return window['go']['configedit']['App']['OpenRecent'](arg1);
+}
+
 export function PreviewAction(arg1, arg2, arg3) {
   return window['go']['configedit']['App']['PreviewAction'](arg1, arg2, arg3);
 }
@@ -68,6 +76,10 @@ export function PreviewItem(arg1, arg2, arg3, arg4) {
 
 export function PreviewScriptFile(arg1) {
   return window['go']['configedit']['App']['PreviewScriptFile'](arg1);
+}
+
+export function RecentConfigs() {
+  return window['go']['configedit']['App']['RecentConfigs']();
 }
 
 export function Save(arg1, arg2) {

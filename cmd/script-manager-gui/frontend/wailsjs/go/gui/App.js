@@ -10,6 +10,10 @@ export function CancelInlineAction(arg1, arg2) {
   return window['go']['gui']['App']['CancelInlineAction'](arg1, arg2);
 }
 
+export function ClearRecentConfigs() {
+  return window['go']['gui']['App']['ClearRecentConfigs']();
+}
+
 export function CopyToClipboard(arg1) {
   return window['go']['gui']['App']['CopyToClipboard'](arg1);
 }
@@ -56,6 +60,14 @@ export function LaunchConfigEditor() {
 
 export function LoadError() {
   return window['go']['gui']['App']['LoadError']();
+}
+
+export function LoadRecentConfig(arg1) {
+  return window['go']['gui']['App']['LoadRecentConfig'](arg1);
+}
+
+export function RecentConfigs() {
+  return window['go']['gui']['App']['RecentConfigs']();
 }
 
 export function ReloadConfig() {

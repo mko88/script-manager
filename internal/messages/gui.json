@@ -48,6 +48,10 @@
   },
   "tooltip": {
     "loadConfig": "Load config",
+    "recentHeading": "Recent configs",
+    "recentEmpty": "No recent configs yet",
+    "recentClear": "Clear recent",
+    "recentBrowse": "Browse…",
     "refreshConfigTitle": "Refresh config (F5)",
     "refreshConfigAria": "Refresh config",
     "openConfigEditorTitle": "Open config editor (Ctrl+E)",

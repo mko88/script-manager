@@ -9,6 +9,8 @@ export function BrowseSaveAs():Promise<string>;
 
 export function BrowseScriptFile():Promise<string>;
 
+export function ClearRecentConfigs():Promise<Array<string>>;
+
 export function DataFolderPath():Promise<string>;
 
 export function DeleteTheme(arg1:string):Promise<void>;
@@ -31,11 +33,15 @@ export function OpenDataFolder():Promise<void>;
 
 export function OpenInEditor():Promise<void>;
 
+export function OpenRecent(arg1:string):Promise<configedit.StateDTO>;
+
 export function PreviewAction(arg1:configedit.ItemDTO,arg2:Array<configedit.FieldDTO>,arg3:configedit.ActionDTO):Promise<configedit.ActionPreviewDTO>;
 
 export function PreviewItem(arg1:configedit.ItemDTO,arg2:Array<configedit.FieldDTO>,arg3:Array<configedit.DisplayDTO>,arg4:string):Promise<configedit.PreviewDTO>;
 
 export function PreviewScriptFile(arg1:string):Promise<configedit.ScriptPreviewDTO>;
+
+export function RecentConfigs():Promise<Array<string>>;
 
 export function Save(arg1:configedit.ConfigDTO,arg2:string):Promise<configedit.SaveResultDTO>;
 
