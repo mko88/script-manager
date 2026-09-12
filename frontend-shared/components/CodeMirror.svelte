@@ -4,6 +4,7 @@
   import { shell } from '@codemirror/legacy-modes/mode/shell'
   import { powerShell } from '@codemirror/legacy-modes/mode/powershell'
   import { yaml } from '@codemirror/legacy-modes/mode/yaml'
+  import { markdown } from '@codemirror/lang-markdown'
   import { tags } from '@lezer/highlight'
 
   export type CodeLanguage = 'shell' | 'powershell' | 'yaml' | 'markdown' | 'plain' | string
@@ -71,6 +72,16 @@
     { tag: [tags.comment, tags.meta], color: 'var(--sm-text-faint)', fontStyle: 'italic' },
     { tag: [tags.operator, tags.punctuation, tags.bracket], color: 'var(--sm-text-muted)' },
     { tag: tags.invalid, color: 'var(--sm-error)' },
+
+    { tag: tags.heading, color: 'var(--sm-text-heading)', fontWeight: '700' },
+    { tag: tags.strong, color: 'var(--sm-text)', fontWeight: '700' },
+    { tag: tags.emphasis, color: 'var(--sm-text)', fontStyle: 'italic' },
+    { tag: tags.monospace, color: 'var(--sm-text-highlight)' },
+    { tag: [tags.link, tags.url], color: 'var(--sm-run-active)', textDecoration: 'underline' },
+    { tag: tags.quote, color: 'var(--sm-text-muted)', fontStyle: 'italic' },
+    { tag: tags.list, color: 'var(--sm-text-tab)' },
+    { tag: tags.contentSeparator, color: 'var(--sm-border)' },
+    { tag: tags.processingInstruction, color: 'var(--sm-text-muted)' },
   ])
 
   export function languageExtension(language: string) {
@@ -81,6 +92,8 @@
         return [StreamLanguage.define(powerShell)]
       case 'yaml':
         return [StreamLanguage.define(yaml)]
+      case 'markdown':
+        return [markdown()]
       default:
         return []
     }
