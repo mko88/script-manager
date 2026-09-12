@@ -183,14 +183,9 @@
   let uiScale: number = UI_SCALE.default
   let uiPrefs: { fontUi?: string; fontMono?: string; scalePercent?: number } = {}
 
-  let fontUiDraft = ''
-  let fontMonoDraft = ''
-
   onMount(async () => {
     uiPrefs = await GetUIPrefs()
     uiScale = clampScale(uiPrefs.scalePercent)
-    fontUiDraft = uiPrefs.fontUi ?? ''
-    fontMonoDraft = uiPrefs.fontMono ?? ''
     applyUIPrefs(uiPrefs)
   })
 
@@ -586,22 +581,6 @@
             onToggleLock={toggleFieldLock}
           />
         {:else if section === 'theme'}
-          <div class="typography-settings">
-            <div class="subsection-title">{t('nav.fonts')}</div>
-            <div class="field">
-              <span>{t('field.fontUi')}</span>
-              <input type="text" placeholder={t('placeholder.fontDefault')} bind:value={fontUiDraft} />
-            </div>
-            <div class="field">
-              <span>{t('field.fontMono')}</span>
-              <input type="text" placeholder={t('placeholder.fontDefaultMono')} bind:value={fontMonoDraft} />
-            </div>
-            <p class="hint">{t('hint.fonts')}</p>
-            <p class="hint">{t('hint.uiScale', { percent: uiScale })}</p>
-            <button class="btn" type="button" on:click={() => saveFonts(fontUiDraft, fontMonoDraft)}
-              >{t('button.applyFonts')}</button
-            >
-          </div>
           <ThemeEditor
             bind:this={themeEditor}
             bind:theme
@@ -610,6 +589,10 @@
             deleteTheme={DeleteTheme}
             setActiveTheme={SetTheme}
             {flash}
+            fontUi={uiPrefs.fontUi ?? ''}
+            fontMono={uiPrefs.fontMono ?? ''}
+            {uiScale}
+            onSaveFonts={saveFonts}
           />
         {:else if section === 'secrets'}
           <SecretsEditor
@@ -650,13 +633,6 @@
 
 
 <style>
-  .typography-settings {
-    max-width: 420px;
-    margin-bottom: 18px;
-    padding-bottom: 14px;
-    border-bottom: 1px solid var(--sm-border);
-  }
-
   .app-root {
     display: flex;
     flex-direction: column;
