@@ -2,13 +2,16 @@ package gui
 
 import (
 	"context"
+	"errors"
 	"os/exec"
 	"sync"
+	"time"
 
 	"script-manager/internal/action"
 	"script-manager/internal/appdata"
 	"script-manager/internal/applog"
 	"script-manager/internal/config"
+	"script-manager/internal/configmigrate"
 	"script-manager/internal/exepath"
 	"script-manager/internal/filewatch"
 	"script-manager/internal/recent"
@@ -17,6 +20,7 @@ import (
 	"script-manager/internal/version"
 
 	"github.com/atotto/clipboard"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/renderer/html"
@@ -25,11 +29,15 @@ import (
 type App struct {
 	ctx        context.Context
 	cfg        *config.Config
-	load       func() (*config.Config, error)
+	configPath string
+	loadConfig func(path string) (*config.Config, error)
 	md         goldmark.Markdown
 	exeDir     string
 	appDataDir string
 	loadErr    error
+
+	declinedMu sync.Mutex
+	declinedAt time.Time // mtime of the config the user declined to convert
 
 	secretMu     sync.RWMutex
 	secretKey    []byte
@@ -45,25 +53,33 @@ type App struct {
 	configEditorCmd *exec.Cmd
 }
 
-func NewApp(load func() (*config.Config, error)) *App {
-	cfg, err := load()
+// NewApp defers loading to Startup: an old-format config has to be approved
+// for conversion first, and that dialog needs a context.
+func NewApp(cfgPath string) *App {
 	go cleanupTempScripts()
-	appDataDir := appdata.Dir()
-	if cfg != nil && cfg.SourcePath != "" {
-		recent.Add(appDataDir, cfg.SourcePath)
-	}
 	return &App{
-		cfg:        cfg,
-		load:       load,
+		configPath: cfgPath,
+		loadConfig: loadConfigFile,
 		exeDir:     exepath.Dir(),
-		appDataDir: appDataDir,
-		loadErr:    err,
+		appDataDir: appdata.Dir(),
+		cfg:        &config.Config{},
 		inlineRuns: make(map[inlineKey]*inlineRun),
 		md: goldmark.New(
 			goldmark.WithExtensions(extension.GFM),
 			goldmark.WithRendererOptions(html.WithUnsafe()),
 		),
 	}
+}
+
+func loadConfigFile(path string) (*config.Config, error) {
+	if path != "" {
+		return config.LoadFromWithError(path)
+	}
+	return config.LoadWithError()
+}
+
+func (a *App) loadFrom(path string) (*config.Config, error) {
+	return a.loadConfig(path)
 }
 
 // Log lets the frontend put its own errors in the same file, so a JS
@@ -91,13 +107,57 @@ func (a *App) LoadError() string {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	applog.Init(a.appDataDir)
+
+	if err := a.ensureStartupFormat(); errors.Is(err, configmigrate.ErrDeclined) {
+		applog.Printf("startup: %v", err)
+		wailsruntime.Quit(ctx)
+		return
+	}
+
+	a.cfg, a.loadErr = a.loadFrom(a.configPath)
+	if a.cfg.SourcePath != "" {
+		recent.Add(a.appDataDir, a.cfg.SourcePath)
+	}
+
 	applog.Printf("startup version=%s config=%s", version.Version, a.configSourcePath())
 	a.watchTheme()
 	a.watchConfig()
 }
 
+// ensureStartupFormat gates the first load. Nothing is loaded yet, so the
+// path has to be resolved the same way LoadWithError would.
+func (a *App) ensureStartupFormat() error {
+	path := a.configPath
+	if path == "" {
+		resolved, err := config.ResolvePath()
+		if err != nil {
+			return nil
+		}
+		path = resolved
+	}
+	return a.ensureFormat(path)
+}
+
+// ReloadConfig is the F5 reload, so it asks again even about a config the
+// user has already declined to convert.
 func (a *App) ReloadConfig() (string, error) {
-	cfg, err := a.load()
+	return a.reload(a.ensureFormat)
+}
+
+// ReloadConfigOnChange is the reload the file watcher triggers.
+func (a *App) ReloadConfigOnChange() (string, error) {
+	return a.reload(a.ensureFormatOnChange)
+}
+
+// reload only refuses on a decline. Any other problem with the file — gone,
+// unparseable — is left to the load, whose error says more.
+func (a *App) reload(ensure func(string) error) (string, error) {
+	if path := a.configSourcePath(); path != "" {
+		if err := ensure(path); errors.Is(err, configmigrate.ErrDeclined) {
+			return "", nil
+		}
+	}
+	cfg, err := a.loadFrom(a.configPath)
 	if cfg.SourcePath == "" {
 		return "", err
 	}

@@ -38,6 +38,7 @@
     GetActionGroups,
     CopyToClipboard,
     ReloadConfig,
+    ReloadConfigOnChange,
     BrowseConfig,
     LaunchConfigEditor,
     RunAction,
@@ -301,7 +302,7 @@
   async function onConfigFileChanged() {
     let warning = ''
     try {
-      warning = await ReloadConfig()
+      warning = await ReloadConfigOnChange()
     } catch {
       return
     }

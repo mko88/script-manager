@@ -11,7 +11,7 @@ import (
 )
 
 func inlineTestApp(actions ...config.Action) *App {
-	return NewApp(func() (*config.Config, error) {
+	return newTestApp(func() (*config.Config, error) {
 		return &config.Config{
 			Shell:   []string{"bash", "-c"},
 			Items:   []config.Item{{Name: "test"}},

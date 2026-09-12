@@ -10,13 +10,13 @@ import (
 
 func TestLoadError(t *testing.T) {
 	t.Run("surfaces the initial load error", func(t *testing.T) {
-		a := NewApp(func() (*config.Config, error) { return &config.Config{}, errors.New("boom") })
+		a := newTestApp(func() (*config.Config, error) { return &config.Config{}, errors.New("boom") })
 		if got := a.LoadError(); got != "boom" {
 			t.Errorf("LoadError() = %q, want %q", got, "boom")
 		}
 	})
 	t.Run("empty when the initial load succeeds", func(t *testing.T) {
-		a := NewApp(func() (*config.Config, error) { return &config.Config{}, nil })
+		a := newTestApp(func() (*config.Config, error) { return &config.Config{}, nil })
 		if got := a.LoadError(); got != "" {
 			t.Errorf("LoadError() = %q, want empty", got)
 		}
@@ -25,7 +25,7 @@ func TestLoadError(t *testing.T) {
 
 func TestGetActionGroups(t *testing.T) {
 	t.Run("converts the catalog", func(t *testing.T) {
-		a := NewApp(func() (*config.Config, error) {
+		a := newTestApp(func() (*config.Config, error) {
 			return &config.Config{ActionGroups: []config.ActionGroup{
 				{ID: "safe", Title: "Safe", Color: "#2ca02c"},
 				{ID: "diagnostics"},
@@ -41,7 +41,7 @@ func TestGetActionGroups(t *testing.T) {
 		}
 	})
 	t.Run("empty catalog returns an empty (non-nil) slice", func(t *testing.T) {
-		a := NewApp(func() (*config.Config, error) { return &config.Config{}, nil })
+		a := newTestApp(func() (*config.Config, error) { return &config.Config{}, nil })
 		got := a.GetActionGroups()
 		if got == nil || len(got) != 0 {
 			t.Errorf("GetActionGroups() = %#v, want a non-nil empty slice", got)
@@ -52,7 +52,7 @@ func TestGetActionGroups(t *testing.T) {
 func TestReloadConfig(t *testing.T) {
 	t.Run("total failure keeps the previous config and returns the error", func(t *testing.T) {
 		calls := 0
-		a := NewApp(func() (*config.Config, error) {
+		a := newTestApp(func() (*config.Config, error) {
 			calls++
 			if calls == 1 {
 				return &config.Config{SourcePath: "/ok.yaml", Shell: []string{"bash"}}, nil
@@ -71,7 +71,7 @@ func TestReloadConfig(t *testing.T) {
 		}
 	})
 	t.Run("fallback success surfaces a warning instead of an error", func(t *testing.T) {
-		a := NewApp(func() (*config.Config, error) {
+		a := newTestApp(func() (*config.Config, error) {
 			return &config.Config{SourcePath: "/fallback.yaml"}, errors.New("config-win.yaml: boom")
 		})
 		warning, err := a.ReloadConfig()
@@ -85,4 +85,13 @@ func TestReloadConfig(t *testing.T) {
 			t.Errorf("SourcePath = %q, want /fallback.yaml", a.cfg.SourcePath)
 		}
 	})
+}
+
+// newTestApp builds an App whose loads are driven by load rather than the
+// filesystem, and runs the first one the way Startup would.
+func newTestApp(load func() (*config.Config, error)) *App {
+	a := NewApp("")
+	a.loadConfig = func(string) (*config.Config, error) { return load() }
+	a.cfg, a.loadErr = a.loadFrom("")
+	return a
 }
