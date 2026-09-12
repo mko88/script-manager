@@ -114,22 +114,25 @@
   export let onChange: ((value: string) => void) | null = null
   // Names offered while typing inside a {{ }} reference. Empty turns
   // completion off entirely.
-  export let completions: { label: string; apply?: string; detail?: string }[] = []
+  export let completions: { label: string; apply?: string; applyStandalone?: string; detail?: string }[] = []
 
   let host: HTMLElement
   let view: EditorView | undefined
 
-  // Only inside an unclosed {{ — elsewhere in a details template the text is
-  // prose, where a popup on every word would be in the way.
+  // While typing, only inside an unclosed {{ — the rest of a details
+  // template is prose, where a popup on every word would be in the way.
+  // Asked for explicitly (Ctrl+Space) it answers anywhere, and inserts the
+  // standalone form, which is the whole reference rather than its middle.
   function completeTemplateRef(ctx: CompletionContext) {
     if (completions.length === 0) return null
-    if (!ctx.matchBefore(/\{\{[^}]*$/)) return null
+    const insideRef = ctx.matchBefore(/\{\{[^}]*$/) !== null
+    if (!insideRef && !ctx.explicit) return null
     const token = ctx.matchBefore(/[\w.]*$/)
     return {
       from: token ? token.from : ctx.pos,
       options: completions.map((c) => ({
         label: c.label,
-        apply: c.apply ?? c.label,
+        apply: (insideRef ? c.apply : c.applyStandalone ?? c.apply) ?? c.label,
         detail: c.detail,
         type: 'variable',
       })),

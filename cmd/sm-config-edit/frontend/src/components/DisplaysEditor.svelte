@@ -35,8 +35,14 @@
 
   let detailsEditor: CodeMirror | undefined
 
+  // name is a reserved item key, held on the item itself rather than among
+  // its fields, so it has to be named here — templates use it more than
+  // anything else.
+  const BUILT_IN_ITEM_KEYS = ['name']
+
   $: availableEnvKeys = Array.from(
     new Set([
+      ...BUILT_IN_ITEM_KEYS,
       ...envFields.map((f) => f.key),
       ...(previewItemForDisplay >= 0 ? (items[previewItemForDisplay]?.fields ?? []).map((f) => f.key) : []),
     ]),
@@ -48,10 +54,15 @@
   $: templateCompletions = availableEnvKeys.flatMap((key) =>
     looksLikeSecretKey(key)
       ? [
-          { label: `mask .${key}`, apply: `mask .${key}`, detail: 'masked' },
-          { label: `.${key}`, apply: `.${key}`, detail: 'variable' },
+          {
+            label: `mask .${key}`,
+            apply: `mask .${key}`,
+            applyStandalone: '`{{mask .' + key + '}}`',
+            detail: 'masked',
+          },
+          { label: `.${key}`, apply: `.${key}`, applyStandalone: `{{.${key}}}`, detail: 'variable' },
         ]
-      : [{ label: `.${key}`, apply: `.${key}`, detail: 'variable' }],
+      : [{ label: `.${key}`, apply: `.${key}`, applyStandalone: `{{.${key}}}`, detail: 'variable' }],
   )
 
   function insertEnvVar(key: string) {
