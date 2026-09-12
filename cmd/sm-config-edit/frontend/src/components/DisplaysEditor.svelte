@@ -235,7 +235,7 @@
               <span>{t('field.listTemplate')}</span>
               <input type="text" bind:value={displays[selectedDisplay].list} />
             </label>
-            <label class="field details-template-field">
+            <div class="field details-template-field">
               <span>{t('field.detailsTemplate')}</span>
               <div class="details-helper-toolbar">
                 <select class="env-insert-select" title={t('tooltip.insertEnvVar')} on:change={onEnvSelectChange}>
@@ -260,7 +260,7 @@
                 minHeight="100%"
                 maxHeight="100%"
               />
-            </label>
+            </div>
           </div>
         </div>
       {/if}

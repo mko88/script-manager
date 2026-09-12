@@ -156,10 +156,15 @@
     }
   }
 
+  // Leaves the inserted text selected, so an inserted variable can be
+  // formatted or replaced straight away without reaching for the mouse.
   export function insertAtCursor(text: string) {
     if (!view) return
     const { from, to } = view.state.selection.main
-    view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length } })
+    view.dispatch({
+      changes: { from, to, insert: text },
+      selection: { anchor: from, head: from + text.length },
+    })
     view.focus()
   }
 
@@ -195,10 +200,15 @@
     return view.state.sliceDoc(from, to)
   }
 
+  // Also leaves the replacement selected — the mask button replaces a
+  // variable reference, and seeing what it produced is the point.
   export function replaceSelection(text: string) {
     if (!view) return
     const { from, to } = view.state.selection.main
-    view.dispatch({ changes: { from, to, insert: text }, selection: { anchor: from + text.length } })
+    view.dispatch({
+      changes: { from, to, insert: text },
+      selection: { anchor: from, head: from + text.length },
+    })
     view.focus()
   }
 </script>
