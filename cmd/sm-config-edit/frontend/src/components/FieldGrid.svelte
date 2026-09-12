@@ -87,7 +87,7 @@
             showLineNumbers={false}
             minHeight="3.2em"
             maxHeight="220px"
-            on:blur={() => check(i)}
+            onChange={() => check(i)}
           />
         </div>
       {:else if fields[i].kind === 'yaml'}

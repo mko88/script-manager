@@ -91,6 +91,10 @@
   // Keeps a streaming document pinned to its last line — the inline run
   // output, which grows while it is watched.
   export let followTail = false
+  // Called after an edit made in this editor, for callers that validate or
+  // react to the new text. A callback rather than a dispatched event: these
+  // components are consumed as plain props everywhere else.
+  export let onChange: ((value: string) => void) | null = null
 
   let host: HTMLElement
   let view: EditorView | undefined
@@ -107,6 +111,7 @@
       EditorView.updateListener.of((u) => {
         if (u.docChanged && !readOnly) {
           value = u.state.doc.toString()
+          onChange?.(value)
         }
       }),
     ]
@@ -124,16 +129,32 @@
 
   // An external change replaces the document; a change typed in here is
   // already in it, so comparing first keeps the cursor where it was.
+  //
+  // Both dispatches are guarded: they run inside Svelte's update cycle, so
+  // an exception here would take the whole render loop down with it and
+  // leave a window that paints hover states but never updates again.
   $: if (view && value !== view.state.doc.toString()) {
-    const atEnd = followTail
-    view.dispatch({
-      changes: { from: 0, to: view.state.doc.length, insert: value },
-      selection: atEnd ? { anchor: value.length } : undefined,
-      scrollIntoView: atEnd,
-    })
+    try {
+      // No selection in this transaction: CodeMirror normalizes CRLF to LF
+      // as it inserts, so the new document is shorter than the string that
+      // produced it and any position derived from that string lands outside
+      // it. The follow-up scroll reads the length the document actually has.
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: value } })
+      if (followTail) {
+        view.dispatch({ effects: EditorView.scrollIntoView(view.state.doc.length) })
+      }
+    } catch (err) {
+      console.error('CodeMirror: setting the document failed', err)
+    }
   }
 
-  $: if (view) view.dispatch({ effects: languageCompartment.reconfigure(languageExtension(language)) })
+  $: if (view) {
+    try {
+      view.dispatch({ effects: languageCompartment.reconfigure(languageExtension(language)) })
+    } catch (err) {
+      console.error('CodeMirror: switching language failed', err)
+    }
+  }
 
   export function insertAtCursor(text: string) {
     if (!view) return
