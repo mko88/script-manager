@@ -122,6 +122,13 @@
 
   $: missingFields = details?.missingFields ?? []
 
+  // The OUTPUT section belongs to inline running, so it is shown for any
+  // action that can run inline — before the first run too, where it stands
+  // collapsed as a reminder that the pane is there.
+  $: canRunInline = !!actionDetail && !actionDetail.interactive && !!(actionDetail.cmd || actionDetail.script)
+  $: hasInlineOutput = inlineRunning || !!inlineOutput || inlineExitCode !== null
+  $: if (actionDetail && !hasInlineOutput) outputSectionCollapsed = true
+
   $: selectedItemLabel = items.find((i) => i.index === selectedItem)?.label ?? ''
   $: selectedActionLabel = actions.find((a) => a.index === selectedActionIndex)?.title ?? ''
   $: selectedActionGroups = actions.find((a) => a.index === selectedActionIndex)?.groups ?? []
@@ -916,7 +923,7 @@
                 </div>
               {/if}
             </div>
-            {#if inlineRunning || inlineOutput || inlineExitCode !== null}
+            {#if canRunInline}
               <div class="messages-group cmd-section" class:cmd-section-open={!outputSectionCollapsed && inlineOutput}>
                 <button class="messages-group-header" type="button" on:click={() => { outputSectionCollapsed = !outputSectionCollapsed; saveLayout() }}>
                   <span class="messages-group-title">{t('section.output')}</span>
@@ -933,6 +940,9 @@
                   </span>
                   <span class="collapse-glyph">{outputSectionCollapsed ? '▸' : '▾'}</span>
                 </button>
+                {#if !outputSectionCollapsed && !hasInlineOutput}
+                  <p class="cmd-desc cmd-output-empty">{t('empty.noOutputYet')}</p>
+                {/if}
                 {#if !outputSectionCollapsed && inlineOutput}
                   <div class="cmd-output">
                     <IconButton
@@ -1247,6 +1257,13 @@
   .cmd-error {
     margin: 0 0 8px;
     color: var(--sm-error);
+  }
+
+  .cmd-output-empty {
+    margin: 0;
+    padding: 2px 2px 4px;
+    font-style: italic;
+    color: var(--sm-text-faint);
   }
 
   .cmd-output {

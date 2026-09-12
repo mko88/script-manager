@@ -11,6 +11,8 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 - `script-manager-gui`: the Command pane puts COMMAND above OUTPUT, gives each
   open section a share of the pane's height with its own scrollbar, and
   collapses COMMAND in favour of OUTPUT when an inline run starts.
+- `script-manager-gui`: OUTPUT is shown for any action that can run inline,
+  collapsed until there is something to show.
 
 ## 1.4.1
 
