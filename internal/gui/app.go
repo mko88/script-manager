@@ -125,6 +125,14 @@ func (a *App) renderListLabel(item map[string]any) string {
 	return out
 }
 
+func (a *App) scriptLanguage(scriptPath string) string {
+	shell := ""
+	if len(a.cfg.Shell) > 0 {
+		shell = a.cfg.Shell[0]
+	}
+	return action.Language(shell, scriptPath)
+}
+
 func (a *App) mergedItem(item map[string]any) map[string]any {
 	return secret.Redact(action.Merge(a.cfg.Env, item))
 }
@@ -173,6 +181,7 @@ type ActionDetailDTO struct {
 	ScriptError   string `json:"scriptError"`
 	NoWait        bool   `json:"noWait"`
 	Interactive   bool   `json:"interactive"`
+	Language      string `json:"language"`
 }
 
 func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
@@ -201,6 +210,7 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 		Script:        script,
 		ScriptContent: scriptContent,
 		ScriptError:   scriptErr,
+		Language:      a.scriptLanguage(script),
 		NoWait:        act.NoWait,
 		Interactive:   act.Interactive,
 	}

@@ -93,4 +93,5 @@ type ActionPreviewDTO struct {
 	Cmd         string `json:"cmd"`
 	Script      string `json:"script"`
 	Error       string `json:"error"`
+	Language    string `json:"language"`
 }

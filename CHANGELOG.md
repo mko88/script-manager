@@ -7,6 +7,12 @@ the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 
 ### Changes
 
+- Everything that shows code is now a CodeMirror pane: the script and
+  command previews, the action preview, the inline run output, YAML fields
+  and the Displays details template. They bring syntax highlighting for
+  shell, PowerShell and YAML, a fold gutter, and proper undo, all themed
+  from the same colour tokens as the rest of the app.
+
 - The interface scales with **Ctrl +** / **Ctrl -**, and **Ctrl 0** resets
   it — in both GUI apps, 70% to 200%, spacing included rather than the text
   alone. The setting is shared by both apps.

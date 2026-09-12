@@ -1,5 +1,6 @@
 <script lang="ts">
   import ActionForm from './ActionForm.svelte'
+  import CodeMirror from '@shared/components/CodeMirror.svelte'
   import FieldGrid from './FieldGrid.svelte'
   import ListToolbar from './ListToolbar.svelte'
   import CheckboxChipList from './CheckboxChipList.svelte'
@@ -255,10 +256,10 @@
               {/if}
               {#if actionPreview.script}
                 <p class="preview-label">{t('hint.scriptLabel')}</p>
-                <pre class="cmd-preview">{actionPreview.script}</pre>
+                <CodeMirror value={actionPreview.script} language={actionPreview.language} readOnly maxHeight="240px" />
               {:else}
                 <p class="preview-label">{t('hint.commandLabel')}</p>
-                <pre class="cmd-preview">{actionPreview.cmd}</pre>
+                <CodeMirror value={actionPreview.cmd} language={actionPreview.language} readOnly maxHeight="240px" />
               {/if}
               {#if actionPreview.description}<p class="hint action-desc-preview">{actionPreview.description}</p>{/if}
             {/if}
@@ -288,13 +289,4 @@
     margin-top: 16px;
   }
 
-  .cmd-preview {
-    background: var(--sm-bg-deep);
-    border-radius: 4px;
-    padding: 8px;
-    font-family: var(--sm-font-mono);
-    font-size: var(--sm-type-sm);
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
 </style>

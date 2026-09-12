@@ -88,5 +88,6 @@ func PreviewAction(item ItemDTO, envFields []FieldDTO, act ActionDTO) ActionPrev
 		Description: action.Preview(act.Description, merged),
 		Cmd:         action.Preview(act.Cmd, merged),
 		Script:      action.Preview(act.Script, merged),
+		Language:    action.Language("", action.Preview(act.Script, merged)),
 	}
 }

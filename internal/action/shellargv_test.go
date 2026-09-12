@@ -78,3 +78,21 @@ func TestScriptArgv(t *testing.T) {
 		})
 	}
 }
+
+func TestLanguage(t *testing.T) {
+	for _, tc := range []struct {
+		shell, script, want string
+	}{
+		{"pwsh", "", "powershell"},
+		{"bash", "", "shell"},
+		{"cmd.exe", "", "plain"},
+		{"bash", "/tmp/deploy.ps1", "powershell"},
+		{"pwsh", "/tmp/deploy.sh", "shell"},
+		{"bash", "/tmp/values.yaml", "yaml"},
+		{"bash", "/tmp/run.py", "plain"},
+	} {
+		if got := Language(tc.shell, tc.script); got != tc.want {
+			t.Errorf("Language(%q, %q) = %q, want %q", tc.shell, tc.script, got, tc.want)
+		}
+	}
+}

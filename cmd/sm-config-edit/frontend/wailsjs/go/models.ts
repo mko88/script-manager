@@ -49,6 +49,7 @@ export namespace configedit {
 	    cmd: string;
 	    script: string;
 	    error: string;
+	    language: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ActionPreviewDTO(source);
@@ -60,6 +61,7 @@ export namespace configedit {
 	        this.cmd = source["cmd"];
 	        this.script = source["script"];
 	        this.error = source["error"];
+	        this.language = source["language"];
 	    }
 	}
 	export class ItemDTO {
@@ -254,6 +256,7 @@ export namespace configedit {
 	export class ScriptPreviewDTO {
 	    content: string;
 	    error: string;
+	    language: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ScriptPreviewDTO(source);
@@ -263,6 +266,7 @@ export namespace configedit {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.content = source["content"];
 	        this.error = source["error"];
+	        this.language = source["language"];
 	    }
 	}
 	

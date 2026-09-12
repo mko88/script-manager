@@ -2,6 +2,7 @@
   import { t } from '../messages'
   import { looksLikeSecretKey } from '../secretKey'
   import IconButton from '@shared/components/IconButton.svelte'
+  import CodeMirror from '@shared/components/CodeMirror.svelte'
 
   export let fields: { key: string; kind: string; value: string; secret: boolean; locked?: boolean }[] = []
   export let validateField: (kind: string, value: string) => Promise<string> = async () => ''
@@ -78,6 +79,17 @@
           <option value="true">true</option>
           <option value="false">false</option>
         </select>
+      {:else if fields[i].kind === 'yaml' && !fields[i].secret}
+        <div class="field-value field-value-yaml">
+          <CodeMirror
+            bind:value={fields[i].value}
+            language="yaml"
+            showLineNumbers={false}
+            minHeight="3.2em"
+            maxHeight="220px"
+            on:blur={() => check(i)}
+          />
+        </div>
       {:else if fields[i].kind === 'yaml'}
         <textarea
           class="field-value field-value-yaml"

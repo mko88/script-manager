@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, tick } from 'svelte'
+  import { onMount } from 'svelte'
   import Toast from '@shared/components/Toast.svelte'
   import { flash } from '@shared/toast'
   import { loadPersisted, savePersisted } from '@shared/persist'
@@ -10,7 +10,7 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import RecentMenu from '@shared/components/RecentMenu.svelte'
   import PinDialog from '@shared/components/PinDialog.svelte'
-  import ScriptSource from '@shared/components/ScriptSource.svelte'
+  import CodeMirror from '@shared/components/CodeMirror.svelte'
   import Panel from './components/Panel.svelte'
   import GroupFilter from './components/GroupFilter.svelte'
   import { t } from './messages'
@@ -83,13 +83,6 @@
     if (next === uiScale) return
     uiScale = next
     applyUIPrefs(await SetUIScale(next))
-  }
-
-  let inlineOutputEl: HTMLElement | undefined
-
-  async function scrollInlineOutputToEnd() {
-    await tick()
-    if (inlineOutputEl) inlineOutputEl.scrollTop = inlineOutputEl.scrollHeight
   }
 
   $: currentInline = selectedItem >= 0 && selectedActionIndex >= 0 ? $inlineStates[inlineKey(selectedItem, selectedActionIndex)] : undefined
@@ -235,11 +228,7 @@
   function runActionInline() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
     withUnlocked(() => {
-      startInlineRun(selectedItem, selectedActionIndex, (itemIndex, actionIndex) => {
-        if (selectedItem === itemIndex && selectedActionIndex === actionIndex) {
-          scrollInlineOutputToEnd()
-        }
-      })
+      startInlineRun(selectedItem, selectedActionIndex)
     })
   }
 
@@ -874,7 +863,9 @@
                       title={t('tooltip.copyOutput')}
                       on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></IconButton
                     >
-                    <pre class="cmd-output-body" bind:this={inlineOutputEl}>{inlineOutput}</pre>
+                    <div class="cmd-output-body">
+                      <CodeMirror value={inlineOutput} readOnly followTail showLineNumbers={false} maxHeight="100%" />
+                    </div>
                   </div>
                 {/if}
               </div>
@@ -900,14 +891,21 @@
                   {#if actionDetail.scriptError}
                     <p class="cmd-error">{actionDetail.scriptError}</p>
                   {:else}
-                    <ScriptSource content={actionDetail.scriptContent}>
+                    <div class="code-block">
+                      <CodeMirror
+                        value={actionDetail.scriptContent}
+                        language={actionDetail.language}
+                        readOnly
+                        maxHeight="420px"
+                      />
                       <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
-                    </ScriptSource>
+                    </div>
                   {/if}
                 {:else if actionDetail.cmd}
-                  <ScriptSource content={actionDetail.cmd}>
+                  <div class="code-block">
+                    <CodeMirror value={actionDetail.cmd} language={actionDetail.language} readOnly maxHeight="420px" />
                     <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
-                  </ScriptSource>
+                  </div>
                 {/if}
               {/if}
             </div>
@@ -1254,13 +1252,20 @@
   }
   .cmd-output-body {
     margin: 0;
-    padding: 10px;
-    font-family: var(--sm-font-mono);
-    font-size: var(--sm-type-sm);
-    white-space: pre-wrap;
-    word-break: break-all;
+    padding: 6px;
     max-height: 260px;
-    overflow-y: auto;
+    overflow: hidden;
+    display: flex;
+  }
+
+  .cmd-output-body :global(.sm-code) {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .code-block {
+    position: relative;
+    margin-bottom: 8px;
   }
 
   .cmd-groups {

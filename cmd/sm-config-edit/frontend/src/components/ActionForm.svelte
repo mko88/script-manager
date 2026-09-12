@@ -2,7 +2,7 @@
   import { t } from '../messages'
   import RadioGroup from './RadioGroup.svelte'
   import CheckboxChipList from './CheckboxChipList.svelte'
-  import ScriptSource from '@shared/components/ScriptSource.svelte'
+  import CodeMirror from '@shared/components/CodeMirror.svelte'
   import type { configedit } from '../../wailsjs/go/models'
 
   export let action: {
@@ -91,7 +91,7 @@
     {#if scriptPreview?.error}
       <div class="validation-issue validation-error">{scriptPreview.error}</div>
     {:else if scriptPreview?.content}
-      <ScriptSource content={scriptPreview.content} />
+      <CodeMirror value={scriptPreview.content} language={scriptPreview.language} readOnly maxHeight="320px" />
     {/if}
   {/if}
   {#if allActionGroups.length > 0}

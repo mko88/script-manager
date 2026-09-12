@@ -26,6 +26,7 @@ export namespace gui {
 	    scriptError: string;
 	    noWait: boolean;
 	    interactive: boolean;
+	    language: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new ActionDetailDTO(source);
@@ -40,6 +41,7 @@ export namespace gui {
 	        this.scriptError = source["scriptError"];
 	        this.noWait = source["noWait"];
 	        this.interactive = source["interactive"];
+	        this.language = source["language"];
 	    }
 	}
 	export class ActionGroupDTO {
