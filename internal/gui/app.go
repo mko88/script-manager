@@ -11,6 +11,7 @@ import (
 	"script-manager/internal/applog"
 	"script-manager/internal/config"
 	"script-manager/internal/exepath"
+	"script-manager/internal/filewatch"
 	"script-manager/internal/recent"
 	"script-manager/internal/scriptsource"
 	"script-manager/internal/secret"
@@ -36,6 +37,7 @@ type App struct {
 	secretParams *secret.Params
 
 	configWatch *configWatcher
+	scriptWatch *filewatch.Watcher
 
 	inlineMu   sync.Mutex
 	inlineRuns map[inlineKey]*inlineRun

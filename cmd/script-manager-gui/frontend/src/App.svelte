@@ -52,6 +52,7 @@
     ClearRecentConfigs,
     ActionNeedsUnlock,
     OpenScriptInEditor,
+    WatchScript,
     UnlockSecrets,
   } from '../wailsjs/go/gui/App.js'
   import type { gui } from '../wailsjs/go/models'
@@ -68,6 +69,17 @@
 
   onMount(() => watchTheme(EventsOn, () => {}))
   onMount(() => EventsOn('config:changed', onConfigFileChanged))
+  onMount(() => EventsOn('script:changed', reloadActionDetail))
+
+  // Follows whatever script the Command pane is showing, so an edit made
+  // outside the app — including from the button beside the path — refreshes
+  // it in place.
+  $: WatchScript(actionDetail?.script ?? '')
+
+  async function reloadActionDetail() {
+    if (selectedItem < 0 || selectedActionIndex < 0) return
+    actionDetail = await GetActionDetail(selectedItem, selectedActionIndex)
+  }
 
   let uiScale: number = UI_SCALE.default
 

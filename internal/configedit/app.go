@@ -8,6 +8,7 @@ import (
 
 	"script-manager/internal/appdata"
 	"script-manager/internal/config"
+	"script-manager/internal/filewatch"
 	"script-manager/internal/recent"
 	"script-manager/internal/secret"
 	"script-manager/internal/terminal"
@@ -23,6 +24,7 @@ type App struct {
 	appDataDir   string
 	secretKey    []byte
 	secretParams *secret.Params
+	scriptWatch  *filewatch.Watcher
 }
 
 func NewApp(cfgPath string) *App {

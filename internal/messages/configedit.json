@@ -2,6 +2,7 @@
   "toast": {
     "configLoadWarning": "Config load warning: {warning}",
     "openFailed": "Open failed: {error}",
+    "openScriptFailed": "Could not open the script: {error}",
     "lockFailed": "Could not lock or reveal the value: {error}",
     "pinNotSet": "Set a PIN first — see the \"PIN\" section.",
     "pinSet": "PIN set. Save the config to write it to disk.",
@@ -123,6 +124,7 @@
     "openDataFolderAria": "Open app-data folder in file explorer",
     "openInEditorTitle": "Open in default editor: {path}",
     "openInEditorAria": "Open config file in default editor",
+    "openScriptInEditor": "Open the script in the default editor",
     "minimizeWindow": "Minimize",
     "maximizeWindow": "Maximize / restore",
     "closeWindow": "Close",

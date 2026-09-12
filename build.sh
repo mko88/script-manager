@@ -70,9 +70,16 @@ ldflags="$ldflags -X script-manager/internal/version.Commit=$commit"
 ldflags="$ldflags -X script-manager/internal/version.Date=$date"
 echo "Version: $version"
 
-# The TUI and the two Wails apps build as parallel background jobs. The two
-# platforms of the *same* Wails app stay sequential inside one job — both
-# `wails build` runs regenerate that app's frontend/dist and would race.
+# The TUI builds alongside the GUI apps, but the two GUI apps build one
+# after the other, in a single job.
+#
+# `wails build` regenerates the app's frontend/wailsjs from the bound Go
+# types. Run concurrently, the two generators race and one has been observed
+# writing its bindings into the *other* app's frontend — leaving
+# sm-config-edit with the GUI's App.js and a build that fails to resolve its
+# own. The two platforms of one app are sequential for the same reason: both
+# runs rewrite that app's frontend/dist.
+#
 # Each job's output is captured to a file and printed as one block when the
 # job is collected, so logs don't interleave.
 job_dir=$(mktemp -d)
@@ -112,6 +119,12 @@ build_tui() {
 	fi
 }
 
+build_all_guis() {
+	for app in script-manager-gui sm-config-edit; do
+		build_gui "$app"
+	done
+}
+
 build_gui() { # build_gui <app>
 	local app=$1
 
@@ -137,9 +150,7 @@ build_gui() { # build_gui <app>
 start_job tui build_tui
 
 if command -v wails &> /dev/null; then
-	for app in script-manager-gui sm-config-edit; do
-		start_job "$app" build_gui "$app"
-	done
+	start_job gui build_all_guis
 else
 	echo "wails CLI not found — skipping GUI builds (see README for setup)"
 fi

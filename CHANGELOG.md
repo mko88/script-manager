@@ -8,8 +8,10 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 
 ### Changes
 
-- `script-manager-gui`: a button beside a script action's path opens the file
-  in the default editor.
+- A button beside a script action's path opens the file in the default
+  editor, in both GUI apps.
+- A script shown on screen is watched, so an edit made outside the app
+  refreshes the preview without reselecting the action.
 
 ### Bug fixes
 

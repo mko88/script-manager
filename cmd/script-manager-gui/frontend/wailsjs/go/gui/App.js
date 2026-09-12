@@ -129,3 +129,7 @@ export function SetWindowOpacity(arg1) {
 export function UnlockSecrets(arg1) {
   return window['go']['gui']['App']['UnlockSecrets'](arg1);
 }
+
+export function WatchScript(arg1) {
+  return window['go']['gui']['App']['WatchScript'](arg1);
+}

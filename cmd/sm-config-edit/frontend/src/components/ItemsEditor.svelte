@@ -14,6 +14,9 @@
   export let actions: configedit.ActionDTO[] = []
   export let allActionGroups: string[] = []
   export let cmdLanguage = 'plain'
+  export let watchScript: ((path: string) => void) | null = null
+  export let openScriptInEditor: ((path: string) => void) | null = null
+  export let scriptReloadToken = 0
   export let displays: configedit.DisplayDTO[] = []
   export let envFields: configedit.FieldDTO[] = []
   export let previewItem: (
@@ -203,6 +206,9 @@
               showId={false}
               {allActionGroups}
               {cmdLanguage}
+              {watchScript}
+              {openScriptInEditor}
+              reloadToken={scriptReloadToken}
               {browseScriptFile}
               {previewScriptFile}
             />

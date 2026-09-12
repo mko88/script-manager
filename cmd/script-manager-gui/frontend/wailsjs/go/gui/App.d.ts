@@ -67,3 +67,5 @@ export function SetUIScale(arg1:number):Promise<uiprefs.Prefs>;
 export function SetWindowOpacity(arg1:number):Promise<void>;
 
 export function UnlockSecrets(arg1:string):Promise<void>;
+
+export function WatchScript(arg1:string):Promise<void>;

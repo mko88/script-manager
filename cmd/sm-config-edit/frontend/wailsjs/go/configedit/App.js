@@ -86,6 +86,10 @@ export function OpenRecent(arg1) {
   return window['go']['configedit']['App']['OpenRecent'](arg1);
 }
 
+export function OpenScriptInEditor(arg1) {
+  return window['go']['configedit']['App']['OpenScriptInEditor'](arg1);
+}
+
 export function PreviewAction(arg1, arg2, arg3) {
   return window['go']['configedit']['App']['PreviewAction'](arg1, arg2, arg3);
 }
@@ -148,4 +152,8 @@ export function ValidateConfig(arg1) {
 
 export function ValidateField(arg1, arg2) {
   return window['go']['configedit']['App']['ValidateField'](arg1, arg2);
+}
+
+export function WatchScript(arg1) {
+  return window['go']['configedit']['App']['WatchScript'](arg1);
 }
