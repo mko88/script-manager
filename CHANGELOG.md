@@ -4,6 +4,15 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
+## 1.4.1
+
+### Bug fixes
+
+- `script-manager-gui`: the Copy output button was hidden behind the output
+  pane.
+- `script-manager-gui`: copying a script action copied the path to the file
+  rather than the contents shown beside the button.
+
 ## 1.4.0
 
 ### Changes

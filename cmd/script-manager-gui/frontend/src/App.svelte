@@ -172,8 +172,11 @@
     copyValue(Number(target.dataset.copyIdx))
   }
 
+  // What the pane is showing: a script's contents when they could be read,
+  // the command otherwise, and the path only when the file wouldn't open —
+  // where the path is the useful thing to have.
   function copyCmd() {
-    const value = actionDetail?.cmd || actionDetail?.script
+    const value = actionDetail?.scriptContent || actionDetail?.cmd || actionDetail?.script
     if (!value) return
     copyToClipboard(value)
   }
@@ -1225,6 +1228,7 @@
     position: absolute;
     top: 4px;
     right: 4px;
+    z-index: 1;
   }
   .list .row {
     display: flex;
