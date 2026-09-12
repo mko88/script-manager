@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import Toast from '@shared/components/Toast.svelte'
   import { flash } from '@shared/toast'
+  import { loadPersisted, savePersisted } from '@shared/persist'
   import { getTheme, getThemes, type Theme, type CustomPalette } from '@shared/theme'
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
@@ -286,16 +287,39 @@
     recents = await ClearRecentConfigs()
   }
 
-  async function doSave(target: string) {
+  async function doSave(target: string, silent = false) {
     try {
       const result = await Save(cfg, target)
       path = result.path
       markClean()
       await refreshRecents()
-      flash(t('toast.saved'))
+      if (!silent) flash(t('toast.saved'))
     } catch (err) {
       flash(t('toast.saveFailed', { error: String(err) }))
     }
+  }
+
+  const AUTOSAVE_DELAY_MS = 800
+  let autosave = loadPersisted('sm-config-edit.autosave', { enabled: true }).enabled
+  let autosaveTimer: ReturnType<typeof setTimeout>
+  let autosaving = false
+
+  function toggleAutosave() {
+    autosave = !autosave
+    savePersisted('sm-config-edit.autosave', { enabled: autosave })
+    if (!autosave) clearTimeout(autosaveTimer)
+  }
+
+  $: if (autosave && initialized && dirty && path && !hasBlockingError) scheduleAutosave()
+
+  function scheduleAutosave() {
+    clearTimeout(autosaveTimer)
+    autosaveTimer = setTimeout(async () => {
+      if (!autosave || !path || hasBlockingError || !dirty || autosaving) return
+      autosaving = true
+      await doSave(path, true)
+      autosaving = false
+    }, AUTOSAVE_DELAY_MS)
   }
 
   async function saveConfig() {
@@ -396,6 +420,12 @@
       aria={t('tooltip.saveAsAria')}
       disabled={hasBlockingError}
       on:click={saveAsConfig}><ToolbarIcon mode="save-as" /></IconButton
+    >
+    <IconButton
+      active={autosave}
+      title={autosave ? t('tooltip.autosaveOn') : t('tooltip.autosaveOff')}
+      aria={t('tooltip.autosaveAria')}
+      on:click={toggleAutosave}><Icon name="refresh" /></IconButton
     >
     <IconButton
       class="btn icon-btn open-data-folder-btn"

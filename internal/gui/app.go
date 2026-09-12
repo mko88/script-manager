@@ -34,6 +34,8 @@ type App struct {
 	secretKey    []byte
 	secretParams *secret.Params
 
+	configWatch *configWatcher
+
 	inlineMu   sync.Mutex
 	inlineRuns map[inlineKey]*inlineRun
 
@@ -72,6 +74,7 @@ func (a *App) LoadError() string {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	a.watchTheme()
+	a.watchConfig()
 }
 
 func (a *App) ReloadConfig() (string, error) {
