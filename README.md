@@ -480,10 +480,22 @@ GOOS=windows GOARCH=amd64 go build -o bin/script-manager.exe ./cmd/script-manage
 
 ## Dependencies
 
+Go:
+
 - [charmbracelet/bubbletea](https://github.com/charmbracelet/bubbletea) — TUI framework
 - [charmbracelet/lipgloss](https://github.com/charmbracelet/lipgloss) — terminal styling
+- [charmbracelet/glamour](https://github.com/charmbracelet/glamour) — Markdown rendering for the TUI Details pane
 - [mko88/bubbletea-tilelayout](https://github.com/mko88/bubbletea-tilelayout) — tile layout manager
 - [atotto/clipboard](https://github.com/atotto/clipboard) — clipboard support
 - [gopkg.in/yaml.v3](https://pkg.go.dev/gopkg.in/yaml.v3) — config parsing
+- [fsnotify/fsnotify](https://github.com/fsnotify/fsnotify) — watching the config and theme files for changes
+- [golang.org/x/crypto](https://pkg.go.dev/golang.org/x/crypto) — Argon2id key derivation for [PIN-locked values](#pin-locked-values)
 - [wailsapp/wails](https://wails.io) — GUI shell (Go backend + native webview)
 - [yuin/goldmark](https://github.com/yuin/goldmark) — Markdown → HTML rendering for the GUI Details pane
+
+Frontend, in both GUI apps:
+
+- [Svelte](https://svelte.dev) — UI framework, built with [Vite](https://vitejs.dev)
+- [CodeMirror 6](https://codemirror.net) — every pane that shows or edits code: script and command previews, the inline command, YAML and multi-line values, the Displays templates
+- [svelte-dnd-action](https://github.com/isaacHagoel/svelte-dnd-action) — drag-and-drop reordering in the Config Editor's lists
+- [Nunito](https://fonts.google.com/specimen/Nunito) — the bundled interface font (SIL Open Font License, see `frontend-shared/fonts/OFL.txt`)
