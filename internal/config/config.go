@@ -33,6 +33,7 @@ const (
 	KeyActions       = "actions"
 	KeyActionGroups  = "actionGroups"
 	KeyCustomActions = "customActions"
+	KeyEnv           = "env"
 )
 
 type Action struct {
