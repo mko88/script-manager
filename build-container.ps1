@@ -21,7 +21,8 @@ param(
     [switch]$Vet,
     [switch]$Test,
     [switch]$Check,
-    [switch]$Full
+    [switch]$Full,
+    [switch]$Devtools
 )
 
 $ErrorActionPreference = "Stop"
@@ -51,6 +52,7 @@ if ($Vet) { $buildArgs += "--vet" }
 if ($Test) { $buildArgs += "--test" }
 if ($Check) { $buildArgs += "--check" }
 if ($Full) { $buildArgs += "--full" }
+if ($Devtools) { $buildArgs += "--devtools" }
 
 docker exec $container bash -c "cd /workspaces/script-manager && bash build.sh $($buildArgs -join ' ')"
 exit $LASTEXITCODE
