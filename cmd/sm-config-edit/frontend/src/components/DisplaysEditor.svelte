@@ -65,6 +65,15 @@
       : [{ label: `.${key}`, apply: `.${key}`, applyStandalone: `{{.${key}}}`, detail: 'variable' }],
   )
 
+  // Only the details template is run through ExpandAllEnv, so the list
+  // template is offered variables alone.
+  const ALL_ENV_PLACEHOLDERS = [
+    { label: '#ALL_ENV_LIST#', detail: 'every variable, as a list', kind: 'placeholder' as const },
+    { label: '#ALL_ENV_TABLE#', detail: 'every variable, as a table', kind: 'placeholder' as const },
+  ]
+
+  $: detailsCompletions = [...ALL_ENV_PLACEHOLDERS, ...templateCompletions]
+
   function insertEnvVar(key: string) {
     if (looksLikeSecretKey(key)) detailsEditor?.insertAtCursor('`{{mask .' + key + '}}`')
     else detailsEditor?.insertAtCursor(`{{.${key}}}`)
@@ -284,7 +293,7 @@
                 bind:this={detailsEditor}
                 bind:value={displays[selectedDisplay].details}
                 language="markdown"
-                completions={templateCompletions}
+                completions={detailsCompletions}
                 templateRefs
                 minHeight="100%"
                 maxHeight="100%"

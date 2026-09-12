@@ -159,7 +159,15 @@
   export let onChange: ((value: string) => void) | null = null
   // Names offered while typing inside a {{ }} reference. Empty turns
   // completion off entirely.
-  export let completions: { label: string; apply?: string; applyStandalone?: string; detail?: string }[] = []
+  export let completions: {
+    label: string
+    apply?: string
+    applyStandalone?: string
+    detail?: string
+    // 'placeholder' entries stand on their own in the text and are offered
+    // after a #; everything else belongs inside a {{ }}.
+    kind?: 'ref' | 'placeholder'
+  }[] = []
 
   let host: HTMLElement
   let view: EditorView | undefined
@@ -171,17 +179,24 @@
   function completeTemplateRef(ctx: CompletionContext) {
     if (completions.length === 0) return null
     const insideRef = ctx.matchBefore(/\{\{[^}]*$/) !== null
-    if (!insideRef && !ctx.explicit) return null
-    const token = ctx.matchBefore(/[\w.]*$/)
+    const hashToken = !insideRef ? ctx.matchBefore(/#[\w#]*$/) : null
+    if (!insideRef && !hashToken && !ctx.explicit) return null
+
+    let options = completions
+    if (insideRef) options = completions.filter((c) => c.kind !== 'placeholder')
+    else if (hashToken && !ctx.explicit) options = completions.filter((c) => c.kind === 'placeholder')
+    if (options.length === 0) return null
+
+    const token = hashToken ?? ctx.matchBefore(/[\w.]*$/)
     return {
       from: token ? token.from : ctx.pos,
-      options: completions.map((c) => ({
+      options: options.map((c) => ({
         label: c.label,
         apply: (insideRef ? c.apply : c.applyStandalone ?? c.apply) ?? c.label,
         detail: c.detail,
-        type: 'variable',
+        type: c.kind === 'placeholder' ? 'constant' : 'variable',
       })),
-      validFor: /^[\w.]*$/,
+      validFor: hashToken ? /^#[\w#]*$/ : /^[\w.]*$/,
     }
   }
   const languageCompartment = new Compartment()
