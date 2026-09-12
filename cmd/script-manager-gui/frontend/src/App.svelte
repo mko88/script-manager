@@ -128,6 +128,9 @@
   $: canRunInline = !!actionDetail && !actionDetail.interactive && !!(actionDetail.cmd || actionDetail.script)
   $: hasInlineOutput = inlineRunning || !!inlineOutput || inlineExitCode !== null
   $: if (actionDetail && !hasInlineOutput) outputSectionCollapsed = true
+  // An action that can't run inline has no OUTPUT section, so a collapsed
+  // COMMAND would leave the pane showing nothing but its own header.
+  $: if (actionDetail && !canRunInline) cmdSectionCollapsed = false
 
   $: selectedItemLabel = items.find((i) => i.index === selectedItem)?.label ?? ''
   $: selectedActionLabel = actions.find((a) => a.index === selectedActionIndex)?.title ?? ''
