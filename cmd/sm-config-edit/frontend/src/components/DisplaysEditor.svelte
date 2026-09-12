@@ -5,6 +5,7 @@
   import Icon from '@shared/components/Icon.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
   import { t } from '../messages'
+  import { deepCopy, copyLabel } from '../lib/duplicate'
   import { looksLikeSecretKey } from '../secretKey'
   import type { configedit } from '../../wailsjs/go/models'
 
@@ -228,7 +229,9 @@
   function copyDisplay() {
     const src = displays[selectedDisplay]
     if (!src) return
-    displays = [...displays, { ...src, name: `${src.name} - copy` }]
+    const dup = deepCopy(src)
+    dup.name = copyLabel(src.name, displays.map((d) => d.name))
+    displays = [...displays, dup]
     selectedDisplay = displays.length - 1
   }
   function removeDisplay(i: number) {

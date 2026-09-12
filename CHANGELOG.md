@@ -3,6 +3,18 @@
 Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch.Build` scheme described in `CLAUDE.md`.
 
+## 1.4.0.0
+
+### Changes
+
+- `sm-config-edit`: a copy button on the Items, Action Groups and Actions
+  toolbars duplicates the selected entry below the original and selects it.
+- `sm-config-edit`: copies are named "Server - Copy", then "Server - Copy 2";
+  actions and action groups also get a fresh id (`ssh` → `ssh-copy`).
+- The version now comes from the git tag at build time, so the About panel
+  identifies the exact build (`v1.4.0.0`, `v1.4.0.0-4-g94b2835`, `-dirty`,
+  or `dev` outside a checkout).
+
 ## 1.3.0.0
 
 - `script-manager-gui`: the "Shrink on focus loss" badge is now a tiny

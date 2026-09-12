@@ -121,27 +121,15 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 }
 
 // wrapScript wraps the expanded command with a self-delete of its own temp
-// file, so cleanup is synchronized to actual execution instead of guessed by
-// an external timer: whichever line runs the delete, the interpreter must
-// already have opened (and read up to) that point in the file, so it can
-// never race a terminal/shell that is merely slow to start — the previous
-// approach (an external goroutine deleting the file on a timer) could win
-// that race on a slow wt.exe/pwsh cold start, deleting the script before
-// PowerShell ever opened it and making -File fail with "term ... is not
-// recognized".
+// file, so cleanup is tied to actual execution rather than to an external
+// timer: whichever line runs the delete, the interpreter has already read
+// the file that far, so it can't race a terminal/shell that is merely slow
+// to start.
 //
-//   - pwsh/powershell: self-delete is the first line. PowerShell parses the
-//     whole file before executing any of it, so this is also the fastest
-//     point to get a secret-bearing script off disk.
-//   - POSIX shells (bash, sh, zsh, dash, ksh): self-delete is the first line
-//     too, for the same reason (unlinking a file another process still has
-//     open is always safe on POSIX). When stayOpen is set, an epilogue at the
-//     end waits for Enter before the terminal window closes.
-//   - cmd: self-delete is the *last* line. Deleting a batch file as its very
-//     first line is a well-known source of quirky behavior in cmd.exe (its
-//     line-by-line reads can get confused); appending it after the real
-//     command, once cmd.exe has already consumed everything before it, is
-//     the safe, commonly-recommended placement.
+// Placement per shell matches action.WrapScriptFile — first line for pwsh
+// and POSIX shells (also the earliest a secret-bearing script leaves disk),
+// last line for cmd, whose line-by-line reads misbehave when a batch file
+// deletes itself up front. stayOpen adds the POSIX pause epilogue.
 func wrapScript(shellBase, script string, stayOpen bool) string {
 	switch shellBase {
 	case "pwsh", "powershell":

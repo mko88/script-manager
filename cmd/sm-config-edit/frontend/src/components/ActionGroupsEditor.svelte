@@ -2,6 +2,7 @@
   import ListToolbar from './ListToolbar.svelte'
   import { t } from '../messages'
   import { wrap, sortableList, syncList, type DndEntry } from '../lib/sortable'
+  import { deepCopy, copyLabel, copyId, insertAfter } from '../lib/duplicate'
   import type { configedit } from '../../wailsjs/go/models'
 
   // The Action Groups section: edits the id/title/color catalog entries.
@@ -23,6 +24,19 @@
   function addActionGroup() {
     actionGroups = [...actionGroups, newActionGroup()]
     selectedActionGroup = actionGroups.length - 1
+  }
+
+  // Like copyAction, the copy gets a fresh id (duplicate group ids block
+  // Save) — which also means nothing references the new group yet: the
+  // color and title are copied, the membership isn't.
+  function copyActionGroup(i: number) {
+    const src = actionGroups[i]
+    if (!src) return
+    const dup = deepCopy(src)
+    dup.id = copyId(src.id, actionGroups.map((g) => g.id))
+    dup.title = copyLabel(src.title, actionGroups.map((g) => g.title))
+    actionGroups = insertAfter(actionGroups, i, dup)
+    selectedActionGroup = i + 1
   }
 
   // How many actions/items/custom-actions currently reference a group id —
@@ -80,12 +94,15 @@
 
 <ListToolbar
   addLabel={t('tooltip.addActionGroup')}
+  copyLabel={t('tooltip.copyActionGroup')}
+  copyDisabled={selectedActionGroup < 0}
   removeLabel={t('tooltip.removeActionGroup')}
   removeDisabled={selectedActionGroup < 0}
   {reorderMode}
   reorderEnterLabel={t('tooltip.enterReorderMode')}
   reorderExitLabel={t('tooltip.exitReorderMode')}
   on:add={addActionGroup}
+  on:copy={() => copyActionGroup(selectedActionGroup)}
   on:remove={() => confirmRemoveActionGroup(selectedActionGroup)}
   on:toggleReorder={toggleReorderMode}
 />

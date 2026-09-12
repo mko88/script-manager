@@ -1,12 +1,10 @@
 // Drag-and-drop reordering machinery for the master lists (Items, Action
 // Groups, Actions), via svelte-dnd-action rather than native HTML5
-// drag-and-drop. Native dnd's cursor is browser-controlled, and it disagreed
-// with the live reorder + animation (dragover hit-tests against the real,
-// already-reordered layout, while the FLIP transform visually lags behind
-// it) — that mismatch is what read as the cursor flickering between "grab"
-// and a no-drop icon. svelte-dnd-action drives everything from pointer
-// events instead, so there's no browser drag cursor involved at all, and it
-// handles the live-reorder animation and cancelled-drag revert internally.
+// drag-and-drop. Native dnd hit-tests dragover against the real,
+// already-reordered layout while the FLIP transform lags behind it, which
+// makes the browser-controlled cursor flicker between "grab" and no-drop.
+// svelte-dnd-action drives everything from pointer events — no browser drag
+// cursor at all — and handles live reorder and cancelled-drag revert itself.
 import { dndzone } from 'svelte-dnd-action'
 import type { DndEvent } from 'svelte-dnd-action'
 

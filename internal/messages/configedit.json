@@ -89,10 +89,13 @@
     "highlight": "Highlight (wraps in backticks)",
     "mask": "Mask (hides a selected variable's value)",
     "addActionGroup": "Add action group",
+    "copyActionGroup": "Copy action group",
     "removeActionGroup": "Remove action group",
     "addAction": "Add action",
+    "copyAction": "Copy action",
     "removeAction": "Remove action",
     "addItem": "Add item",
+    "copyItem": "Copy item",
     "removeItem": "Remove item",
     "pickColor": "Pick a color",
     "exitReorderMode": "Exit reorder mode",
@@ -170,7 +173,9 @@
     "errorIcon": "⛔",
     "warningIcon": "⚠",
     "removeGlyph": "✕",
-    "secretMask": "••••••••"
+    "secretMask": "••••••••",
+    "copySuffix": " - Copy",
+    "copyIdSuffix": "-copy"
   },
   "theme": {
     "selectTitle": "Theme",

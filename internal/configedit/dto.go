@@ -32,9 +32,8 @@ type ActionDTO struct {
 	Interactive bool     `json:"interactive"`
 }
 
-// ActionGroupDTO mirrors config.ActionGroup — the catalog entry. Actions and
-// items still just reference a group by plain string ID (via Groups/
-// actionGroups), unchanged by this addition.
+// ActionGroupDTO mirrors config.ActionGroup — the catalog entry. Actions
+// and items reference a group by plain string ID (via Groups/actionGroups).
 type ActionGroupDTO struct {
 	ID    string `json:"id"`
 	Title string `json:"title"`
@@ -44,19 +43,16 @@ type ActionGroupDTO struct {
 // FieldDTO edits one entry of a map[string]any (Env, or an item's
 // non-reserved keys) without needing a widget per possible YAML shape.
 // String/bool/number values get their own kind and a plain-value widget;
-// anything else (nested map/list, or a value of an unrecognized type)
-// becomes Kind "yaml", edited as a raw YAML snippet in Value and re-parsed on
-// save — the escape hatch that keeps this scheme minimal. "multiline" is
-// still a plain string underneath (same as "string" once saved) — it only
-// picks a different edit widget, a textarea for an existing value with
-// embedded newlines.
+// anything else (nested map/list, unrecognized type) becomes Kind "yaml",
+// edited as a raw YAML snippet and re-parsed on save. "multiline" saves as
+// a plain string like "string" — it only picks a textarea widget for values
+// with embedded newlines.
 //
-// Secret is independent of Kind — a lock toggle in the UI, not a kind of its
-// own — so any field, including a multi-line one, can be edited masked. Like
-// Kind it's a display hint only: it never round-trips through the saved
-// YAML, and is re-derived fresh from the key's name (see looksLikeSecretKey)
-// every time the field is classified, defaulting a key that looks like a
-// secret to masked without the user having to notice and toggle it.
+// Secret is independent of Kind — a lock toggle, not a kind of its own — so
+// any field can be edited masked. Like Kind it's a display hint that never
+// round-trips through the saved YAML: it's re-derived from the key's name
+// (see looksLikeSecretKey) each time the field is classified, so a
+// secret-looking key defaults to masked without the user toggling anything.
 type FieldDTO struct {
 	Key    string `json:"key"`
 	Kind   string `json:"kind"` // "string" | "multiline" | "number" | "bool" | "yaml"

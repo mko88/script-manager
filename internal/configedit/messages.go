@@ -18,18 +18,14 @@ func (a *App) GetMessages() (map[string]interface{}, error) {
 }
 
 // GetEditableMessages returns the current message text for the Messages
-// section's editor, for either target. The "configedit" case delegates to
-// GetMessages (self). The "gui" case reads script-manager-gui's own
-// override file directly and reconciles it against script-manager-gui's
-// defaults the same way GetMessages does for its own file — but only in
-// memory: this process isn't script-manager-gui, so writing a fix to its
-// override file behind its back would be presumptuous; the reconciled view
-// only lands on disk if the user clicks Save. A script-manager-gui that has
-// never run yet (and so never wrote its own override file) isn't an error
-// here — this process has script-manager-gui's compiled defaults too (see
-// internal/messages), so the tab still shows real shipped text, exactly
-// like GetDefaultMessages/"Restore defaults" already can regardless of
-// whether that app has run.
+// section's editor, for either target. "configedit" delegates to
+// GetMessages (self). "gui" reads script-manager-gui's own override file
+// and reconciles it against that app's defaults in memory only — this
+// process isn't script-manager-gui, so the reconciled view reaches disk
+// only if the user clicks Save. A script-manager-gui that has never run
+// (and so wrote no override file) isn't an error: this binary carries that
+// app's compiled defaults too (see internal/messages), so the tab still
+// shows real shipped text.
 func (a *App) GetEditableMessages(target string) (map[string]interface{}, error) {
 	if target == "configedit" {
 		return a.GetMessages()

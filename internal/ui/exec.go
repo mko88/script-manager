@@ -35,16 +35,15 @@ func (a *App) execAction(act config.Action) tea.Cmd {
 		if err != nil {
 			return a.flashMessage("Script path template error: "+err.Error(), 3*time.Second)
 		}
-		// Same wrapper-file route the GUI uses for script-mode actions,
-		// rather than either exec'ing the path directly (only works if the
-		// OS can run the file natively — a plain .ps1 fails on Windows with
-		// "%1 is not a valid Win32 application") or passing it straight to
-		// action.ScriptArgv (which would make e.g. bash treat a Python
-		// script's contents as bash source instead of respecting its own
-		// shebang). The wrapper's self-delete makes explicit cleanup here
-		// only a fallback for the rare case the shell never actually starts
-		// reading it. No stayOpen epilogue: this app already prompts for a
-		// keypress itself below, once the process exits.
+		// Same wrapper-file route the GUI uses for script-mode actions.
+		// Exec'ing the path directly only works where the OS can run the
+		// file natively (a plain .ps1 fails on Windows with "%1 is not a
+		// valid Win32 application"), and handing it to action.ScriptArgv
+		// would make e.g. bash read a Python script as bash source instead
+		// of respecting its shebang. The wrapper self-deletes, so the
+		// explicit cleanup below is only a fallback for a shell that never
+		// starts reading it. No stayOpen epilogue: this app prompts for a
+		// keypress itself once the process exits.
 		wrapped := action.WrapScriptFile(action.ShellBasename(a.cfg.Shell[0]), expandedScript, false)
 		scriptPath, err := action.WriteTempScript(a.cfg.Shell[0], wrapped)
 		if err != nil {

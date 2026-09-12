@@ -23,15 +23,13 @@ const ThemeChangedEvent = "theme:changed"
 const themeWatchDebounce = 150 * time.Millisecond
 
 // watchTheme watches the app-data directory for changes to theme.Filename
-// and emits ThemeChangedEvent with the reloaded state on every change.
-// Watches the directory rather than the file itself so it
-// still notices the file's first-ever creation — fsnotify can't watch a
-// path that doesn't exist yet, which matters here since sm-theme.json
-// doesn't exist until a theme has actually been switched or saved at
-// least once. Best-effort: any setup failure just means no live
-// reload, exactly like without this feature at all — startup must not
-// depend on it, and a.ctx must already be set (call from Startup, not
-// NewApp).
+// and emits ThemeChangedEvent with the reloaded state on every change. It
+// watches the directory, not the file, so it still catches the file's
+// first-ever creation — fsnotify can't watch a path that doesn't exist, and
+// sm-theme.json appears only once a theme has been switched or saved.
+// Best-effort: a setup failure just means no live reload, so startup must
+// not depend on it. a.ctx must already be set — call from Startup, not
+// NewApp.
 func (a *App) watchTheme() {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {

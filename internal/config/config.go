@@ -63,11 +63,10 @@ type Action struct {
 	Interactive bool `yaml:"interactive,omitempty"`
 }
 
-// ActionGroup is the catalog entry for a group name: Action.Groups and an
-// item's "actionGroups" key still just reference groups by plain string
-// (matched against ID here), the same as before this existed — this only
-// adds an optional friendlier title and a color for the UI to use instead
-// of showing/coloring the bare ID everywhere.
+// ActionGroup is the catalog entry for a group name. Action.Groups and an
+// item's "actionGroups" key reference groups by plain string, matched
+// against ID here; Title and Color are optional, and only give the UI
+// something friendlier than the bare ID to show.
 type ActionGroup struct {
 	ID    string `yaml:"id"`
 	Title string `yaml:"title,omitempty"`
@@ -316,17 +315,15 @@ func StrVal(v any) string {
 
 // LoadWithError resolves the config file automatically — next to the binary
 // first, then the working directory, then the shared app-data directory (see
-// internal/appdata; the same place theme/messages already live) — and
-// reports the last error encountered (e.g. a missing file or a YAML syntax
-// error) so callers can reload without losing the previous config on
-// failure. On Windows, config-win.yaml takes precedence in every location,
-// falling back to config.yaml when absent. If none of those candidates
-// exist anywhere — first-ever startup, nothing to fall back to — a minimal
-// OS-appropriate starter config is written to the app-data directory and
-// loaded from there, so there's always something to work with instead of an
-// empty app. Use LoadFromWithError to load an explicit path instead (never
-// auto-creates; an explicit path the user gave that doesn't exist is a real
-// error, not an invitation to invent one).
+// internal/appdata) — and reports the last error encountered (a missing
+// file, a YAML syntax error) so callers can reload without losing the
+// previous config on failure. On Windows, config-win.yaml takes precedence
+// in every location, falling back to config.yaml when absent. If no
+// candidate exists anywhere, a minimal OS-appropriate starter config is
+// written to the app-data directory and loaded from there, so the app is
+// never empty on first run. LoadFromWithError loads an explicit path
+// instead and never auto-creates: a path the user gave that doesn't exist
+// is a real error.
 func LoadWithError() (*Config, error) {
 	names := []string{"config.yaml"}
 	if runtime.GOOS == "windows" {

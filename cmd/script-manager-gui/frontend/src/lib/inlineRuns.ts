@@ -34,18 +34,14 @@ function setInlineState(itemIndex: number, actionIndex: number, state: Omit<Inli
 }
 
 // How the frontend gets a live-updating view of an inline run: polling
-// GetInlineStatus on a short timer, not a pushed event — this app's other
-// bound methods are all plain request/response calls, and that's the shape
-// that's held up reliably here (see App.svelte's scrollInlineOutputToEnd doc
-// comment for the actual bug that made earlier streaming attempts look
-// unreliable — it wasn't Wails or this call shape at all).
+// GetInlineStatus on a short timer, not a pushed event — every other bound
+// method here is a plain request/response call, and this matches.
 //
-// A poll loop keeps going until its own run finishes, regardless of whether
-// the user is still looking at that action — that's what makes "switch away,
-// switch back" work: inlineStates already has whatever this loop has
-// captured by the time the user returns, instead of the loop having given up
-// and stopped tracking it. onUpdate fires after every poll tick so the
-// caller can run its scroll-into-view side effect for the on-screen action.
+// A poll loop keeps going until its own run finishes, whether or not the
+// user is still looking at that action. That's what makes "switch away,
+// switch back" work: inlineStates already holds whatever the loop captured
+// while away. onUpdate fires after every tick so the caller can run its
+// scroll-into-view side effect for the on-screen action.
 const INLINE_POLL_INTERVAL_MS = 300
 
 async function pollInlineStatus(itemIndex: number, actionIndex: number, onUpdate: (itemIndex: number, actionIndex: number) => void) {

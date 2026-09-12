@@ -231,7 +231,16 @@ func (a *App) CopyToClipboard(value string) error {
 	return clipboard.WriteAll(value)
 }
 
-// GetVersion returns this app's version, for the About panel.
-func (a *App) GetVersion() string {
-	return version.Version
+// GetVersion reports which build is running, for the About panel.
+//
+// Returns a map rather than version.Info because Wails' binding generator
+// emits a TS model only for types it sees in a binding's signature, and a
+// flat string map needs no model at all.
+func (a *App) GetVersion() map[string]string {
+	info := version.Get()
+	return map[string]string{
+		"version": info.Version,
+		"commit":  info.Commit,
+		"date":    info.Date,
+	}
 }

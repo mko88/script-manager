@@ -15,13 +15,10 @@ func ShellBasename(shellBin string) string {
 // ScriptArgv returns the full argv (shell binary + args) that runs
 // scriptPath as a script file through the given shell — not as an inline
 // -c/-Command string, which would try to execute the path itself as a
-// program and fail on anything that isn't natively runnable (e.g. a bare
-// .ps1 with no .exe/.bat/.cmd wrapper). When stayOpen is true it adds a
-// shell-specific flag so an interactive terminal window stays open (and the
-// output visible) after the script finishes, rather than closing
-// immediately; callers with no terminal to keep open (an inline/captured
-// run, or the TUI which hands its own terminal to the subprocess and
-// resumes afterwards regardless) should pass false.
+// program and fail on anything not natively runnable (e.g. a bare .ps1).
+// stayOpen adds a shell-specific flag that keeps an interactive terminal
+// window open, output visible, after the script finishes; callers with no
+// terminal to keep open (an inline/captured run, or the TUI) pass false.
 func ScriptArgv(shell []string, scriptPath string, stayOpen bool) []string {
 	switch ShellBasename(shell[0]) {
 	case "pwsh", "powershell":

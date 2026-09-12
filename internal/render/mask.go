@@ -41,12 +41,11 @@ func MaskedDisplayText(value string) string {
 }
 
 // ProcessMaskSpans scans the expanded template output for every code span
-// and replaces the ones that need to be hidden with a placeholder — a span
-// produced by MaskFunc (a real secret) is always one; so is a span whose
-// real value spans multiple lines, treated as masked from here on same as
-// a secret would be: a list item, a table row, and even a code span itself
-// are each exactly one physical line, so a literal embedded newline would
-// break whatever it's sitting inside of otherwise. Returns:
+// and replaces the ones that need hiding with a placeholder. A span from
+// MaskFunc (a real secret) is always one; so is a span whose real value
+// covers multiple lines — a list item, a table row and a code span are each
+// exactly one physical line, so an embedded newline would break whatever
+// contains it. Returns:
 //   - displayMd: markdown with masked spans replaced by MaskedDisplayText
 //   - copyValues: the real value for every span, in source order
 //   - copyMasked: true for every span whose displayed text isn't its real value

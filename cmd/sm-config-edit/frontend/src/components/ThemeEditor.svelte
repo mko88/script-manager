@@ -5,6 +5,7 @@
   import Icon from '@shared/components/Icon.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
   import { t } from '../messages'
+  import { copyLabel } from '../lib/duplicate'
 
   // Two-way bound: this component both seeds from and writes back to the
   // parent's theme/themes state, so switching/saving/deleting here is
@@ -84,34 +85,32 @@
     }
     loadSelection(selectedThemeName)
     // Picking an existing theme (built-in or custom) applies it
-    // immediately, everywhere — matches the toolbar dropdown's old
-    // behavior, just relocated here.
+    // immediately, everywhere.
     theme = selectedThemeName
     setTheme(selectedThemeName, themes ?? undefined)
     setActiveTheme(selectedThemeName).catch(() => {})
   }
 
-  // The toolbar's "+" button — same draft-staging path as picking the old
-  // "+ New theme" dropdown entry, just triggered directly now that entry
-  // is gone (it only reappears, dynamically, once a draft is in progress;
-  // see the template). Disabled while already drafting, since calling this
-  // again would silently reset the in-progress draft's name/palette.
+  // The toolbar's "+" button stages a draft — the dropdown's "+ New theme"
+  // entry appears only while one is in progress (see the template).
+  // Disabled while already drafting: calling this again would silently
+  // reset the in-progress draft's name/palette.
   function addTheme() {
     selectedThemeName = NEW_THEME_ENTRY
     onThemeSelect()
   }
 
   // Duplicates whatever's currently loaded — built-in, saved custom, or an
-  // in-progress draft — into a new unsaved draft, "<name> - copy", the same
-  // one-step-duplicate shape Displays' Copy display button already uses.
-  // Unlike addTheme, this doesn't go through onThemeSelect: that would
-  // reset editedName/palette to fresh draft defaults instead of preserving
-  // what's being copied.
+  // in-progress draft — into a new unsaved draft, named by the same
+  // copyLabel every other Copy button in the app uses. Unlike addTheme,
+  // this doesn't go through onThemeSelect: that would reset
+  // editedName/palette to fresh draft defaults instead of preserving what's
+  // being copied.
   function copyTheme() {
     const baseName = editedName.trim() || activeThemeLabel
     const copiedPalette = { ...palette }
     selectionAtLoad = ''
-    editedName = `${baseName} - copy`
+    editedName = copyLabel(baseName, Object.keys(themes ?? {}))
     palette = copiedPalette
     selectedThemeName = NEW_THEME_ENTRY
   }
@@ -161,18 +160,14 @@
     collapsedGroups = next
   }
 
-  // Every --sm-* token referenced by a CSS rule that directly matches el —
-  // in its resting state, or in its :hover state (tested by stripping
-  // :hover from the selector and re-matching) — not one it merely
-  // inherits from an ancestor's own rule. Walks the live stylesheets
-  // instead of a hand-maintained per-element map, so a new preview
-  // element's own CSS automatically shows up here without this needing an
-  // update. Can't fully resolve cascade/specificity (e.g. a selected row's
-  // own :hover rule never actually applies, since .row.selected comes
-  // after .row:hover in theme.css at equal specificity) — this unions
-  // every matching rule's tokens regardless, so the result is occasionally
-  // over-inclusive. Acceptable for narrowing the filter box below; not a
-  // precision requirement.
+  // Every --sm-* token referenced by a CSS rule that directly matches el, in
+  // its resting or :hover state (tested by stripping :hover from the
+  // selector and re-matching) — not ones it merely inherits from an
+  // ancestor's rule. Walks the live stylesheets rather than a
+  // hand-maintained per-element map, so a new preview element's own CSS
+  // shows up here without updating this. It unions every matching rule's
+  // tokens without resolving cascade or specificity, so the result is
+  // occasionally over-inclusive — fine for narrowing the filter box below.
   function tokensForElement(el: Element): string[] {
     const found = new Set<string>()
     const tokenRe = /var\(\s*--sm-([\w-]+)/g
@@ -298,8 +293,7 @@
     .join('; ')
 
   // Exported so App.svelte's global Ctrl+S handler can reach it via
-  // bind:this — the panel's own Save button is gone now that Ctrl+S covers
-  // it, but the underlying action still needs a callable entry point.
+  // bind:this — that handler is the only way this panel is saved.
   export async function save() {
     if (!canSave) return
     const name = editedName.trim()
@@ -882,12 +876,11 @@
   }
 
   /* One row per text style, in a fixed order (Heading, Normal, Highlighted,
-     Masked, Warning, Error) so every text-related token has its own
-     unambiguous, individually clickable example instead of the old single
-     paragraph that mixed several of them together. align-items: flex-start
-     (rather than the column default of stretch) keeps each row shrink-wrapped
-     to its own content — see the .theme-editor-preview-chips/-buttons comment
-     above for why that matters for blank-space clicks. */
+     Masked, Warning, Error), so every text token has its own individually
+     clickable example. align-items: flex-start (rather than the column
+     default of stretch) keeps each row shrink-wrapped to its own content —
+     see the .theme-editor-preview-chips/-buttons comment above for why that
+     matters for blank-space clicks. */
   .theme-editor-preview-text-examples {
     display: flex;
     flex-direction: column;

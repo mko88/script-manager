@@ -300,27 +300,24 @@
 
   // --- Shrink-on-blur: while pinned always-on-top, fades the window down
   // to a tiny nub parked at the vertical center of the screen's right edge
-  // whenever it loses OS focus, so it stays out of the way without
-  // vanishing entirely. Hovering it pops it out to a bigger, fully-opaque
-  // badge that's easy to see and click; moving away shrinks it back to the
-  // nub after a short delay so it doesn't flicker shut mid-hover. Clicking
-  // it in either state restores the saved size, position, and opacity.
-  // Gated on alwaysOnTop itself (not just this checkbox) since without
-  // pinning, a shrunk window would just vanish behind whatever's focused.
+  // whenever it loses OS focus. Hovering pops it out to a bigger,
+  // fully-opaque badge; moving away shrinks it back after a short delay so
+  // it doesn't flicker shut mid-hover. Clicking it in either state restores
+  // the saved size, position, and opacity. Gated on alwaysOnTop itself (not
+  // just this checkbox): unpinned, a shrunk window would vanish behind
+  // whatever's focused.
   //
-  // The nub and badge share the same height and right edge — only the
-  // width animates between them — so the pop only ever needs to grow/shrink
-  // leftward from a fixed edge, never risking an overflow past the screen
-  // the way animating height (or a right margin that itself moves) would.
+  // The nub and badge share a height and a right edge — only the width
+  // animates — so the pop grows leftward from a fixed edge and can't
+  // overflow the screen.
   //
   // Both widths sit below Windows' minimum tracking width for a resizable
   // frameless window (SM_CXMINTRACK, ~120px), which would otherwise clamp
-  // WindowSetSize so the window stayed wider than requested, overhung the
-  // fixed right edge, and pushed the flex-centred icon off to the right.
-  // We lower the window's min size to the nub's dimensions on the way in
-  // (and restore it on the way out) so the requested widths are honoured.
-  // The height (SHRUNK_HEIGHT) has always been above SM_CYMINTRACK, which
-  // is why only the horizontal axis was ever affected.
+  // WindowSetSize: the window stays wider than requested, overhangs the
+  // fixed right edge, and pushes the flex-centred icon off to the right.
+  // Lowering the window's min size to the nub's dimensions on the way in
+  // (restored on the way out) makes the requested widths stick. Only the
+  // horizontal axis needs that — SHRUNK_HEIGHT is above SM_CYMINTRACK.
   const NUB_WIDTH = 36
   const BADGE_WIDTH = 100
   const SHRUNK_HEIGHT = 100
@@ -498,7 +495,12 @@
   let aboutControlEl: HTMLElement
 
   onMount(async () => {
-    appVersion = await GetVersion()
+    // The version string alone: it's `git describe` output, which already
+    // carries the short hash whenever the build isn't sitting exactly on a
+    // release tag, so appending the separate commit field would read as
+    // "v1.4.0.0-4-g94b2835 (94b2835)". The backend returns it anyway, for
+    // a bug report that needs the hash from a tagged build too.
+    appVersion = (await GetVersion()).version ?? ''
   })
 
   function toggleAboutPopover() {
@@ -949,12 +951,10 @@
     --wails-draggable: no-drag;
   }
 
-  /* Takes over the slot the theme dropdown used to occupy at the far
-     right of the toolbar: pushes the pin/transparency/settings group as a
-     whole to the right edge, leaving load/refresh at the left. */
-  /* :global — this class now renders inside IconButton's own template
-     (via its class prop), which Svelte's per-component CSS scoping
-     wouldn't otherwise reach. */
+  /* Pushes the pin/transparency/settings group as a whole to the toolbar's
+     right edge, leaving load/refresh at the left. :global because the class
+     renders inside IconButton's own template (via its class prop), out of
+     reach of Svelte's per-component scoping. */
   :global(.toolbar-right-start) {
     margin-left: auto;
   }

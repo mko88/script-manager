@@ -18,13 +18,11 @@ func (a *App) SetAlwaysOnTop(enabled bool) {
 
 // SetWindowOpacity fades the whole window — including its normally opaque
 // content — to percent (0-100) via a native layered-window call
-// (setWindowOpacity), rather than Wails' WebView2-level transparency
-// options: those only let individual page elements with alpha in their own
-// CSS show through, which wouldn't affect this app's opaque theme panels at
-// all, whereas a whole-window blend needs no frontend changes. percent is
-// clamped to [0,100] here rather than trusting the frontend slider's own
-// range, since this is a public binding any frontend call can reach
-// directly. Windows-only for now (see transparency_windows.go /
+// (setWindowOpacity). Wails' WebView2-level transparency only lets page
+// elements with their own CSS alpha show through, which wouldn't touch this
+// app's opaque theme panels. percent is clamped to [0,100] here rather than
+// trusting the frontend slider's range, since any frontend call can reach
+// this binding directly. Windows-only (see transparency_windows.go /
 // transparency_other.go); a no-op elsewhere.
 func (a *App) SetWindowOpacity(percent int) {
 	switch {

@@ -48,14 +48,12 @@ func (a *App) stateFor(cfg *config.Config) StateDTO {
 
 // InitialState loads the config the same way script-manager-gui would: an
 // explicit -config path, or auto-detect (config-win.yaml/config.yaml — exe
-// dir, then cwd, then the app-data directory) otherwise. If nothing exists
-// anywhere during auto-detect, config.LoadWithError itself seeds a starter
-// config in the app-data directory and returns that — so this editor opens
-// with a real, editable file rather than a blank form on first run, exactly
-// like script-manager-gui would. A load error against an explicit -config
-// path, or a fallback-with-warning during auto-detect (SourcePath set but
-// err non-nil, same signal gui.App.ReloadConfig uses), is still surfaced as
-// a non-fatal warning.
+// dir, then cwd, then app-data). When auto-detect finds nothing,
+// config.LoadWithError seeds a starter config in the app-data directory and
+// returns that, so the editor opens on a real file rather than a blank form.
+// A load error against an explicit -config path, or a fallback-with-warning
+// during auto-detect (SourcePath set but err non-nil, the same signal
+// gui.App.ReloadConfig uses), is surfaced as a non-fatal warning.
 func (a *App) InitialState() StateDTO {
 	var cfg *config.Config
 	var err error

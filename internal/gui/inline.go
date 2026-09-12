@@ -66,14 +66,12 @@ func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup
 			return nil, nil, fmt.Errorf("script path template error: %w", err)
 		}
 		// Same action.WrapScriptFile/action.ScriptArgv route RunAction
-		// (terminal launch) already uses for script-mode actions — a bare
-		// exec.Command(path) only works if the OS can run the file directly (a
-		// shebang line on POSIX, a native .exe/.bat/.cmd on Windows); a .ps1
-		// isn't natively executable, so Windows fails it with "%1 is not a
-		// valid Win32 application" while the terminal path (which already goes
-		// through the shell) works fine for the exact same script. No
-		// stayOpen epilogue, matching the Cmd branch below: there's no
-		// interactive terminal for a "press Enter to close" prompt to wait in.
+		// (terminal launch) uses for script-mode actions: a bare
+		// exec.Command(path) only works where the OS can run the file
+		// directly (a shebang on POSIX, a native .exe/.bat/.cmd on Windows),
+		// so a .ps1 fails with "%1 is not a valid Win32 application". No
+		// stayOpen epilogue, matching the Cmd branch below — there's no
+		// interactive terminal to hold a "press Enter to close" prompt.
 		wrapped := action.WrapScriptFile(action.ShellBasename(a.cfg.Shell[0]), expandedScript, false)
 		scriptPath, err := action.WriteTempScript(a.cfg.Shell[0], wrapped)
 		if err != nil {
@@ -145,15 +143,13 @@ type InlineStatusDTO struct {
 	ErrMsg   string `json:"errMsg"`
 }
 
-// RunActionInline starts the item/action pair running with its output
-// captured instead of handed off to an external terminal — meant for a
-// command that isn't expected to need interactive input, so its result can
-// be read right in the Command pane rather than needing a separate terminal
-// window. It returns as soon as the process starts; the frontend polls
-// GetInlineStatus on a short timer to read the output captured so far and
-// learn when the process finishes. Different item/action pairs may run
-// concurrently — switching to a different action in the UI doesn't stop one
-// already running — but the same pair can't be started twice at once.
+// RunActionInline starts the item/action pair with its output captured
+// instead of handed to an external terminal, so the result reads in the
+// Command pane — for commands not expected to need interactive input. It
+// returns as soon as the process starts; the frontend polls GetInlineStatus
+// on a short timer for the output so far and for completion. Different
+// item/action pairs may run concurrently — switching action in the UI
+// doesn't stop a running one — but the same pair can't start twice at once.
 func (a *App) RunActionInline(itemIndex, actionIndex int) error {
 	key := inlineKey{itemIndex, actionIndex}
 

@@ -13,32 +13,25 @@ const TempScriptPattern = "script-manager-action-*"
 
 // WrapScriptFile wraps a direct invocation of scriptPath (a script-mode
 // action's target file) with a self-delete of the wrapper's own temp file,
-// for the given shell. It always routes the target through the shell's own
-// native invocation syntax (& for pwsh, call for cmd, a bare command line
-// for POSIX shells) rather than treating scriptPath as source to interpret
-// directly or passing it as a raw argument — that's what lets one mechanism
-// correctly run both a script that needs an interpreter (a bare .ps1 has no
-// other way to run at all on Windows) and an already-native executable
-// (.exe/.bat/.cmd, or a POSIX binary/shebang script for any interpreter,
-// not just the one configured as shell:) without needing to know in advance
-// which kind scriptPath is.
+// for the given shell. The target always goes through the shell's native
+// invocation syntax (& for pwsh, call for cmd, a bare command line for
+// POSIX shells), never read as source or passed as a raw argument: that is
+// what lets one mechanism run both a script needing an interpreter (a bare
+// .ps1 has no other way to run at all on Windows) and an already-native
+// executable, without knowing in advance which scriptPath is.
 //
 // Self-delete placement:
 //   - pwsh/powershell: first line — PowerShell parses the whole file before
 //     executing any of it.
 //   - POSIX shells (bash, sh, zsh, dash, ksh): first line too — unlinking a
-//     file another process still has open is always safe on POSIX. When
-//     stayOpen is set, an epilogue at the end waits for Enter before an
-//     interactive terminal window closes.
-//   - cmd: last line — deleting a batch file as its very first line is a
-//     well-known source of quirky behavior in cmd.exe.
+//     file another process still has open is always safe there.
+//   - cmd: last line — deleting a batch file from its own first line makes
+//     cmd.exe behave erratically.
 //
-// stayOpen's pwsh/cmd behavior comes entirely from ScriptArgv's -NoExit/-k
-// flags; only the POSIX default branch needs its own pause epilogue baked in
-// here too, since bash has no -NoExit equivalent for running a file
-// directly. Pass stayOpen=false when there's no separate terminal window to
-// keep open at all (an inline/captured run, or the TUI, which hands its own
-// terminal to the subprocess and already prompts for a keypress itself).
+// stayOpen adds a pause epilogue for POSIX shells only; pwsh and cmd get the
+// same effect from ScriptArgv's -NoExit/-k. Pass false when no separate
+// terminal window needs keeping open — an inline/captured run, or the TUI,
+// which prompts for a keypress itself.
 func WrapScriptFile(shellBase, scriptPath string, stayOpen bool) string {
 	switch shellBase {
 	case "pwsh", "powershell":
@@ -71,14 +64,13 @@ func psQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + 
 func shQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
 // WriteTempScript writes script to a new temp file with an extension the
-// target shell recognizes, and returns its path. Running the script from a
-// file — rather than inlining it as a single -Command/-c argument — avoids
-// depending on the launcher's reconstruction of the argv surviving embedded
-// newlines and quotes, which is unreliable for anything beyond a trivial
-// one-liner. script is expected to already be wrapped (by WrapScriptFile or
-// a caller's own equivalent for a plain command string), so it deletes this
-// very file once the shell starts executing it; note the expanded content
-// (including any masked values) is on disk in plain text until then.
+// target shell recognizes, and returns its path. Running from a file, rather
+// than inlining as one -Command/-c argument, avoids depending on the
+// launcher reconstructing an argv with embedded newlines and quotes intact.
+// script is expected to already carry its own self-delete (WrapScriptFile,
+// or a caller's equivalent for a plain command string), so the file removes
+// itself once the shell starts it — until then the expanded content,
+// including any masked values, sits on disk in plain text.
 func WriteTempScript(shellBin, script string) (string, error) {
 	ext := ".txt"
 	switch ShellBasename(shellBin) {

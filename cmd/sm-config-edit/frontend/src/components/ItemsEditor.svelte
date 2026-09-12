@@ -5,6 +5,7 @@
   import CheckboxChipList from './CheckboxChipList.svelte'
   import { t } from '../messages'
   import { wrap, sortableList, syncList, type DndEntry } from '../lib/sortable'
+  import { deepCopy, copyLabel, insertAfter } from '../lib/duplicate'
   import type { configedit } from '../../wailsjs/go/models'
 
   // The Items section: a reorderable master list, a detail form (reserved
@@ -64,6 +65,19 @@
     selectedItem = items.length - 1
     previewActionIdx = -1
   }
+  // Duplicates the selected item — custom actions, fields and all — and
+  // selects the copy, so the common "same item, one value different" case
+  // starts from a filled-in form instead of a blank one.
+  function copyItem(i: number) {
+    const src = items[i]
+    if (!src) return
+    const dup = deepCopy(src)
+    dup.name = copyLabel(src.name, items.map((it) => it.name))
+    items = insertAfter(items, i, dup)
+    selectedItem = i + 1
+    previewActionIdx = -1
+    actionPreview = null
+  }
   function removeItem(i: number) {
     items = items.filter((_, idx) => idx !== i)
     if (selectedItem === i) selectedItem = -1
@@ -86,25 +100,21 @@
     if (confirm(t('confirm.removeCustomAction', { name }))) removeCustomAction(itemIdx, i)
   }
 
-  // Reordering is opt-in: off by default, toggled per-visit via the
-  // reorder-mode button in the toolbar (not persisted — reopening the
-  // section, or the app, starts back in "reordering off"). Without this
-  // gate, a plain click-to-select on a row is only one accidental pixel of
-  // movement away from silently reordering the list. Turning it on clears
-  // the selection — keeping a selection alive through a reorder means
-  // tracking its index through every live-shifting consider event, which
-  // isn't worth the complication.
+  // Reordering is opt-in, toggled per-visit from the toolbar and never
+  // persisted: without the gate, a click-to-select is one accidental pixel
+  // of movement away from silently reordering the list. Turning it on
+  // clears the selection — holding a selection through a reorder would mean
+  // tracking its index across every live-shifting consider event.
   let reorderMode = false
   function toggleReorderMode() {
     reorderMode = !reorderMode
     if (reorderMode) selectedItem = -1
   }
 
-  // Re-derived from items on any change EXCEPT while a drag is active —
-  // during the drag, dndzone owns itemEntries via consider (below), and
-  // reactively overwriting it out from under it too (with freshly recreated
-  // wrapper objects on every write) corrupted its internal drag tracking:
-  // the dragged entry vanished entirely on drop instead of moving.
+  // Re-derived from items on any change EXCEPT while a drag is active:
+  // dndzone owns itemEntries via consider (below) for the duration, and
+  // overwriting it with freshly wrapped objects corrupts its drag tracking
+  // — the dragged entry vanishes on drop instead of moving.
   let dragging = false
   let itemEntries: DndEntry<configedit.ItemDTO>[] = wrap(items)
   $: if (!dragging) itemEntries = wrap(items)
@@ -148,12 +158,15 @@
 
 <ListToolbar
   addLabel={t('tooltip.addItem')}
+  copyLabel={t('tooltip.copyItem')}
+  copyDisabled={selectedItem < 0}
   removeLabel={t('tooltip.removeItem')}
   removeDisabled={selectedItem < 0}
   {reorderMode}
   reorderEnterLabel={t('tooltip.enterReorderMode')}
   reorderExitLabel={t('tooltip.exitReorderMode')}
   on:add={addItem}
+  on:copy={() => copyItem(selectedItem)}
   on:remove={() => confirmRemoveItem(selectedItem)}
   on:toggleReorder={toggleReorderMode}
 />
