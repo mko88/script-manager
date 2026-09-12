@@ -50,6 +50,10 @@ export function GetTheme() {
   return window['go']['configedit']['App']['GetTheme']();
 }
 
+export function GetUIPrefs() {
+  return window['go']['configedit']['App']['GetUIPrefs']();
+}
+
 export function InitialState() {
   return window['go']['configedit']['App']['InitialState']();
 }
@@ -124,6 +128,14 @@ export function SecretsState(arg1) {
 
 export function SetTheme(arg1) {
   return window['go']['configedit']['App']['SetTheme'](arg1);
+}
+
+export function SetUIFonts(arg1, arg2) {
+  return window['go']['configedit']['App']['SetUIFonts'](arg1, arg2);
+}
+
+export function SetUIScale(arg1) {
+  return window['go']['configedit']['App']['SetUIScale'](arg1);
 }
 
 export function UnlockSecrets(arg1, arg2) {

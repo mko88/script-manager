@@ -173,8 +173,8 @@
     min-width: 0;
   }
   .field-value-yaml {
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.8rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
   }
 
   .field-value-secret {
@@ -183,7 +183,7 @@
 
   .field-error {
     color: var(--sm-bg-primary);
-    font-size: 0.75rem;
+    font-size: var(--sm-type-sm);
     margin: -2px 0 4px 144px;
   }
   :global(.field-icon-btn) {
@@ -210,7 +210,7 @@
     border-radius: 4px;
     padding: 4px 6px;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
   }
 
   .sm-select {

@@ -292,8 +292,8 @@
     background: var(--sm-bg-deep);
     border-radius: 4px;
     padding: 8px;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.8rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
     white-space: pre-wrap;
     word-break: break-word;
   }

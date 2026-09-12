@@ -4,6 +4,7 @@
   import { flash } from '@shared/toast'
   import { loadPersisted, savePersisted } from '@shared/persist'
   import { watchTheme } from '@shared/theme'
+  import { applyUIPrefs, clampScale, scaleFromKeydown, UI_SCALE } from '@shared/uiprefs'
   import Icon from '@shared/components/Icon.svelte'
   import CollapseToggle from '@shared/components/CollapseToggle.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
@@ -45,6 +46,8 @@
     SetWindowOpacity,
     GetVersion,
     RecentConfigs,
+    GetUIPrefs,
+    SetUIScale,
     LoadRecentConfig,
     ClearRecentConfigs,
     ActionNeedsUnlock,
@@ -64,6 +67,23 @@
 
   onMount(() => watchTheme(EventsOn, () => {}))
   onMount(() => EventsOn('config:changed', onConfigFileChanged))
+
+  let uiScale: number = UI_SCALE.default
+
+  onMount(async () => {
+    const prefs = await GetUIPrefs()
+    uiScale = clampScale(prefs.scalePercent)
+    applyUIPrefs(prefs)
+  })
+
+  async function onScaleKeydown(e: KeyboardEvent) {
+    const next = scaleFromKeydown(e, uiScale)
+    if (next === null) return
+    e.preventDefault()
+    if (next === uiScale) return
+    uiScale = next
+    applyUIPrefs(await SetUIScale(next))
+  }
 
   let inlineOutputEl: HTMLElement | undefined
 
@@ -592,7 +612,7 @@
 
 </script>
 
-<svelte:window on:keydown={onKeyDown} on:click={onWindowClick} on:blur={onWindowBlur} />
+<svelte:window on:keydown|capture={onScaleKeydown} on:keydown={onKeyDown} on:click={onWindowClick} on:blur={onWindowBlur} />
 
 {#if isShrunk}
   <button
@@ -899,19 +919,20 @@
   </div>
 
     <Toast />
-  </main>
+
+    <PinDialog
+    open={pinDialogOpen}
+    title={t('tooltip.pinTitle')}
+    message={t('tooltip.pinMessage')}
+    pinLabel={t('tooltip.pinLabel')}
+    confirmLabel={t('tooltip.pinConfirmButton')}
+    cancelLabel={t('tooltip.pinCancelButton')}
+    error={pinError}
+    onSubmit={submitPin}
+    onCancel={cancelPin}
+  />
+</main>
 </div>
-<PinDialog
-  open={pinDialogOpen}
-  title={t('tooltip.pinTitle')}
-  message={t('tooltip.pinMessage')}
-  pinLabel={t('tooltip.pinLabel')}
-  confirmLabel={t('tooltip.pinConfirmButton')}
-  cancelLabel={t('tooltip.pinCancelButton')}
-  error={pinError}
-  onSubmit={submitPin}
-  onCancel={cancelPin}
-/>
 {/if}
 
 <style>
@@ -973,7 +994,7 @@
   }
 
   .opacity-value {
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
     min-width: 2.4em;
     text-align: right;
@@ -983,7 +1004,7 @@
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
     white-space: nowrap;
   }
@@ -1040,13 +1061,13 @@
   }
 
   .about-version {
-    font-size: 0.75rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
   }
 
   .about-description {
     margin: 4px 0 0;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-text);
     line-height: 1.4;
   }
@@ -1054,7 +1075,7 @@
   .about-github-link {
     margin-top: 4px;
     color: var(--sm-text-heading);
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
   }
 
   .window-controls {
@@ -1066,7 +1087,7 @@
   :global(.window-close-btn:hover) {
     background: var(--sm-error);
     border-color: var(--sm-error);
-    color: #fff;
+    color: var(--sm-bg-alt);
   }
 
   .app-shell {
@@ -1096,7 +1117,7 @@
     flex-direction: column;
     gap: 4px;
     padding: 4px 6px;
-    background: rgba(232, 163, 61, 0.1);
+    background: var(--sm-warning-tint);
     border-bottom: 1px solid var(--sm-border);
   }
 
@@ -1114,7 +1135,7 @@
 
   .warning-summary {
     color: var(--sm-warning);
-    font-size: 0.78rem;
+    font-size: var(--sm-type-sm);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1133,7 +1154,7 @@
   }
 
   .details-content {
-    font-size: 0.9rem;
+    font-size: var(--sm-type-lg);
     line-height: 1.5;
   }
 
@@ -1161,7 +1182,7 @@
     color: var(--sm-text-highlight);
     padding: 1px 5px;
     border-radius: 3px;
-    font-family: "SF Mono", Consolas, monospace;
+    font-family: var(--sm-font-mono);
   }
 
   .details-content :global(code.copy-value) {
@@ -1178,7 +1199,7 @@
   }
 
   .command-content {
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
   }
 
   .cmd-desc {
@@ -1211,7 +1232,7 @@
   .exit-indicator {
     margin-left: auto;
     padding-left: 8px;
-    font-size: 1rem;
+    font-size: var(--sm-type-xl);
     line-height: 1;
   }
   .running-indicator {
@@ -1230,8 +1251,8 @@
   .cmd-output-body {
     margin: 0;
     padding: 10px;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.8rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
     white-space: pre-wrap;
     word-break: break-all;
     max-height: 260px;

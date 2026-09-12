@@ -167,7 +167,7 @@
 
   .group-summary {
     color: var(--sm-text-muted);
-    font-size: 0.78rem;
+    font-size: var(--sm-type-sm);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -186,7 +186,7 @@
     color: var(--sm-text-muted);
     border-radius: 4px;
     padding: 2px 6px;
-    font-size: 0.68rem;
+    font-size: var(--sm-type-xs);
     line-height: 1.2;
     cursor: pointer;
     font-family: inherit;

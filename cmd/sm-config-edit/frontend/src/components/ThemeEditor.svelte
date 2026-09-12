@@ -576,12 +576,12 @@
     border-radius: 4px;
     padding: 5px 7px;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
   }
 
   .token-name {
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.75rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
   }
 
   .theme-editor-preview-pane {
@@ -655,7 +655,7 @@
     border-bottom: 2px solid var(--sm-text-tab);
     padding: 6px 4px 8px;
     color: var(--sm-text-tab);
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
     font-weight: 700;
     font-family: inherit;
     cursor: pointer;
@@ -670,7 +670,7 @@
     gap: 6px;
     margin-left: auto;
     padding-left: 8px;
-    font-size: 1rem;
+    font-size: var(--sm-type-xl);
     line-height: 1;
   }
 
@@ -723,12 +723,12 @@
 
   .theme-editor-preview-heading {
     color: var(--sm-text-heading);
-    font-size: 0.95rem;
+    font-size: var(--sm-type-lg);
     font-weight: 700;
   }
 
   .theme-editor-preview-normal {
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
     color: var(--sm-text);
   }
 
@@ -737,8 +737,8 @@
     color: var(--sm-text-highlight);
     padding: 1px 5px;
     border-radius: 3px;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.78rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
   }
 
   .theme-editor-preview-highlighted:hover {
@@ -751,8 +751,8 @@
     background: var(--sm-bg-deep);
     border-radius: 4px;
     padding: 8px 0;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.8rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
     color: var(--sm-text);
   }
 
@@ -776,8 +776,8 @@
     border-radius: 4px;
     margin: 0;
     padding: 8px 10px;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.78rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
     white-space: pre-wrap;
   }
@@ -786,7 +786,7 @@
     align-self: flex-start;
     width: auto;
     margin: 0;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-error);
   }
 
@@ -794,7 +794,7 @@
     align-self: flex-start;
     width: auto;
     margin: 0;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-warning);
   }
 
@@ -802,8 +802,8 @@
     align-self: flex-start;
     width: auto;
     margin: 0;
-    font-size: 0.8rem;
-    font-family: "SF Mono", Consolas, monospace;
+    font-size: var(--sm-type-sm);
+    font-family: var(--sm-font-mono);
     color: var(--sm-masked);
   }
 
@@ -815,7 +815,7 @@
     border: 1px solid var(--sm-border);
     border-radius: 6px;
     padding: 8px 16px;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
     box-shadow: 0 4px 12px var(--sm-shadow);
   }
 
@@ -882,7 +882,7 @@
     border: none;
     padding: 0;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
     color: var(--sm-text-muted);
     cursor: pointer;
     white-space: nowrap;

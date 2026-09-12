@@ -353,3 +353,24 @@ export namespace theme {
 
 }
 
+export namespace uiprefs {
+	
+	export class Prefs {
+	    fontUi: string;
+	    fontMono: string;
+	    scalePercent: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Prefs(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.fontUi = source["fontUi"];
+	        this.fontMono = source["fontMono"];
+	        this.scalePercent = source["scalePercent"];
+	    }
+	}
+
+}
+

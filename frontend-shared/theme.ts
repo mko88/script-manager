@@ -35,7 +35,16 @@ export const TOKEN_GROUPS: { label: string; tokens: string[] }[] = [
   },
   {
     label: 'Effects',
-    tokens: ['secondary-hover', 'tint-hover', 'overlay-soft', 'scrollbar', 'shadow', 'primary-hover'],
+    tokens: [
+      'secondary-hover',
+      'tint-hover',
+      'overlay-soft',
+      'scrollbar',
+      'shadow',
+      'primary-hover',
+      'warning-tint',
+      'scrim',
+    ],
   },
 ]
 export const TOKEN_NAMES: string[] = TOKEN_GROUPS.flatMap((g) => g.tokens)

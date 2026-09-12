@@ -107,7 +107,7 @@
 
   .recent-heading {
     padding: 4px 8px;
-    font-size: 0.7rem;
+    font-size: var(--sm-type-xs);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--sm-text-muted);
@@ -115,7 +115,7 @@
 
   .recent-empty {
     padding: 6px 8px 8px;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
   }
 
@@ -136,7 +136,7 @@
     background: none;
     color: var(--sm-text);
     font-family: inherit;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     text-align: left;
     white-space: nowrap;
     overflow: hidden;
@@ -168,7 +168,7 @@
     background: var(--sm-bg-deep);
     color: var(--sm-text);
     font-family: inherit;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     cursor: pointer;
   }
 

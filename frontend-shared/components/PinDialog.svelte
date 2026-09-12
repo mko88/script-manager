@@ -81,7 +81,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.45);
+    background: var(--sm-scrim);
   }
 
   .pin-dialog {
@@ -101,7 +101,7 @@
 
   .pin-message {
     margin: 0 0 10px;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     line-height: 1.4;
     color: var(--sm-text);
   }
@@ -111,7 +111,7 @@
     flex-direction: column;
     gap: 4px;
     margin-bottom: 8px;
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
   }
 
@@ -122,12 +122,12 @@
     background: var(--sm-bg-deep);
     color: var(--sm-text);
     font-family: inherit;
-    font-size: 0.9rem;
+    font-size: var(--sm-type-lg);
   }
 
   .pin-error {
     margin-bottom: 8px;
-    font-size: 0.78rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-error);
   }
 
@@ -145,7 +145,7 @@
     background: var(--sm-bg-deep);
     color: var(--sm-text);
     font-family: inherit;
-    font-size: 0.82rem;
+    font-size: var(--sm-type-sm);
     cursor: pointer;
   }
 

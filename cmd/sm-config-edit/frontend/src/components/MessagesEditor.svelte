@@ -205,7 +205,7 @@
     padding: 6px 4px 8px;
     margin-bottom: -1px;
     color: var(--sm-text-muted);
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
     font-family: inherit;
     cursor: pointer;
   }
@@ -236,7 +236,7 @@
     border-radius: 4px;
     padding: 5px 7px;
     font-family: inherit;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
   }
 
   .messages-rows {
@@ -245,8 +245,8 @@
   }
 
   .messages-row-key {
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.75rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
   }
 
   .messages-row-value {

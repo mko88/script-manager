@@ -111,7 +111,7 @@
     border: 1px solid var(--sm-border);
     border-radius: 6px;
     background: var(--sm-bg-deep);
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
   }
 
   .secrets-status-set {

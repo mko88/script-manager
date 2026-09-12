@@ -439,8 +439,8 @@
     flex: 1 1 auto;
     min-height: 60px;
     resize: none;
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.8rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
   }
 
   .details-helper-toolbar {
@@ -452,8 +452,8 @@
   }
 
   .details-helper-toolbar :global(.icon-btn) {
-    font-family: "SF Mono", Consolas, monospace;
-    font-size: 0.8rem;
+    font-family: var(--sm-font-mono);
+    font-size: var(--sm-type-sm);
     line-height: 1;
   }
 

@@ -23,7 +23,7 @@
   .radio-group {
     display: flex;
     gap: 16px;
-    font-size: 0.85rem;
+    font-size: var(--sm-type-base);
     margin-bottom: 10px;
   }
   .radio-group input[type="radio"] {

@@ -3,6 +3,7 @@
   import Toast from '@shared/components/Toast.svelte'
   import { flash } from '@shared/toast'
   import { loadPersisted, savePersisted } from '@shared/persist'
+  import { applyUIPrefs, clampScale, scaleFromKeydown, UI_SCALE } from '@shared/uiprefs'
   import { getTheme, getThemes, type Theme, type CustomPalette } from '@shared/theme'
   import StringListEditor from './components/StringListEditor.svelte'
   import FieldGrid from './components/FieldGrid.svelte'
@@ -25,6 +26,9 @@
     NewBlank,
     BrowseOpen,
     RecentConfigs,
+    GetUIPrefs,
+    SetUIScale,
+    SetUIFonts,
     OpenRecent,
     ClearRecentConfigs,
     CreateSecretsPIN,
@@ -174,6 +178,37 @@
     } catch (err) {
       flash(t('toast.openFailed', { error: String(err) }))
     }
+  }
+
+  let uiScale: number = UI_SCALE.default
+  let uiPrefs: { fontUi?: string; fontMono?: string; scalePercent?: number } = {}
+
+  let fontUiDraft = ''
+  let fontMonoDraft = ''
+
+  onMount(async () => {
+    uiPrefs = await GetUIPrefs()
+    uiScale = clampScale(uiPrefs.scalePercent)
+    fontUiDraft = uiPrefs.fontUi ?? ''
+    fontMonoDraft = uiPrefs.fontMono ?? ''
+    applyUIPrefs(uiPrefs)
+  })
+
+  async function onScaleKeydown(e: KeyboardEvent) {
+    const next = scaleFromKeydown(e, uiScale)
+    if (next === null) return
+    e.preventDefault()
+    if (next === uiScale) return
+    uiScale = next
+    uiPrefs = await SetUIScale(next)
+    applyUIPrefs(uiPrefs)
+  }
+
+  async function saveFonts(fontUi: string, fontMono: string) {
+    uiPrefs = await SetUIFonts(fontUi, fontMono)
+    uiScale = clampScale(uiPrefs.scalePercent)
+    applyUIPrefs(uiPrefs)
+    flash(t('toast.fontsSaved'))
   }
 
   let recents: string[] = []
@@ -391,7 +426,7 @@
 
 </script>
 
-<svelte:window on:keydown={handleGlobalKeydown} />
+<svelte:window on:keydown|capture={onScaleKeydown} on:keydown={handleGlobalKeydown} />
 
 <div class="app-root">
   <header class="toolbar">
@@ -551,6 +586,21 @@
             onToggleLock={toggleFieldLock}
           />
         {:else if section === 'theme'}
+          <div class="typography-settings">
+            <div class="field">
+              <span>{t('field.fontUi')}</span>
+              <input type="text" placeholder={t('placeholder.fontDefault')} bind:value={fontUiDraft} />
+            </div>
+            <div class="field">
+              <span>{t('field.fontMono')}</span>
+              <input type="text" placeholder={t('placeholder.fontDefaultMono')} bind:value={fontMonoDraft} />
+            </div>
+            <p class="hint">{t('hint.fonts')}</p>
+            <p class="hint">{t('hint.uiScale', { percent: uiScale })}</p>
+            <button class="btn" type="button" on:click={() => saveFonts(fontUiDraft, fontMonoDraft)}
+              >{t('button.applyFonts')}</button
+            >
+          </div>
           <ThemeEditor
             bind:this={themeEditor}
             bind:theme
@@ -582,22 +632,30 @@
     </div>
 
     <Toast />
-  </main>
+
+    <PinDialog
+    open={pinDialogOpen}
+    title={t('tooltip.pinEnterTitle')}
+    message={t('tooltip.pinEnterMessage')}
+    pinLabel={t('tooltip.pinLabel')}
+    confirmLabel={t('tooltip.pinConfirmButton')}
+    cancelLabel={t('tooltip.pinCancelButton')}
+    error={pinError}
+    onSubmit={submitPin}
+    onCancel={cancelPin}
+  />
+</main>
 </div>
 
-<PinDialog
-  open={pinDialogOpen}
-  title={t('tooltip.pinEnterTitle')}
-  message={t('tooltip.pinEnterMessage')}
-  pinLabel={t('tooltip.pinLabel')}
-  confirmLabel={t('tooltip.pinConfirmButton')}
-  cancelLabel={t('tooltip.pinCancelButton')}
-  error={pinError}
-  onSubmit={submitPin}
-  onCancel={cancelPin}
-/>
 
 <style>
+  .typography-settings {
+    max-width: 420px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--sm-border);
+  }
+
   .app-root {
     display: flex;
     flex-direction: column;
@@ -625,7 +683,7 @@
     background: none;
     color: var(--sm-text-muted);
     font-family: inherit;
-    font-size: 0.75rem;
+    font-size: var(--sm-type-sm);
     cursor: pointer;
   }
 
@@ -671,14 +729,14 @@
     gap: 2px;
     max-height: 120px;
     overflow-y: auto;
-    background: rgba(232, 163, 61, 0.1);
+    background: var(--sm-warning-tint);
     border: 1px solid var(--sm-border);
     border-radius: 6px;
     padding: 6px 10px;
   }
 
   .validation-issue {
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     color: var(--sm-text-muted);
   }
 
@@ -711,7 +769,7 @@
 
   .hint {
     color: var(--sm-text-muted);
-    font-size: 0.8rem;
+    font-size: var(--sm-type-sm);
     margin: 0 0 8px;
   }
 
