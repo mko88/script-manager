@@ -18,6 +18,8 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
   including for an action that can't run inline or a run that printed nothing.
 - The recent-configs list is styled like the item lists elsewhere in both
   apps, and marks the config in use — which `script-manager-gui` didn't.
+- `script-manager-gui`: the Details and Command panes stay as you left them.
+  Selecting an item or an action no longer collapses one and expands the other.
 
 ### Bug fixes
 
