@@ -2,12 +2,14 @@ package configedit
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"script-manager/internal/appdata"
 	"script-manager/internal/config"
+	"script-manager/internal/configmigrate"
 	"script-manager/internal/filewatch"
 	"script-manager/internal/recent"
 	"script-manager/internal/secret"
@@ -35,6 +37,20 @@ func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 }
 
+// ensureStartupFormat gates the first load. Nothing is loaded yet, so the
+// path has to be resolved the same way LoadWithError would.
+func (a *App) ensureStartupFormat() error {
+	path := a.cfgPath
+	if path == "" {
+		resolved, err := config.ResolvePath()
+		if err != nil {
+			return nil
+		}
+		path = resolved
+	}
+	return a.ensureFormat(path)
+}
+
 func (a *App) stateFor(cfg *config.Config) StateDTO {
 	if !secret.SameParams(a.secretParams, cfg.Secrets) {
 		a.secretKey = nil
@@ -47,6 +63,11 @@ func (a *App) stateFor(cfg *config.Config) StateDTO {
 }
 
 func (a *App) InitialState() StateDTO {
+	if err := a.ensureStartupFormat(); errors.Is(err, configmigrate.ErrDeclined) {
+		runtime.Quit(a.ctx)
+		return StateDTO{Config: ToConfigDTO(&config.Config{})}
+	}
+
 	var cfg *config.Config
 	var err error
 	if a.cfgPath != "" {
@@ -84,17 +105,28 @@ func (a *App) BrowseOpen() (StateDTO, error) {
 		return StateDTO{}, err
 	}
 	if path == "" {
-		cfg := a.cfg
-		if cfg == nil {
-			cfg = &config.Config{}
-		}
-		return StateDTO{Config: ToConfigDTO(cfg), Path: a.path}, nil
+		return a.currentState(), nil
 	}
+	// Declining leaves the config already open in place, so this reads to the
+	// frontend like a cancelled dialog.
+	if err := a.ensureFormat(path); errors.Is(err, configmigrate.ErrDeclined) {
+		return a.currentState(), nil
+	}
+
 	cfg, err := config.LoadFromWithError(path)
 	if err != nil {
 		return StateDTO{}, err
 	}
 	return a.stateFor(cfg), nil
+}
+
+// currentState is what the frontend already has: nothing changed.
+func (a *App) currentState() StateDTO {
+	cfg := a.cfg
+	if cfg == nil {
+		cfg = &config.Config{}
+	}
+	return StateDTO{Config: ToConfigDTO(cfg), Path: a.path}
 }
 
 func (a *App) BrowseScriptFile() (string, error) {
