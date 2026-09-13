@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"script-manager/internal/appdata"
 	"script-manager/internal/config"
@@ -27,6 +28,9 @@ type App struct {
 	secretKey    []byte
 	secretParams *secret.Params
 	scriptWatch  *filewatch.Watcher
+
+	conversionMu     sync.Mutex
+	conversionAnswer chan bool
 }
 
 func NewApp(cfgPath string) *App {

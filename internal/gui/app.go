@@ -39,6 +39,9 @@ type App struct {
 	declinedMu sync.Mutex
 	declinedAt time.Time // mtime of the config the user declined to convert
 
+	conversionMu     sync.Mutex
+	conversionAnswer chan bool
+
 	secretMu     sync.RWMutex
 	secretKey    []byte
 	secretParams *secret.Params
@@ -107,11 +110,17 @@ func (a *App) LoadError() string {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	applog.Init(a.appDataDir)
+	a.watchTheme()
+}
 
+// InitConfig performs the first load. It is a binding rather than part of
+// Startup because converting an old config asks the user first, and the
+// window has to be up to show the question.
+func (a *App) InitConfig() string {
 	if err := a.ensureStartupFormat(); errors.Is(err, configmigrate.ErrDeclined) {
 		applog.Printf("startup: %v", err)
-		wailsruntime.Quit(ctx)
-		return
+		wailsruntime.Quit(a.ctx)
+		return ""
 	}
 
 	a.cfg, a.loadErr = a.loadFrom(a.configPath)
@@ -120,8 +129,8 @@ func (a *App) Startup(ctx context.Context) {
 	}
 
 	applog.Printf("startup version=%s config=%s", version.Version, a.configSourcePath())
-	a.watchTheme()
 	a.watchConfig()
+	return a.LoadError()
 }
 
 // ensureStartupFormat gates the first load. Nothing is loaded yet, so the

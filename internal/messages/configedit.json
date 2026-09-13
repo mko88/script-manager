@@ -153,7 +153,10 @@
     "exitReorderMode": "Exit reorder mode",
     "enterReorderMode": "Enter reorder mode",
     "markSecret": "Mark as secret",
-    "remove": "Remove"
+    "remove": "Remove",
+    "convertTitle": "Convert config?",
+    "convertConfirmButton": "Convert",
+    "convertCancelButton": "Cancel"
   },
   "placeholder": {
     "shellCommand": "e.g. pwsh",

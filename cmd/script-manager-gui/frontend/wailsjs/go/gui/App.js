@@ -6,6 +6,10 @@ export function ActionNeedsUnlock(arg1, arg2) {
   return window['go']['gui']['App']['ActionNeedsUnlock'](arg1, arg2);
 }
 
+export function AnswerConversion(arg1) {
+  return window['go']['gui']['App']['AnswerConversion'](arg1);
+}
+
 export function BrowseConfig() {
   return window['go']['gui']['App']['BrowseConfig']();
 }
@@ -64,6 +68,10 @@ export function GetUIPrefs() {
 
 export function GetVersion() {
   return window['go']['gui']['App']['GetVersion']();
+}
+
+export function InitConfig() {
+  return window['go']['gui']['App']['InitConfig']();
 }
 
 export function LaunchConfigEditor() {

@@ -87,7 +87,10 @@
     "minimizeWindow": "Minimize",
     "maximizeWindow": "Maximize / restore",
     "closeWindow": "Close",
-    "aboutButton": "About"
+    "aboutButton": "About",
+    "convertTitle": "Convert config?",
+    "convertConfirmButton": "Convert",
+    "convertCancelButton": "Cancel"
   },
   "option": {
     "shrinkOnBlur": "Shrink on focus loss"

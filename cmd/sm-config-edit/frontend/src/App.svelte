@@ -20,11 +20,13 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import RecentMenu from '@shared/components/RecentMenu.svelte'
   import PinDialog from '@shared/components/PinDialog.svelte'
+  import ConfirmDialog from '@shared/components/ConfirmDialog.svelte'
   import { EventsOn, WindowMinimise, WindowToggleMaximise, Quit } from '../wailsjs/runtime'
   import { t } from './messages'
   import { shellLanguage } from './lib/shellLanguage'
   import {
     InitialState,
+    AnswerConversion,
     NewBlank,
     BrowseOpen,
     RecentConfigs,
@@ -118,7 +120,19 @@
   let selectedDisplay = -1
   let dataFolderPath = ''
 
+  // The conversion prompt is a backend question waiting on an answer, so the
+  // dialog state lives beside it rather than inside the component.
+  let convertPrompt: { message: string } | null = null
+
+  onMount(() => EventsOn('config:convert-prompt', (p: { message: string }) => (convertPrompt = p)))
+
+  function answerConversion(convert: boolean) {
+    convertPrompt = null
+    AnswerConversion(convert)
+  }
+
   onMount(async () => {
+    // InitialState may ask about converting an old config before it loads.
     const state = await InitialState()
     applyState(state)
     knownTerminals = await KnownTerminals()
@@ -647,6 +661,16 @@
     </div>
 
     <Toast />
+
+    <ConfirmDialog
+    open={convertPrompt !== null}
+    title={t('tooltip.convertTitle')}
+    message={convertPrompt?.message ?? ''}
+    confirmLabel={t('tooltip.convertConfirmButton')}
+    cancelLabel={t('tooltip.convertCancelButton')}
+    onConfirm={() => answerConversion(true)}
+    onCancel={() => answerConversion(false)}
+  />
 
     <PinDialog
     open={pinDialogOpen}

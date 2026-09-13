@@ -6,6 +6,8 @@ import {uiprefs} from '../models';
 
 export function ActionNeedsUnlock(arg1:number,arg2:number):Promise<boolean>;
 
+export function AnswerConversion(arg1:boolean):Promise<void>;
+
 export function BrowseConfig():Promise<string>;
 
 export function CancelInlineAction(arg1:number,arg2:number):Promise<void>;
@@ -35,6 +37,8 @@ export function GetTheme():Promise<theme.State>;
 export function GetUIPrefs():Promise<uiprefs.Prefs>;
 
 export function GetVersion():Promise<Record<string, string>>;
+
+export function InitConfig():Promise<string>;
 
 export function LaunchConfigEditor():Promise<boolean>;
 

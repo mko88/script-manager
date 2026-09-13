@@ -10,6 +10,7 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import RecentMenu from '@shared/components/RecentMenu.svelte'
   import PinDialog from '@shared/components/PinDialog.svelte'
+  import ConfirmDialog from '@shared/components/ConfirmDialog.svelte'
   import CodeMirror from '@shared/components/CodeMirror.svelte'
   import Panel from './components/Panel.svelte'
   import GroupFilter from './components/GroupFilter.svelte'
@@ -42,7 +43,8 @@
     BrowseConfig,
     LaunchConfigEditor,
     RunAction,
-    LoadError,
+    InitConfig,
+    AnswerConversion,
     SetAlwaysOnTop,
     SetWindowOpacity,
     GetVersion,
@@ -71,6 +73,7 @@
 
   onMount(() => watchTheme(EventsOn, () => {}))
   onMount(() => EventsOn('config:changed', onConfigFileChanged))
+  onMount(() => EventsOn('config:convert-prompt', onConvertPrompt))
   onMount(() => EventsOn('script:changed', reloadActionDetail))
 
   // Refreshes the pane when the script is edited outside the app.
@@ -137,13 +140,25 @@
 
   $: groupColors = buildGroupColors(actionGroupCatalog)
 
+  // The conversion prompt is a backend question waiting on an answer, so the
+  // dialog state lives beside it rather than inside the component.
+  let convertPrompt: { message: string } | null = null
+
+  function onConvertPrompt(prompt: { message: string }) {
+    convertPrompt = prompt
+  }
+
+  function answerConversion(convert: boolean) {
+    convertPrompt = null
+    AnswerConversion(convert)
+  }
+
   onMount(async () => {
-    const loadErr = await LoadError()
+    // InitConfig does the first load, and may ask about converting first.
+    const loadErr = await InitConfig()
     if (loadErr) flash(t('toast.configLoadFailed', { error: loadErr }))
-    items = await GetItems()
-    actionGroupCatalog = await GetActionGroups()
+    await refreshAfterConfigChange()
     await refreshRecents()
-    if (items.length > 0) selectItem(0)
   })
 
   async function selectItem(index: number) {
@@ -961,6 +976,16 @@
   </div>
 
     <Toast />
+
+    <ConfirmDialog
+    open={convertPrompt !== null}
+    title={t('tooltip.convertTitle')}
+    message={convertPrompt?.message ?? ''}
+    confirmLabel={t('tooltip.convertConfirmButton')}
+    cancelLabel={t('tooltip.convertCancelButton')}
+    onConfirm={() => answerConversion(true)}
+    onCancel={() => answerConversion(false)}
+  />
 
     <PinDialog
     open={pinDialogOpen}
