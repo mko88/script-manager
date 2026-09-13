@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '../messages'
+  import { confirmAsk } from '../lib/confirm'
   import { looksLikeSecretKey } from '../secretKey'
   import IconButton from '@shared/components/IconButton.svelte'
   import CodeMirror from '@shared/components/CodeMirror.svelte'
@@ -35,9 +36,9 @@
     if (fields[i].locked) fields[i].secret = true
     fields = fields
   }
-  function remove(i: number) {
+  async function remove(i: number) {
     const key = fields[i]?.key || t('fallback.unnamed')
-    if (!confirm(t('confirm.removeField', { key }))) return
+    if (!(await confirmAsk(t('confirm.removeField', { key })))) return
     fields = fields.filter((_, idx) => idx !== i)
     errors = {}
   }

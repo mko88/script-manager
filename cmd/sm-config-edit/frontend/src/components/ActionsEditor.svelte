@@ -2,6 +2,7 @@
   import ActionForm from './ActionForm.svelte'
   import ListToolbar from './ListToolbar.svelte'
   import { t } from '../messages'
+  import { confirmAsk } from '../lib/confirm'
   import { wrap, sortableList, syncList, type DndEntry } from '../lib/sortable'
   import { deepCopy, copyLabel, copyId, insertAfter } from '../lib/duplicate'
   import type { configedit } from '../../wailsjs/go/models'
@@ -48,9 +49,9 @@
     if (selectedAction === i) selectedAction = -1
     else if (selectedAction > i) selectedAction -= 1
   }
-  function confirmRemoveAction(i: number) {
+  async function confirmRemoveAction(i: number) {
     const name = actions[i]?.title || actions[i]?.id || t('fallback.untitled')
-    if (confirm(t('confirm.removeAction', { name }))) removeAction(i)
+    if (await confirmAsk(t('confirm.removeAction', { name }))) removeAction(i)
   }
 
   let reorderMode = false

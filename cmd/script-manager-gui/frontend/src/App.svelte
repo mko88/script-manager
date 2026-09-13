@@ -10,7 +10,8 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import RecentMenu from '@shared/components/RecentMenu.svelte'
   import PinDialog from '@shared/components/PinDialog.svelte'
-  import ConfirmDialog from '@shared/components/ConfirmDialog.svelte'
+  import ConfirmHost from '@shared/components/ConfirmHost.svelte'
+  import { askConfirm } from '@shared/confirm'
   import CodeMirror from '@shared/components/CodeMirror.svelte'
   import Panel from './components/Panel.svelte'
   import GroupFilter from './components/GroupFilter.svelte'
@@ -140,17 +141,16 @@
 
   $: groupColors = buildGroupColors(actionGroupCatalog)
 
-  // The conversion prompt is a backend question waiting on an answer, so the
-  // dialog state lives beside it rather than inside the component.
-  let convertPrompt: { message: string } | null = null
-
-  function onConvertPrompt(prompt: { message: string }) {
-    convertPrompt = prompt
-  }
-
-  function answerConversion(convert: boolean) {
-    convertPrompt = null
-    AnswerConversion(convert)
+  // The backend blocks until AnswerConversion comes back.
+  async function onConvertPrompt(prompt: { message: string }) {
+    AnswerConversion(
+      await askConfirm({
+        title: t('tooltip.convertTitle'),
+        message: prompt.message,
+        confirmLabel: t('tooltip.convertConfirmButton'),
+        cancelLabel: t('tooltip.convertCancelButton'),
+      }),
+    )
   }
 
   onMount(async () => {
@@ -977,15 +977,7 @@
 
     <Toast />
 
-    <ConfirmDialog
-    open={convertPrompt !== null}
-    title={t('tooltip.convertTitle')}
-    message={convertPrompt?.message ?? ''}
-    confirmLabel={t('tooltip.convertConfirmButton')}
-    cancelLabel={t('tooltip.convertCancelButton')}
-    onConfirm={() => answerConversion(true)}
-    onCancel={() => answerConversion(false)}
-  />
+    <ConfirmHost />
 
     <PinDialog
     open={pinDialogOpen}

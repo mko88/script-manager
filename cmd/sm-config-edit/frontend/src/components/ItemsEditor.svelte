@@ -5,6 +5,7 @@
   import ListToolbar from './ListToolbar.svelte'
   import CheckboxChipList from './CheckboxChipList.svelte'
   import { t } from '../messages'
+  import { confirmAsk } from '../lib/confirm'
   import { wrap, sortableList, syncList, type DndEntry } from '../lib/sortable'
   import { deepCopy, copyLabel, insertAfter } from '../lib/duplicate'
   import type { configedit } from '../../wailsjs/go/models'
@@ -75,9 +76,9 @@
     if (selectedItem === i) selectedItem = -1
     else if (selectedItem > i) selectedItem -= 1
   }
-  function confirmRemoveItem(i: number) {
+  async function confirmRemoveItem(i: number) {
     const name = items[i]?.name || t('fallback.unnamed')
-    if (confirm(t('confirm.removeItem', { name }))) removeItem(i)
+    if (await confirmAsk(t('confirm.removeItem', { name }))) removeItem(i)
   }
 
   function addCustomAction(itemIdx: number) {
@@ -86,10 +87,10 @@
   function removeCustomAction(itemIdx: number, i: number) {
     items[itemIdx].customActions = items[itemIdx].customActions.filter((_, idx) => idx !== i)
   }
-  function confirmRemoveCustomAction(itemIdx: number, i: number) {
+  async function confirmRemoveCustomAction(itemIdx: number, i: number) {
     const action = items[itemIdx].customActions[i]
     const name = action?.title || action?.id || t('fallback.untitled')
-    if (confirm(t('confirm.removeCustomAction', { name }))) removeCustomAction(itemIdx, i)
+    if (await confirmAsk(t('confirm.removeCustomAction', { name }))) removeCustomAction(itemIdx, i)
   }
 
   let reorderMode = false

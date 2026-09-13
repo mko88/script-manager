@@ -5,6 +5,7 @@
   import Icon from '@shared/components/Icon.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
   import { t } from '../messages'
+  import { confirmAsk } from '../lib/confirm'
   import { copyLabel } from '../lib/duplicate'
 
   export let theme: Theme
@@ -86,14 +87,14 @@
     selectedThemeName = NEW_THEME_ENTRY
   }
 
-  function confirmResetFrom(base: 'dark' | 'light') {
+  async function confirmResetFrom(base: 'dark' | 'light') {
     const target = base === 'dark' ? t('theme.dark') : t('theme.light')
-    if (confirm(t('confirm.resetTheme', { target }))) resetFrom(base)
+    if (await confirmAsk(t('confirm.resetTheme', { target }))) resetFrom(base)
   }
 
-  function resetToSaved() {
+  async function resetToSaved() {
     if (!isCustomSelected || isDraft) return
-    if (!confirm(t('confirm.resetTheme', { target: t('themeEditor.resetTargetSaved') }))) return
+    if (!(await confirmAsk(t('confirm.resetTheme', { target: t('themeEditor.resetTargetSaved') })))) return
     loadSelection(selectionAtLoad)
   }
 
@@ -253,7 +254,7 @@
   async function remove() {
     if (!isCustomSelected || isDraft) return
     const name = selectionAtLoad
-    if (!confirm(t('confirm.removeTheme', { name }))) return
+    if (!(await confirmAsk(t('confirm.removeTheme', { name })))) return
     try {
       await deleteTheme(name)
       const nextThemes = { ...(themes ?? {}) }

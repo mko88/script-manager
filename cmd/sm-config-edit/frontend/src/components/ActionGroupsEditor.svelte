@@ -1,6 +1,7 @@
 <script lang="ts">
   import ListToolbar from './ListToolbar.svelte'
   import { t } from '../messages'
+  import { confirmAsk } from '../lib/confirm'
   import { wrap, sortableList, syncList, type DndEntry } from '../lib/sortable'
   import { deepCopy, copyLabel, copyId, insertAfter } from '../lib/duplicate'
   import type { configedit } from '../../wailsjs/go/models'
@@ -53,12 +54,12 @@
     if (selectedActionGroup === i) selectedActionGroup = -1
     else if (selectedActionGroup > i) selectedActionGroup -= 1
   }
-  function confirmRemoveActionGroup(i: number) {
+  async function confirmRemoveActionGroup(i: number) {
     const g = actionGroups[i]
     const name = g?.title || g?.id || t('fallback.unnamed')
     const refCount = g?.id ? actionGroupRefCount(g.id) : 0
     const refSuffix = refCount > 0 ? t('confirm.removeActionGroupRefSuffix', { count: refCount, plural: refCount > 1 ? 's' : '' }) : ''
-    if (confirm(t('confirm.removeActionGroup', { name, refSuffix }))) removeActionGroup(i)
+    if (await confirmAsk(t('confirm.removeActionGroup', { name, refSuffix }))) removeActionGroup(i)
   }
 
   let reorderMode = false

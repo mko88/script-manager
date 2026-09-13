@@ -20,9 +20,11 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import RecentMenu from '@shared/components/RecentMenu.svelte'
   import PinDialog from '@shared/components/PinDialog.svelte'
-  import ConfirmDialog from '@shared/components/ConfirmDialog.svelte'
+  import ConfirmHost from '@shared/components/ConfirmHost.svelte'
   import { EventsOn, WindowMinimise, WindowToggleMaximise, Quit } from '../wailsjs/runtime'
   import { t } from './messages'
+  import { confirmAsk } from './lib/confirm'
+  import { askConfirm } from '@shared/confirm'
   import { shellLanguage } from './lib/shellLanguage'
   import {
     InitialState,
@@ -120,16 +122,20 @@
   let selectedDisplay = -1
   let dataFolderPath = ''
 
-  // The conversion prompt is a backend question waiting on an answer, so the
-  // dialog state lives beside it rather than inside the component.
-  let convertPrompt: { message: string } | null = null
-
-  onMount(() => EventsOn('config:convert-prompt', (p: { message: string }) => (convertPrompt = p)))
-
-  function answerConversion(convert: boolean) {
-    convertPrompt = null
-    AnswerConversion(convert)
-  }
+  // The backend blocks until AnswerConversion comes back, so the prompt goes
+  // through the same dialog as every other confirmation.
+  onMount(() =>
+    EventsOn('config:convert-prompt', async (p: { message: string }) =>
+      AnswerConversion(
+        await askConfirm({
+          title: t('tooltip.convertTitle'),
+          message: p.message,
+          confirmLabel: t('tooltip.convertConfirmButton'),
+          cancelLabel: t('tooltip.convertCancelButton'),
+        }),
+      ),
+    ),
+  )
 
   onMount(async () => {
     // InitialState may ask about converting an old config before it loads.
@@ -191,7 +197,7 @@
 
   async function confirmDiscard(): Promise<boolean> {
     if (!dirty) return true
-    return confirm(t('confirm.discardUnsaved'))
+    return confirmAsk(t('confirm.discardUnsaved'))
   }
 
   async function newConfig() {
@@ -662,15 +668,7 @@
 
     <Toast />
 
-    <ConfirmDialog
-    open={convertPrompt !== null}
-    title={t('tooltip.convertTitle')}
-    message={convertPrompt?.message ?? ''}
-    confirmLabel={t('tooltip.convertConfirmButton')}
-    cancelLabel={t('tooltip.convertCancelButton')}
-    onConfirm={() => answerConversion(true)}
-    onCancel={() => answerConversion(false)}
-  />
+    <ConfirmHost />
 
     <PinDialog
     open={pinDialogOpen}
