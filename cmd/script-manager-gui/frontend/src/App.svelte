@@ -10,12 +10,14 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import RecentMenu from '@shared/components/RecentMenu.svelte'
   import PinDialog from '@shared/components/PinDialog.svelte'
+  import ConfirmHost from '@shared/components/ConfirmHost.svelte'
+  import { askConfirm } from '@shared/confirm'
   import CodeMirror from '@shared/components/CodeMirror.svelte'
   import Panel from './components/Panel.svelte'
   import GroupFilter from './components/GroupFilter.svelte'
   import { t } from './messages'
   import { buildGroupColors, groupChipStyle } from './lib/groupColors'
-  import { inlineStates, inlineKey, startInlineRun, cancelInlineRun } from './lib/inlineRuns'
+  import { inlineStates, inlineKey, startInlineRun, cancelInlineRun, resetInlineRuns } from './lib/inlineRuns'
   import { dragColumn, dragRow, topStyle, bottomStyle } from './lib/panelLayout'
   import {
     EventsOn,
@@ -38,10 +40,12 @@
     GetActionGroups,
     CopyToClipboard,
     ReloadConfig,
+    ReloadConfigOnChange,
     BrowseConfig,
     LaunchConfigEditor,
     RunAction,
-    LoadError,
+    InitConfig,
+    AnswerConversion,
     SetAlwaysOnTop,
     SetWindowOpacity,
     GetVersion,
@@ -70,6 +74,8 @@
 
   onMount(() => watchTheme(EventsOn, () => {}))
   onMount(() => EventsOn('config:changed', onConfigFileChanged))
+  onMount(() => EventsOn('config:convert-prompt', onConvertPrompt))
+  onMount(() => EventsOn('config:session-reset', onSessionReset))
   onMount(() => EventsOn('script:changed', reloadActionDetail))
 
   // Refreshes the pane when the script is edited outside the app.
@@ -136,13 +142,30 @@
 
   $: groupColors = buildGroupColors(actionGroupCatalog)
 
+  // Opening a different config is a fresh session: its item and action
+  // indices have nothing to do with the runs recorded against the old one.
+  function onSessionReset() {
+    resetInlineRuns()
+  }
+
+  // The backend blocks until AnswerConversion comes back.
+  async function onConvertPrompt(prompt: { message: string }) {
+    AnswerConversion(
+      await askConfirm({
+        title: t('tooltip.convertTitle'),
+        message: prompt.message,
+        confirmLabel: t('tooltip.convertConfirmButton'),
+        cancelLabel: t('tooltip.convertCancelButton'),
+      }),
+    )
+  }
+
   onMount(async () => {
-    const loadErr = await LoadError()
+    // InitConfig does the first load, and may ask about converting first.
+    const loadErr = await InitConfig()
     if (loadErr) flash(t('toast.configLoadFailed', { error: loadErr }))
-    items = await GetItems()
-    actionGroupCatalog = await GetActionGroups()
+    await refreshAfterConfigChange()
     await refreshRecents()
-    if (items.length > 0) selectItem(0)
   })
 
   async function selectItem(index: number) {
@@ -301,7 +324,7 @@
   async function onConfigFileChanged() {
     let warning = ''
     try {
-      warning = await ReloadConfig()
+      warning = await ReloadConfigOnChange()
     } catch {
       return
     }
@@ -960,6 +983,8 @@
   </div>
 
     <Toast />
+
+    <ConfirmHost />
 
     <PinDialog
     open={pinDialogOpen}

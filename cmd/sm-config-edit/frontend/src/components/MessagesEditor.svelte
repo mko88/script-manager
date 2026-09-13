@@ -3,6 +3,7 @@
   import Icon from '@shared/components/Icon.svelte'
   import IconButton from '@shared/components/IconButton.svelte'
   import { t } from '../messages'
+  import { confirmAsk } from '../lib/confirm'
 
   export let getEditableMessages: (target: string) => Promise<unknown>
   export let getDefaultMessages: (target: string) => Promise<unknown>
@@ -107,7 +108,7 @@
   }
 
   async function restoreDefaults() {
-    if (!confirm(t('messagesEditor.confirmRestoreDefaults'))) return
+    if (!(await confirmAsk(t('messagesEditor.confirmRestoreDefaults')))) return
     try {
       messagesRows = flattenMessages(await getDefaultMessages(messagesTarget))
     } catch (err) {

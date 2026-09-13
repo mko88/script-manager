@@ -2,14 +2,16 @@ package gui
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"os/exec"
 	"sync"
+	"time"
 
 	"script-manager/internal/action"
 	"script-manager/internal/appdata"
 	"script-manager/internal/applog"
 	"script-manager/internal/config"
+	"script-manager/internal/configmigrate"
 	"script-manager/internal/exepath"
 	"script-manager/internal/filewatch"
 	"script-manager/internal/recent"
@@ -18,6 +20,7 @@ import (
 	"script-manager/internal/version"
 
 	"github.com/atotto/clipboard"
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/renderer/html"
@@ -26,11 +29,18 @@ import (
 type App struct {
 	ctx        context.Context
 	cfg        *config.Config
-	load       func() (*config.Config, error)
+	configPath string
+	loadConfig func(path string) (*config.Config, error)
 	md         goldmark.Markdown
 	exeDir     string
 	appDataDir string
 	loadErr    error
+
+	declinedMu sync.Mutex
+	declinedAt time.Time // mtime of the config the user declined to convert
+
+	conversionMu     sync.Mutex
+	conversionAnswer chan bool
 
 	secretMu     sync.RWMutex
 	secretKey    []byte
@@ -41,30 +51,39 @@ type App struct {
 
 	inlineMu   sync.Mutex
 	inlineRuns map[inlineKey]*inlineRun
+	inlineGen  int // bumped by resetSession; stale runs must not write back
 
 	configEditorMu  sync.Mutex
 	configEditorCmd *exec.Cmd
 }
 
-func NewApp(load func() (*config.Config, error)) *App {
-	cfg, err := load()
+// NewApp defers loading to Startup: an old-format config has to be approved
+// for conversion first, and that dialog needs a context.
+func NewApp(cfgPath string) *App {
 	go cleanupTempScripts()
-	appDataDir := appdata.Dir()
-	if cfg != nil && cfg.SourcePath != "" {
-		recent.Add(appDataDir, cfg.SourcePath)
-	}
 	return &App{
-		cfg:        cfg,
-		load:       load,
+		configPath: cfgPath,
+		loadConfig: loadConfigFile,
 		exeDir:     exepath.Dir(),
-		appDataDir: appDataDir,
-		loadErr:    err,
+		appDataDir: appdata.Dir(),
+		cfg:        &config.Config{},
 		inlineRuns: make(map[inlineKey]*inlineRun),
 		md: goldmark.New(
 			goldmark.WithExtensions(extension.GFM),
 			goldmark.WithRendererOptions(html.WithUnsafe()),
 		),
 	}
+}
+
+func loadConfigFile(path string) (*config.Config, error) {
+	if path != "" {
+		return config.LoadFromWithError(path)
+	}
+	return config.LoadWithError()
+}
+
+func (a *App) loadFrom(path string) (*config.Config, error) {
+	return a.loadConfig(path)
 }
 
 // Log lets the frontend put its own errors in the same file, so a JS
@@ -92,13 +111,63 @@ func (a *App) LoadError() string {
 func (a *App) Startup(ctx context.Context) {
 	a.ctx = ctx
 	applog.Init(a.appDataDir)
-	applog.Printf("startup version=%s config=%s", version.Version, a.configSourcePath())
 	a.watchTheme()
-	a.watchConfig()
 }
 
+// InitConfig performs the first load. It is a binding rather than part of
+// Startup because converting an old config asks the user first, and the
+// window has to be up to show the question.
+func (a *App) InitConfig() string {
+	if err := a.ensureStartupFormat(); errors.Is(err, configmigrate.ErrDeclined) {
+		applog.Printf("startup: %v", err)
+		wailsruntime.Quit(a.ctx)
+		return ""
+	}
+
+	a.cfg, a.loadErr = a.loadFrom(a.configPath)
+	if a.cfg.SourcePath != "" {
+		recent.Add(a.appDataDir, a.cfg.SourcePath)
+	}
+
+	applog.Printf("startup version=%s config=%s", version.Version, a.configSourcePath())
+	a.watchConfig()
+	return a.LoadError()
+}
+
+// ensureStartupFormat gates the first load. Nothing is loaded yet, so the
+// path has to be resolved the same way LoadWithError would.
+func (a *App) ensureStartupFormat() error {
+	path := a.configPath
+	if path == "" {
+		resolved, err := config.ResolvePath()
+		if err != nil {
+			return nil
+		}
+		path = resolved
+	}
+	return a.ensureFormat(path)
+}
+
+// ReloadConfig is the F5 reload, so it asks again even about a config the
+// user has already declined to convert.
 func (a *App) ReloadConfig() (string, error) {
-	cfg, err := a.load()
+	return a.reload(a.ensureFormat)
+}
+
+// ReloadConfigOnChange is the reload the file watcher triggers.
+func (a *App) ReloadConfigOnChange() (string, error) {
+	return a.reload(a.ensureFormatOnChange)
+}
+
+// reload only refuses on a decline. Any other problem with the file — gone,
+// unparseable — is left to the load, whose error says more.
+func (a *App) reload(ensure func(string) error) (string, error) {
+	if path := a.configSourcePath(); path != "" {
+		if err := ensure(path); errors.Is(err, configmigrate.ErrDeclined) {
+			return "", nil
+		}
+	}
+	cfg, err := a.loadFrom(a.configPath)
 	if cfg.SourcePath == "" {
 		return "", err
 	}
@@ -130,17 +199,17 @@ type ItemDTO struct {
 
 func (a *App) GetItems() []ItemDTO {
 	items := make([]ItemDTO, len(a.cfg.Items))
-	for i, item := range a.cfg.Items {
-		items[i] = ItemDTO{Index: i, Label: a.renderListLabel(item)}
+	for i := range a.cfg.Items {
+		items[i] = ItemDTO{Index: i, Label: a.renderListLabel(&a.cfg.Items[i])}
 	}
 	return items
 }
 
-func (a *App) renderListLabel(item map[string]any) string {
+func (a *App) renderListLabel(item *config.Item) string {
 	d := config.FindDisplay(a.cfg.Display, item)
-	out, err := action.Expand(d.List, item)
+	out, err := action.Expand(d.List, item.Values())
 	if err != nil {
-		return fmt.Sprint(item[config.KeyName])
+		return item.Name
 	}
 	return out
 }
@@ -153,11 +222,11 @@ func (a *App) scriptLanguage(scriptPath string) string {
 	return action.Language(shell, scriptPath)
 }
 
-func (a *App) mergedItem(item map[string]any) map[string]any {
+func (a *App) mergedItem(item *config.Item) map[string]any {
 	return secret.Redact(action.Merge(a.cfg.Env, item))
 }
 
-func (a *App) mergedItemForRun(item map[string]any, act config.Action) (map[string]any, error) {
+func (a *App) mergedItemForRun(item *config.Item, act config.Action) (map[string]any, error) {
 	merged := action.Merge(a.cfg.Env, item)
 	if !act.RequiresPIN {
 		return secret.Strip(merged), nil
@@ -169,11 +238,11 @@ func (a *App) mergedItemForRun(item map[string]any, act config.Action) (map[stri
 	return revealed, err
 }
 
-func (a *App) itemAt(index int) map[string]any {
+func (a *App) itemAt(index int) *config.Item {
 	if index < 0 || index >= len(a.cfg.Items) {
 		return nil
 	}
-	return a.cfg.Items[index]
+	return &a.cfg.Items[index]
 }
 
 type ActionDTO struct {

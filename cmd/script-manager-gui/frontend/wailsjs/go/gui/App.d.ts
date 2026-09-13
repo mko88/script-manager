@@ -6,6 +6,8 @@ import {uiprefs} from '../models';
 
 export function ActionNeedsUnlock(arg1:number,arg2:number):Promise<boolean>;
 
+export function AnswerConversion(arg1:boolean):Promise<void>;
+
 export function BrowseConfig():Promise<string>;
 
 export function CancelInlineAction(arg1:number,arg2:number):Promise<void>;
@@ -36,6 +38,8 @@ export function GetUIPrefs():Promise<uiprefs.Prefs>;
 
 export function GetVersion():Promise<Record<string, string>>;
 
+export function InitConfig():Promise<string>;
+
 export function LaunchConfigEditor():Promise<boolean>;
 
 export function LoadError():Promise<string>;
@@ -53,6 +57,8 @@ export function OpenScriptInEditor(arg1:string):Promise<void>;
 export function RecentConfigs():Promise<Array<string>>;
 
 export function ReloadConfig():Promise<string>;
+
+export function ReloadConfigOnChange():Promise<string>;
 
 export function RunAction(arg1:number,arg2:number):Promise<void>;
 

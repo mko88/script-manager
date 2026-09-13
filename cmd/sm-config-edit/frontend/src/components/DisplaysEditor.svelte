@@ -6,6 +6,7 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import CodeMirror from '@shared/components/CodeMirror.svelte'
   import { t } from '../messages'
+  import { confirmAsk } from '../lib/confirm'
   import { deepCopy, copyLabel } from '../lib/duplicate'
   import { looksLikeSecretKey } from '../secretKey'
   import type { configedit } from '../../wailsjs/go/models'
@@ -163,9 +164,9 @@
     if (selectedDisplay === i) selectedDisplay = -1
     else if (selectedDisplay > i) selectedDisplay -= 1
   }
-  function confirmRemoveDisplay(i: number) {
+  async function confirmRemoveDisplay(i: number) {
     const name = displays[i]?.name || t('fallback.unnamed')
-    if (confirm(t('confirm.removeDisplay', { name }))) removeDisplay(i)
+    if (await confirmAsk(t('confirm.removeDisplay', { name }))) removeDisplay(i)
   }
 
   let displayPreviewTimer: ReturnType<typeof setTimeout>

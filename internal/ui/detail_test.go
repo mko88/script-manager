@@ -14,7 +14,7 @@ func TestDescriptionTileMultilineIsMasked(t *testing.T) {
 	tile.Size = tl.Size{Width: 40, Height: 10}
 
 	cert := "line1\nline2\nline3"
-	tile.SetItem(map[string]any{"name": "x", "cert": cert})
+	tile.SetItem(&config.Item{Name: "x"}, map[string]any{"name": "x", "cert": cert})
 	tile.View()
 
 	if !tile.HasCopyValues() {

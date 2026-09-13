@@ -3,8 +3,6 @@ package render
 import (
 	"strings"
 	"testing"
-
-	"script-manager/internal/config"
 )
 
 func TestShouldAutoMask(t *testing.T) {
@@ -84,22 +82,13 @@ func TestExpandAllEnvBothPlaceholders(t *testing.T) {
 	}
 }
 
-func TestExpandAllEnvExcludesReservedKeys(t *testing.T) {
-	item := map[string]any{
-		"region":                "eu",
-		config.KeyDisplay:       "compact",
-		config.KeyActions:       []string{"ssh"},
-		config.KeyActionGroups:  []string{"safe"},
-		config.KeyCustomActions: []map[string]any{{"title": "x"}},
-	}
+func TestExpandAllEnvKeepsEveryKey(t *testing.T) {
+	item := map[string]any{"region": "eu", "display": "compact", "actions": "two"}
 	out := ExpandAllEnv(AllEnvTablePlaceholder, item)
 
-	if !strings.Contains(out, "REGION") {
-		t.Errorf("expected regular key to appear, got %q", out)
-	}
-	for _, reserved := range []string{"DISPLAY", "ACTIONS", "ACTIONGROUPS", "CUSTOMACTIONS"} {
-		if strings.Contains(out, reserved) {
-			t.Errorf("reserved key %q leaked into all-env output: %q", reserved, out)
+	for _, want := range []string{"REGION", "DISPLAY", "ACTIONS"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("env key %q missing from all-env output: %q", want, out)
 		}
 	}
 }

@@ -9,6 +9,8 @@ import (
 	"script-manager/internal/action"
 	"script-manager/internal/applog"
 	"script-manager/internal/config"
+
+	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 const inlineOutPattern = "script-manager-inline-*"
@@ -145,6 +147,7 @@ func (a *App) RunActionInline(itemIndex, actionIndex int) error {
 
 	a.inlineMu.Lock()
 	a.inlineRuns[key] = &inlineRun{cmd: cmd, outPath: outFile.Name()}
+	gen := a.inlineGen
 	a.inlineMu.Unlock()
 
 	go func() {
@@ -155,8 +158,18 @@ func (a *App) RunActionInline(itemIndex, actionIndex int) error {
 		exitCode, errMsg := exitCodeOf(waitErr)
 
 		a.inlineMu.Lock()
-		a.inlineRuns[key] = &inlineRun{outPath: outFile.Name(), exitCode: exitCode, errMsg: errMsg}
+		stale := a.inlineGen != gen
+		if !stale {
+			a.inlineRuns[key] = &inlineRun{outPath: outFile.Name(), exitCode: exitCode, errMsg: errMsg}
+		}
 		a.inlineMu.Unlock()
+
+		// The config this ran against is gone, so nothing will read the
+		// output and resetSession left the file for us to remove.
+		if stale {
+			os.Remove(outFile.Name())
+			return
+		}
 		applog.Printf("inline run finished item=%d action=%d exit=%d err=%q", itemIndex, actionIndex, exitCode, errMsg)
 	}()
 
@@ -178,6 +191,40 @@ func (a *App) GetInlineStatus(itemIndex, actionIndex int) InlineStatusDTO {
 		}
 	}
 	return InlineStatusDTO{Running: run.cmd != nil, Output: output, ExitCode: run.exitCode, ErrMsg: run.errMsg}
+}
+
+// SessionResetEvent tells the frontend to drop its own per-run state.
+const SessionResetEvent = "config:session-reset"
+
+// resetSession drops everything tied to the config that was open. Inline
+// output is keyed by item and action index, which point at different actions
+// in another config, and a PIN unlocked for one config doesn't apply to the
+// next. Opening a config is meant to feel like starting the app.
+func (a *App) resetSession() {
+	a.inlineMu.Lock()
+	runs := a.inlineRuns
+	a.inlineRuns = make(map[inlineKey]*inlineRun)
+	a.inlineGen++
+	a.inlineMu.Unlock()
+
+	for _, run := range runs {
+		if run.cmd != nil {
+			// Still running: its goroutine sees the stale generation and
+			// removes the output file once the kill lands.
+			_ = killProcessTree(run.cmd)
+			continue
+		}
+		if run.outPath != "" {
+			os.Remove(run.outPath)
+		}
+	}
+
+	a.forgetSessionKey()
+
+	// No context before Startup, and nothing listening either.
+	if a.ctx != nil {
+		wailsruntime.EventsEmit(a.ctx, SessionResetEvent)
+	}
 }
 
 func (a *App) CancelInlineAction(itemIndex, actionIndex int) error {

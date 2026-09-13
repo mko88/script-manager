@@ -27,7 +27,10 @@
     "removeField": "Remove field \"{key}\"? This can't be undone.",
     "removeShellEntry": "Remove shell command entry \"{value}\"? This can't be undone.",
     "removeTheme": "Delete theme \"{name}\"? This can't be undone.",
-    "resetTheme": "Reset the working colors to {target}? Unsaved changes will be lost."
+    "resetTheme": "Reset the working colors to {target}? Unsaved changes will be lost.",
+    "title": "Confirm",
+    "okButton": "OK",
+    "cancelButton": "Cancel"
   },
   "secrets": {
     "statusNone": "No PIN set for this config. Values can't be locked until you set one.",
@@ -153,7 +156,10 @@
     "exitReorderMode": "Exit reorder mode",
     "enterReorderMode": "Enter reorder mode",
     "markSecret": "Mark as secret",
-    "remove": "Remove"
+    "remove": "Remove",
+    "convertTitle": "Convert config?",
+    "convertConfirmButton": "Convert",
+    "convertCancelButton": "Cancel"
   },
   "placeholder": {
     "shellCommand": "e.g. pwsh",

@@ -16,9 +16,9 @@ func TestGetActionDetailReadsScriptContent(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	a := NewApp(func() (*config.Config, error) {
+	a := newTestApp(func() (*config.Config, error) {
 		return &config.Config{
-			Items:   []map[string]any{{"name": "item1"}},
+			Items:   []config.Item{{Name: "item1"}},
 			Actions: []config.Action{{Title: "Deploy", Script: scriptPath}},
 		}, nil
 	})
@@ -36,9 +36,9 @@ func TestGetActionDetailReadsScriptContent(t *testing.T) {
 }
 
 func TestGetActionDetailScriptReadError(t *testing.T) {
-	a := NewApp(func() (*config.Config, error) {
+	a := newTestApp(func() (*config.Config, error) {
 		return &config.Config{
-			Items:   []map[string]any{{"name": "item1"}},
+			Items:   []config.Item{{Name: "item1"}},
 			Actions: []config.Action{{Title: "Deploy", Script: "/does/not/exist.sh"}},
 		}, nil
 	})
@@ -53,9 +53,9 @@ func TestGetActionDetailScriptReadError(t *testing.T) {
 }
 
 func TestGetActionDetailCmdModeLeavesScriptContentEmpty(t *testing.T) {
-	a := NewApp(func() (*config.Config, error) {
+	a := newTestApp(func() (*config.Config, error) {
 		return &config.Config{
-			Items:   []map[string]any{{"name": "item1"}},
+			Items:   []config.Item{{Name: "item1"}},
 			Actions: []config.Action{{Title: "Deploy", Cmd: "echo hi"}},
 		}, nil
 	})

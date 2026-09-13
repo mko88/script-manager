@@ -30,7 +30,8 @@ actions:
     groups: [remote]
 items:
   - name: srv1
-    sshUser: root
+    env:
+      sshUser: root
 `)
 	var cfg Config
 	if err := yaml.Unmarshal(src, &cfg); err != nil {
@@ -57,7 +58,7 @@ items:
 func TestMarshalIdempotent(t *testing.T) {
 	cfg := &Config{
 		Shell: []string{"bash"},
-		Items: []map[string]any{{"name": "srv1"}},
+		Items: []Item{{Name: "srv1"}},
 	}
 	first, err := cfg.Marshal()
 	if err != nil {

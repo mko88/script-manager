@@ -92,7 +92,7 @@ func NewApp(cfg *config.Config, reload func() (*config.Config, error), loadErr e
 		loadErr:          loadErr,
 	}
 	a.actionsPanel.selected = -1
-	a.description.SetItem(a.mergedItem(list.Selected()))
+	a.description.SetItem(list.Selected(), a.mergedItem(list.Selected()))
 	a.updateActionsForItem()
 	return a
 }
@@ -111,7 +111,7 @@ func (a *App) applyConfig(cfg *config.Config) {
 	a.globalEnv = cfg.Env
 	a.allActions = cfg.Actions
 
-	a.description.SetItem(a.mergedItem(a.list.Selected()))
+	a.description.SetItem(a.list.Selected(), a.mergedItem(a.list.Selected()))
 	a.description.ResetScroll()
 	a.updateActionsForItem()
 
@@ -235,18 +235,18 @@ func (a *App) refreshCmdBar() {
 }
 
 func (a *App) onItemChanged() {
-	a.description.SetItem(a.mergedItem(a.list.Selected()))
+	a.description.SetItem(a.list.Selected(), a.mergedItem(a.list.Selected()))
 	a.description.ResetScroll()
 	a.updateActionsForItem()
 	a.refreshCmdBar()
 	a.status.ClearMessage()
 }
 
-func (a *App) mergedItem(item map[string]any) map[string]any {
+func (a *App) mergedItem(item *config.Item) map[string]any {
 	return secret.Redact(action.Merge(a.globalEnv, item))
 }
 
-func (a *App) mergedItemForRun(item map[string]any, act config.Action) (map[string]any, error) {
+func (a *App) mergedItemForRun(item *config.Item, act config.Action) (map[string]any, error) {
 	merged := action.Merge(a.globalEnv, item)
 	if !act.RequiresPIN {
 		return secret.Strip(merged), nil

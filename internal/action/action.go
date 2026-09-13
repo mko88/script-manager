@@ -7,12 +7,16 @@ import (
 	"os"
 	"strings"
 	"text/template"
+
+	"script-manager/internal/config"
 )
 
-func Merge(env, item map[string]any) map[string]any {
-	merged := make(map[string]any, len(env)+len(item))
+func Merge(env map[string]any, item *config.Item) map[string]any {
+	merged := make(map[string]any, len(env)+1)
 	maps.Copy(merged, env)
-	maps.Copy(merged, item)
+	if item != nil {
+		maps.Copy(merged, item.Values())
+	}
 	return merged
 }
 

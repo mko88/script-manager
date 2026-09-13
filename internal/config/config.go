@@ -33,6 +33,7 @@ const (
 	KeyActions       = "actions"
 	KeyActionGroups  = "actionGroups"
 	KeyCustomActions = "customActions"
+	KeyEnv           = "env"
 )
 
 type Action struct {
@@ -79,16 +80,14 @@ func (dl *DisplayList) UnmarshalYAML(value *yaml.Node) error {
 	return nil
 }
 
-func FindDisplay(displays DisplayList, item map[string]any) DisplayConfig {
+func FindDisplay(displays DisplayList, item *Item) DisplayConfig {
 	if len(displays) == 0 {
 		return DisplayConfig{}
 	}
-	if item != nil {
-		if name, ok := item[KeyDisplay].(string); ok && name != "" {
-			for _, d := range displays {
-				if d.Name == name {
-					return d
-				}
+	if item != nil && item.Display != "" {
+		for _, d := range displays {
+			if d.Name == item.Display {
+				return d
 			}
 		}
 	}
@@ -121,37 +120,32 @@ func (t TerminalConfig) MarshalYAML() (interface{}, error) {
 }
 
 type Config struct {
-	Shell        []string         `yaml:"shell,omitempty"`
-	Display      DisplayList      `yaml:"display,omitempty"`
-	Terminal     TerminalConfig   `yaml:"terminal,omitempty"`
-	Secrets      *secret.Params   `yaml:"secrets,omitempty"`
-	Env          map[string]any   `yaml:"env,omitempty"`
-	Items        []map[string]any `yaml:"items,omitempty"`
-	ActionGroups []ActionGroup    `yaml:"actionGroups,omitempty"`
-	Actions      []Action         `yaml:"actions,omitempty"`
+	Shell        []string       `yaml:"shell,omitempty"`
+	Display      DisplayList    `yaml:"display,omitempty"`
+	Terminal     TerminalConfig `yaml:"terminal,omitempty"`
+	Secrets      *secret.Params `yaml:"secrets,omitempty"`
+	Env          map[string]any `yaml:"env,omitempty"`
+	Items        []Item         `yaml:"items,omitempty"`
+	ActionGroups []ActionGroup  `yaml:"actionGroups,omitempty"`
+	Actions      []Action       `yaml:"actions,omitempty"`
 
 	SourcePath string `yaml:"-"`
 }
 
-func ActionsForItem(allActions []Action, item map[string]any) []Action {
+func ActionsForItem(allActions []Action, item *Item) []Action {
 	if item == nil {
 		return allActions
 	}
-
-	allowedIDs, hasIDs := AsStringSlice(item[KeyActions])
-	allowedGroups, hasGroups := AsStringSlice(item[KeyActionGroups])
-	customRaw := item[KeyCustomActions]
-
-	if !hasIDs && !hasGroups && customRaw == nil {
+	if len(item.Actions) == 0 && len(item.ActionGroups) == 0 && len(item.CustomActions) == 0 {
 		return allActions
 	}
 
 	seen := make(map[int]bool)
 	var result []Action
 
-	if hasIDs {
-		idSet := make(map[string]bool)
-		for _, id := range allowedIDs {
+	if len(item.Actions) > 0 {
+		idSet := make(map[string]bool, len(item.Actions))
+		for _, id := range item.Actions {
 			idSet[id] = true
 		}
 		for i, a := range allActions {
@@ -162,9 +156,9 @@ func ActionsForItem(allActions []Action, item map[string]any) []Action {
 		}
 	}
 
-	if hasGroups {
-		groupSet := make(map[string]bool)
-		for _, g := range allowedGroups {
+	if len(item.ActionGroups) > 0 {
+		groupSet := make(map[string]bool, len(item.ActionGroups))
+		for _, g := range item.ActionGroups {
 			groupSet[g] = true
 		}
 		for i, a := range allActions {
@@ -181,77 +175,18 @@ func ActionsForItem(allActions []Action, item map[string]any) []Action {
 		}
 	}
 
-	result = append(result, ParseCustomActions(customRaw)...)
-	return result
+	return append(result, item.CustomActions...)
 }
 
-func AsStringSlice(v any) ([]string, bool) {
-	if v == nil {
-		return nil, false
-	}
-	raw, ok := v.([]interface{})
-	if !ok {
-		return nil, false
-	}
-	out := make([]string, 0, len(raw))
-	for _, elem := range raw {
-		if s, ok := elem.(string); ok {
-			out = append(out, s)
-		}
-	}
-	return out, len(out) > 0
-}
-
-func ParseCustomActions(v any) []Action {
-	if v == nil {
-		return nil
-	}
-	raw, ok := v.([]interface{})
-	if !ok {
-		return nil
-	}
-	var result []Action
-	for _, elem := range raw {
-		m, ok := elem.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		a := Action{
-			ID:          StrVal(m["id"]),
-			Title:       StrVal(m["title"]),
-			Description: StrVal(m["description"]),
-			Cmd:         StrVal(m["cmd"]),
-			Script:      StrVal(m["script"]),
-		}
-		if gs, ok := AsStringSlice(m["groups"]); ok {
-			a.Groups = gs
-		}
-		if noWait, ok := m["noWait"].(bool); ok {
-			a.NoWait = noWait
-		}
-		if interactive, ok := m["interactive"].(bool); ok {
-			a.Interactive = interactive
-		}
-		if a.Title != "" || a.Cmd != "" || a.Script != "" {
-			result = append(result, a)
-		}
-	}
-	return result
-}
-
-func StrVal(v any) string {
-	if v == nil {
-		return ""
-	}
-	s, _ := v.(string)
-	return s
-}
-
-func LoadWithError() (*Config, error) {
-	names := []string{"config.yaml"}
+func configNames() []string {
 	if runtime.GOOS == "windows" {
-		names = []string{"config-win.yaml", "config.yaml"}
+		return []string{"config-win.yaml", "config.yaml"}
 	}
+	return []string{"config.yaml"}
+}
+
+func searchPaths() []string {
+	names := configNames()
 
 	var exeDir string
 	if exe, err := os.Executable(); err == nil {
@@ -271,11 +206,37 @@ func LoadWithError() (*Config, error) {
 			paths = append(paths, filepath.Join(dataDir, name))
 		}
 	}
+	return paths
+}
 
+// ResolvePath is the file LoadWithError would read, creating the starter
+// config if nothing exists yet. Callers that must inspect the file before
+// loading it — the format check on startup — use this to find it.
+func ResolvePath() (string, error) {
+	paths := searchPaths()
+	for _, p := range paths {
+		if _, err := os.Stat(p); err == nil {
+			return p, nil
+		}
+	}
+	dataDir := appdata.Dir()
+	if dataDir == "" {
+		return "", fmt.Errorf("no config file found (tried %s)", strings.Join(paths, ", "))
+	}
+	defaultPath := filepath.Join(dataDir, configNames()[0])
+	if err := os.WriteFile(defaultPath, []byte(defaultConfigYAML()), 0o644); err != nil {
+		return "", err
+	}
+	return defaultPath, nil
+}
+
+func LoadWithError() (*Config, error) {
+	paths := searchPaths()
+	dataDir := appdata.Dir()
 	if dataDir == "" {
 		return loadPaths(paths)
 	}
-	return loadOrCreate(paths, filepath.Join(dataDir, names[0]), defaultConfigYAML())
+	return loadOrCreate(paths, filepath.Join(dataDir, configNames()[0]), defaultConfigYAML())
 }
 
 func LoadFromWithError(path string) (*Config, error) {

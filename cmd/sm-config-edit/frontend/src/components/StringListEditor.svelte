@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '../messages'
+  import { confirmAsk } from '../lib/confirm'
 
   export let items: string[] = []
   export let placeholder = ''
@@ -8,8 +9,8 @@
   function add() {
     items = [...items, '']
   }
-  function remove(i: number) {
-    if (confirmRemoveMessage && !confirm(confirmRemoveMessage(items[i]))) return
+  async function remove(i: number) {
+    if (confirmRemoveMessage && !(await confirmAsk(confirmRemoveMessage(items[i])))) return
     items = items.filter((_, idx) => idx !== i)
   }
 </script>

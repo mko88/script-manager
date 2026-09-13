@@ -1,5 +1,6 @@
 <script lang="ts">
   import { t } from '../messages'
+  import { confirmAsk } from '../lib/confirm'
 
   export let configured = false
   export let unlocked = false
@@ -36,7 +37,7 @@
 
   async function remove() {
     if (busy || removePin.length === 0) return
-    if (!confirm(t('secrets.removeConfirm', { count: lockedCount }))) return
+    if (!(await confirmAsk(t('secrets.removeConfirm', { count: lockedCount })))) return
     busy = true
     error = await onRemovePin(removePin)
     busy = false

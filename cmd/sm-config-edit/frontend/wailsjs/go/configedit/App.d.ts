@@ -4,6 +4,8 @@ import {configedit} from '../models';
 import {theme} from '../models';
 import {uiprefs} from '../models';
 
+export function AnswerConversion(arg1:boolean):Promise<void>;
+
 export function BrowseOpen():Promise<configedit.StateDTO>;
 
 export function BrowseSaveAs():Promise<string>;

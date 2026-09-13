@@ -9,7 +9,6 @@ import (
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
 	"github.com/wailsapp/wails/v2/pkg/options/windows"
 
-	"script-manager/internal/config"
 	"script-manager/internal/gui"
 )
 
@@ -20,14 +19,7 @@ func main() {
 	cfgPath := flag.String("config", "", "path to config file (default: auto-detect)")
 	flag.Parse()
 
-	loadConfig := func() (*config.Config, error) {
-		if *cfgPath != "" {
-			return config.LoadFromWithError(*cfgPath)
-		}
-		return config.LoadWithError()
-	}
-
-	app := gui.NewApp(loadConfig)
+	app := gui.NewApp(*cfgPath)
 
 	err := wails.Run(&options.App{
 		Title:  "Script Manager",

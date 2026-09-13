@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sort"
 	"strings"
-
-	"script-manager/internal/config"
 )
 
 const (
@@ -23,13 +21,6 @@ var autoMaskSuffixes = []string{
 	"CREDENTIAL",
 	"CREDENTIALS",
 	"AUTH",
-}
-
-var reservedKeys = map[string]bool{
-	config.KeyDisplay:       true,
-	config.KeyActions:       true,
-	config.KeyActionGroups:  true,
-	config.KeyCustomActions: true,
 }
 
 func ShouldAutoMask(envKey string) bool {
@@ -68,9 +59,6 @@ func allEnvEntries(item map[string]any) []envEntry {
 	seen := make(map[string]bool, len(item))
 	entries := make([]envEntry, 0, len(item))
 	for k, v := range item {
-		if reservedKeys[k] {
-			continue
-		}
 		envKey := strings.ToUpper(k)
 		if seen[envKey] {
 			continue

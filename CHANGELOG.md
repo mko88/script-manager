@@ -4,6 +4,29 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
+## Unreleased
+
+### Changes
+
+- An item's environment variables now live in their own `env:` section,
+  beside `name`, `display`, `actions`, `actionGroups` and `customActions`.
+  A config in the old format is offered for conversion when any of the three
+  apps opens it, keeping a timestamped backup — comments in the file are lost
+  in the conversion, and declining means the config isn't opened.
+- Scripts no longer receive `DISPLAY`, `ACTIONS`, `ACTIONGROUPS` and
+  `CUSTOMACTIONS` as environment variables, and `{{.display}}` no longer
+  resolves in a details template. A variable may now be named after any of
+  those keys.
+- Questions both GUI apps ask — converting a config, and every confirmation in
+  `sm-config-edit` — are shown in the app's own dialog rather than the
+  operating system's.
+
+### Bug fixes
+
+- `script-manager-gui`: opening a different config kept the output of runs
+  from the previous one. Opening a config now starts a fresh session, as if
+  the app had just been launched; reloading the same config still keeps it.
+
 ## 1.4.1
 
 ### Changes

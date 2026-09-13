@@ -26,7 +26,7 @@ func TestActionsForItem(t *testing.T) {
 
 	tests := []struct {
 		name string
-		item map[string]any
+		item *Item
 		want []string
 	}{
 		{
@@ -36,49 +36,44 @@ func TestActionsForItem(t *testing.T) {
 		},
 		{
 			name: "no filter keys returns all",
-			item: map[string]any{"name": "srv"},
+			item: &Item{Name: "srv"},
 			want: []string{"SSH", "Ping", "Logs"},
 		},
 		{
 			name: "ids filter keeps global order",
-			item: map[string]any{KeyActions: []any{"logs", "ssh"}},
+			item: &Item{Actions: []string{"logs", "ssh"}},
 			want: []string{"SSH", "Logs"},
 		},
 		{
 			name: "unknown id is ignored",
-			item: map[string]any{KeyActions: []any{"nope"}},
+			item: &Item{Actions: []string{"nope"}},
 			want: []string{},
 		},
 		{
 			name: "group filter",
-			item: map[string]any{KeyActionGroups: []any{"net"}},
+			item: &Item{ActionGroups: []string{"net"}},
 			want: []string{"Ping"},
 		},
 		{
 			name: "ids and groups deduplicate",
-			item: map[string]any{
-				KeyActions:      []any{"logs"},
-				KeyActionGroups: []any{"remote"},
+			item: &Item{
+				Actions:      []string{"logs"},
+				ActionGroups: []string{"remote"},
 			},
 			want: []string{"Logs", "SSH"},
 		},
 		{
 			name: "custom actions appended",
-			item: map[string]any{
-				KeyActions: []any{"ssh"},
-				KeyCustomActions: []any{
-					map[string]any{"title": "Custom", "cmd": "echo hi"},
-				},
+			item: &Item{
+				Actions:       []string{"ssh"},
+				CustomActions: []Action{{Title: "Custom", Cmd: "echo hi"}},
 			},
 			want: []string{"SSH", "Custom"},
 		},
 		{
 			name: "custom actions only",
-			item: map[string]any{
-				KeyCustomActions: []any{
-					map[string]any{"title": "Only", "cmd": "echo"},
-					map[string]any{"description": "no title or cmd — dropped"},
-				},
+			item: &Item{
+				CustomActions: []Action{{Title: "Only", Cmd: "echo"}},
 			},
 			want: []string{"Only"},
 		},
@@ -94,21 +89,22 @@ func TestActionsForItem(t *testing.T) {
 	}
 }
 
-func TestParseCustomActionFields(t *testing.T) {
-	item := map[string]any{
-		KeyCustomActions: []any{
-			map[string]any{
-				"id":          "c1",
-				"title":       "Custom",
-				"description": "desc",
-				"cmd":         "echo",
-				"groups":      []any{"g1"},
-				"noWait":      true,
-				"interactive": true,
-			},
-		},
+func TestCustomActionFields(t *testing.T) {
+	src := `
+customActions:
+  - id: c1
+    title: Custom
+    description: desc
+    cmd: echo
+    groups: [g1]
+    noWait: true
+    interactive: true
+`
+	var item Item
+	if err := yaml.Unmarshal([]byte(src), &item); err != nil {
+		t.Fatal(err)
 	}
-	got := ActionsForItem(nil, item)
+	got := ActionsForItem(nil, &item)
 	want := []Action{{
 		ID: "c1", Title: "Custom", Description: "desc",
 		Cmd: "echo", Groups: []string{"g1"}, NoWait: true, Interactive: true,
@@ -186,10 +182,10 @@ func TestTerminalConfigUnmarshal(t *testing.T) {
 func TestFindDisplay(t *testing.T) {
 	displays := DisplayList{{Name: "default"}, {Name: "alt"}}
 
-	if got := FindDisplay(displays, map[string]any{KeyDisplay: "alt"}); got.Name != "alt" {
+	if got := FindDisplay(displays, &Item{Display: "alt"}); got.Name != "alt" {
 		t.Errorf("matching display: got %q", got.Name)
 	}
-	if got := FindDisplay(displays, map[string]any{KeyDisplay: "missing"}); got.Name != "default" {
+	if got := FindDisplay(displays, &Item{Display: "missing"}); got.Name != "default" {
 		t.Errorf("unknown display should fall back to first: got %q", got.Name)
 	}
 	if got := FindDisplay(displays, nil); got.Name != "default" {
@@ -325,11 +321,17 @@ func TestLoadOrCreateDoesNothingWhenAlreadyLoaded(t *testing.T) {
 	}
 }
 
-func TestParseCustomActionsScript(t *testing.T) {
-	raw := []interface{}{
-		map[string]interface{}{"title": "Deploy", "script": "./deploy.sh"},
+func TestCustomActionScriptOnly(t *testing.T) {
+	src := `
+customActions:
+  - title: Deploy
+    script: ./deploy.sh
+`
+	var item Item
+	if err := yaml.Unmarshal([]byte(src), &item); err != nil {
+		t.Fatal(err)
 	}
-	actions := ParseCustomActions(raw)
+	actions := ActionsForItem(nil, &item)
 	if len(actions) != 1 {
 		t.Fatalf("got %d actions, want 1", len(actions))
 	}
@@ -338,14 +340,5 @@ func TestParseCustomActionsScript(t *testing.T) {
 	}
 	if actions[0].Cmd != "" {
 		t.Errorf("Cmd = %q, want empty", actions[0].Cmd)
-	}
-}
-
-func TestParseCustomActionsScriptOnlyStillValid(t *testing.T) {
-	raw := []interface{}{
-		map[string]interface{}{"script": "./deploy.sh"},
-	}
-	if actions := ParseCustomActions(raw); len(actions) != 1 {
-		t.Fatalf("got %d actions, want 1", len(actions))
 	}
 }

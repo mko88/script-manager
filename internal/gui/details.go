@@ -27,7 +27,7 @@ func (a *App) GetItemDetails(itemIndex int) DetailsDTO {
 		return DetailsDTO{}
 	}
 	merged := a.mergedItem(item)
-	d := config.FindDisplay(a.cfg.Display, merged)
+	d := config.FindDisplay(a.cfg.Display, item)
 	funcMap := template.FuncMap{"mask": render.MaskFunc}
 	tmpl, err := template.New("detail").Funcs(funcMap).Parse(d.Details)
 	if err != nil {
