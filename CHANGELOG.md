@@ -4,15 +4,29 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
-## Unreleased
+## 1.4.2
 
 ### Changes
 
-- An item's environment variables now live in their own `env:` section,
-  beside `name`, `display`, `actions`, `actionGroups` and `customActions`.
-  A config in the old format is offered for conversion when any of the three
-  apps opens it, keeping a timestamped backup — comments in the file are lost
-  in the conversion, and declining means the config isn't opened.
+- **Breaking: an item's environment variables move into an `env:` section.**
+  An item now has exactly six keys — `name`, `display`, `actions`,
+  `actionGroups`, `customActions` and `env` — and any other key is an error.
+
+  ```yaml
+  # before                  # after
+  items:                    items:
+    - name: srv1              - name: srv1
+      actions: [ssh]            actions: [ssh]
+      sshUser: root             env:
+      dbHost: db1                 sshUser: root
+                                  dbHost: db1
+  ```
+
+  A config in the old format is offered for conversion the first time any of
+  the three apps opens it, keeping a timestamped backup. Comments in the file
+  are lost in the conversion, and declining means the config isn't opened.
+  Templates and environment variables are unchanged: `{{.sshUser}}` and
+  `$SSHUSER` still work, unprefixed.
 - Scripts no longer receive `DISPLAY`, `ACTIONS`, `ACTIONGROUPS` and
   `CUSTOMACTIONS` as environment variables, and `{{.display}}` no longer
   resolves in a details template. A variable may now be named after any of
