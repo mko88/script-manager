@@ -17,6 +17,15 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
   `CUSTOMACTIONS` as environment variables, and `{{.display}}` no longer
   resolves in a details template. A variable may now be named after any of
   those keys.
+- Questions both GUI apps ask — converting a config, and every confirmation in
+  `sm-config-edit` — are shown in the app's own dialog rather than the
+  operating system's.
+
+### Bug fixes
+
+- `script-manager-gui`: opening a different config kept the output of runs
+  from the previous one. Opening a config now starts a fresh session, as if
+  the app had just been launched; reloading the same config still keeps it.
 
 ## 1.4.1
 

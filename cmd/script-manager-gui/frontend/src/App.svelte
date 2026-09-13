@@ -17,7 +17,7 @@
   import GroupFilter from './components/GroupFilter.svelte'
   import { t } from './messages'
   import { buildGroupColors, groupChipStyle } from './lib/groupColors'
-  import { inlineStates, inlineKey, startInlineRun, cancelInlineRun } from './lib/inlineRuns'
+  import { inlineStates, inlineKey, startInlineRun, cancelInlineRun, resetInlineRuns } from './lib/inlineRuns'
   import { dragColumn, dragRow, topStyle, bottomStyle } from './lib/panelLayout'
   import {
     EventsOn,
@@ -75,6 +75,7 @@
   onMount(() => watchTheme(EventsOn, () => {}))
   onMount(() => EventsOn('config:changed', onConfigFileChanged))
   onMount(() => EventsOn('config:convert-prompt', onConvertPrompt))
+  onMount(() => EventsOn('config:session-reset', onSessionReset))
   onMount(() => EventsOn('script:changed', reloadActionDetail))
 
   // Refreshes the pane when the script is edited outside the app.
@@ -140,6 +141,12 @@
   $: selectedActionGroups = actions.find((a) => a.index === selectedActionIndex)?.groups ?? []
 
   $: groupColors = buildGroupColors(actionGroupCatalog)
+
+  // Opening a different config is a fresh session: its item and action
+  // indices have nothing to do with the runs recorded against the old one.
+  function onSessionReset() {
+    resetInlineRuns()
+  }
 
   // The backend blocks until AnswerConversion comes back.
   async function onConvertPrompt(prompt: { message: string }) {

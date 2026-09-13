@@ -226,3 +226,42 @@ func TestCancelInlineActionNoneRunning(t *testing.T) {
 		t.Error("expected an error when no inline action is running")
 	}
 }
+
+func TestSetConfigResetsSessionOnlyWhenTheFileChanges(t *testing.T) {
+	newRun := func(t *testing.T, a *App, key inlineKey) string {
+		t.Helper()
+		outPath := filepath.Join(t.TempDir(), "out.log")
+		if err := os.WriteFile(outPath, []byte("previous output"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		a.inlineRuns[key] = &inlineRun{outPath: outPath, exitCode: 0}
+		return outPath
+	}
+
+	t.Run("a different config clears the recorded runs", func(t *testing.T) {
+		a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hi"})
+		a.cfg.SourcePath = "/first.yaml"
+		outPath := newRun(t, a, inlineKey{itemIndex: 0, actionIndex: 0})
+
+		a.setConfig(&config.Config{SourcePath: "/second.yaml"})
+
+		if status := a.GetInlineStatus(0, 0); status.Output != "" || status.ExitCode != 0 {
+			t.Errorf("GetInlineStatus after switching config = %+v, want the zero value", status)
+		}
+		if _, err := os.Stat(outPath); !os.IsNotExist(err) {
+			t.Errorf("output file of the previous config was left behind: %v", err)
+		}
+	})
+
+	t.Run("reloading the same config keeps them", func(t *testing.T) {
+		a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hi"})
+		a.cfg.SourcePath = "/same.yaml"
+		newRun(t, a, inlineKey{itemIndex: 0, actionIndex: 0})
+
+		a.setConfig(&config.Config{SourcePath: "/same.yaml"})
+
+		if status := a.GetInlineStatus(0, 0); status.Output != "previous output" {
+			t.Errorf("GetInlineStatus after reloading the same config = %+v, want the output kept", status)
+		}
+	})
+}

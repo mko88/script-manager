@@ -13,6 +13,15 @@ export type InlineState = {
 
 export const inlineStates = writable<Record<string, InlineState>>({})
 
+// Bumped when the config changes. Polls started against the old config must
+// not write their last status back into the cleared store.
+let generation = 0
+
+export function resetInlineRuns() {
+  generation += 1
+  inlineStates.set({})
+}
+
 export function inlineKey(itemIndex: number, actionIndex: number): string {
   return `${itemIndex}:${actionIndex}`
 }
@@ -27,8 +36,10 @@ function setInlineState(itemIndex: number, actionIndex: number, state: Omit<Inli
 const INLINE_POLL_INTERVAL_MS = 300
 
 async function pollInlineStatus(itemIndex: number, actionIndex: number) {
+  const gen = generation
   for (;;) {
     const status = await GetInlineStatus(itemIndex, actionIndex)
+    if (gen !== generation) return
     setInlineState(itemIndex, actionIndex, {
       output: status.output,
       running: status.running,
@@ -45,11 +56,14 @@ async function pollInlineStatus(itemIndex: number, actionIndex: number) {
 
 export async function startInlineRun(itemIndex: number, actionIndex: number) {
   if (get(inlineStates)[inlineKey(itemIndex, actionIndex)]?.running) return
+  const gen = generation
   setInlineState(itemIndex, actionIndex, { output: '', running: true, exitCode: null })
   try {
     await RunActionInline(itemIndex, actionIndex)
+    if (gen !== generation) return
     pollInlineStatus(itemIndex, actionIndex)
   } catch (err) {
+    if (gen !== generation) return
     setInlineState(itemIndex, actionIndex, { output: '', running: false, exitCode: null })
     flash(t('toast.runFailed', { error: String(err) }))
   }

@@ -51,6 +51,7 @@ type App struct {
 
 	inlineMu   sync.Mutex
 	inlineRuns map[inlineKey]*inlineRun
+	inlineGen  int // bumped by resetSession; stale runs must not write back
 
 	configEditorMu  sync.Mutex
 	configEditorCmd *exec.Cmd

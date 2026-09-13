@@ -24,6 +24,10 @@ func (a *App) setConfig(cfg *config.Config) {
 	if cfg == nil {
 		return
 	}
+	// A different file, not a reload of the same one — a reload keeps its
+	// output, because the indices still mean what they meant.
+	switched := a.configSourcePath() != "" && cfg.SourcePath != a.configSourcePath()
+
 	a.secretMu.Lock()
 	if !secret.SameParams(a.secretParams, cfg.Secrets) {
 		a.secretKey = nil
@@ -32,6 +36,10 @@ func (a *App) setConfig(cfg *config.Config) {
 	a.secretMu.Unlock()
 	a.cfg = cfg
 	a.watchConfigPath(cfg.SourcePath)
+
+	if switched {
+		a.resetSession()
+	}
 }
 
 func (a *App) forgetSessionKey() {
