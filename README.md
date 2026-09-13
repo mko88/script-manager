@@ -15,7 +15,7 @@ This app is 100% vibe-coded by Claude. No human has read most of this code, and 
 ## Features
 
 - **Config-driven** — define items, display templates, and actions in a YAML file; no code changes needed
-- **Free-form items** — each item is a key/value map; any field can be used in templates or passed as an environment variable to actions
+- **Free-form items** — each item carries its own `env:` block of variables, usable in templates and passed to actions
 - **Template expansion** — action commands are Go templates, so you can interpolate item fields directly into commands
 - **Cross-platform** — Windows and Linux binaries for all three apps
 - **Scrollable panes** — all four panes are independently scrollable when focused
@@ -108,6 +108,8 @@ On a first-ever run with no config anywhere, a minimal starter config (one examp
 
 Rather than hand-writing this file, you can use the [Config Editor](#config-editor) (`cmd/sm-config-edit`) to create or edit it through forms.
 
+An item has six keys: `name`, `display`, `actions`, `actionGroups`, `customActions`, and `env:` for its own variables. Any other key is an error naming the item and the key. A config that predates the `env:` block — with variables sitting directly under the item — is offered for conversion when any of the three apps opens it; accepting writes a timestamped `.bak` beside the original first. **Comments in the file are lost in the conversion.** Declining means the config isn't opened.
+
 ```yaml
 shell:
   - bash
@@ -135,9 +137,6 @@ env:                              # optional — global variables available to a
 
 items:
   - name: Production
-    description: Production cluster
-    clusterName: prod-cluster-eu
-    clusterIp: 10.0.0.1
     # show only the "safe" group + the ssh action by ID
     actionGroups: [safe]
     actions: [ssh]
@@ -145,10 +144,15 @@ items:
     customActions:
       - title: Emergency rollback
         cmd: echo "Rolling back {{.clusterName}}"
+    env:                          # this item's variables
+      description: Production cluster
+      clusterName: prod-cluster-eu
+      clusterIp: 10.0.0.1
   - name: Dev
-    description: Dev cluster
-    clusterIp: 10.0.0.2
     display: compact              # optional — picks a named display config; omit to use first
+    env:
+      description: Dev cluster
+      clusterIp: 10.0.0.2
 
 actionGroups:                       # optional — gives groups a friendlier title/color
   - id: connect
@@ -182,7 +186,7 @@ actions:
     script: C:\scripts\deploy-{{.clusterName}}.ps1   # mutually exclusive with cmd — see below
 ```
 
-`cmd` and `script` are mutually exclusive per action — set one or the other, not both. `cmd` is a command template, expanded and run through the configured `shell:`. `script` is a path to a script file or executable (the path itself supports `{{.field}}` templates) that is invoked directly — a `.ps1` just works on Windows, a POSIX script uses its own shebang, and native executables (`.exe`/`.bat`/`.cmd`, POSIX binaries) run as-is. Either way the action gets the same environment variables (the item's fields plus the global `env:` block, uppercased).
+`cmd` and `script` are mutually exclusive per action — set one or the other, not both. `cmd` is a command template, expanded and run through the configured `shell:`. `script` is a path to a script file or executable (the path itself supports `{{.field}}` templates) that is invoked directly — a `.ps1` just works on Windows, a POSIX script uses its own shebang, and native executables (`.exe`/`.bat`/`.cmd`, POSIX binaries) run as-is. Either way the action gets the same environment variables (the item's `env:` block plus the global one, uppercased).
 
 ### Action filtering
 
@@ -202,7 +206,7 @@ The top-level `actionGroups:` list is optional: give a group a `title` and/or a 
 
 ### Templates
 
-`display.list`, `display.details`, and `actions[*].cmd` are [Go templates](https://pkg.go.dev/text/template). Item fields are available as `{{.fieldName}}`.
+`display.list`, `display.details`, and `actions[*].cmd` are [Go templates](https://pkg.go.dev/text/template). An item's `env:` values and its `name` are available as `{{.fieldName}}`, unprefixed, along with the global `env:` block.
 
 `display.details` is rendered as **Markdown** in the Details pane — you can use `**bold**`, `*italic*`, `` `code spans` ``, `## headings`, tables, and bullet lists. Backtick-wrapped values (`` `value` ``) are highlighted in cyan and can be copied to the clipboard.
 
@@ -285,13 +289,15 @@ details: |
 
 ### Environment variables
 
-When an action runs, global `env` values and all item fields are exported as uppercase environment variables. Item fields override globals with the same name.
+When an action runs, the global `env` block, the item's own `env` block and the item's `name` are exported as uppercase environment variables. An item's variables override globals with the same name.
 
 ```bash
-# For an item with clusterIp: 10.0.0.1 and global env region: eu-west-1
+# For an item with env clusterIp: 10.0.0.1 and global env region: eu-west-1
 echo $CLUSTERIP   # → 10.0.0.1
 echo $REGION      # → eu-west-1
 ```
+
+The item's other keys — `display`, `actions`, `actionGroups`, `customActions` — configure the app rather than the action, and are not exported. Because they live outside `env:`, a variable may be named after any of them.
 
 ### Windows config
 
