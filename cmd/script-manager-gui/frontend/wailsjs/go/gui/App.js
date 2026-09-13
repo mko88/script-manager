@@ -102,6 +102,10 @@ export function ReloadConfig() {
   return window['go']['gui']['App']['ReloadConfig']();
 }
 
+export function ReloadConfigOnChange() {
+  return window['go']['gui']['App']['ReloadConfigOnChange']();
+}
+
 export function RunAction(arg1, arg2) {
   return window['go']['gui']['App']['RunAction'](arg1, arg2);
 }

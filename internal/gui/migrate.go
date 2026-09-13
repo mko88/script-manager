@@ -2,8 +2,8 @@ package gui
 
 import (
 	"errors"
-	"fmt"
 	"os"
+	"strings"
 
 	"script-manager/internal/configmigrate"
 
@@ -41,17 +41,13 @@ func (a *App) ensureFormatOnChange(path string) error {
 	return err
 }
 
+// A QuestionDialog is a Yes/No box on both Windows and Linux — Buttons is
+// ignored there, so only "Yes" can mean yes.
 func (a *App) approveConversion(path, backupPath string) bool {
 	choice, err := wailsruntime.MessageDialog(a.ctx, wailsruntime.MessageDialogOptions{
-		Type:  wailsruntime.QuestionDialog,
-		Title: "Convert config?",
-		Message: fmt.Sprintf(
-			"%s stores item environment variables in the old format and has to be converted before it can be opened.\n\n"+
-				"The original is saved as:\n%s\n\nComments in the file will be lost.",
-			path, backupPath),
-		Buttons:       []string{"Convert", "Cancel"},
-		DefaultButton: "Convert",
-		CancelButton:  "Cancel",
+		Type:    wailsruntime.QuestionDialog,
+		Title:   "Convert config?",
+		Message: configmigrate.PromptMessage(path, backupPath),
 	})
-	return err == nil && choice == "Convert"
+	return err == nil && strings.EqualFold(choice, "Yes")
 }

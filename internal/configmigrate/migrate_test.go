@@ -93,6 +93,20 @@ func TestBackupPath(t *testing.T) {
 	}
 }
 
+func TestPromptMessage(t *testing.T) {
+	msg := PromptMessage("/cfg/config.yaml", "/cfg/config.yaml.20260913-2245.bak")
+	for _, want := range []string{"/cfg/config.yaml", "/cfg/config.yaml.20260913-2245.bak", "Comments"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("PromptMessage() missing %q:\n%s", want, msg)
+		}
+	}
+	// The GUI dialogs are Yes/No boxes on both platforms, so the text has to
+	// pose a question rather than name a "Convert" button.
+	if !strings.HasSuffix(msg, "?") {
+		t.Errorf("PromptMessage() should end in a question:\n%s", msg)
+	}
+}
+
 func TestConvert(t *testing.T) {
 	path := write(t, oldShape)
 	backup := path + ".bak"

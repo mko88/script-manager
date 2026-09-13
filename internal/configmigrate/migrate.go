@@ -33,6 +33,17 @@ func Needed(path string) (bool, error) {
 	return false, nil
 }
 
+// PromptMessage is what every app asks before converting, so the three read
+// alike. It ends in a question because the dialogs answer Yes/No.
+func PromptMessage(path, backupPath string) string {
+	return fmt.Sprintf(
+		"%s stores item environment variables in the old format and has to be "+
+			"converted before it can be opened.\n\n"+
+			"The original is saved as:\n%s\n\n"+
+			"Comments in the file will be lost.\n\nConvert it now?",
+		path, backupPath)
+}
+
 // BackupPath is where Convert saves the original, timestamped so it never
 // overwrites a backup taken by hand.
 func BackupPath(path string, now time.Time) string {

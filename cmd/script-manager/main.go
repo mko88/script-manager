@@ -62,11 +62,8 @@ func ensureConfigFormat(cfgPath string) error {
 }
 
 func approveConversion(path, backupPath string) bool {
-	fmt.Printf("%s stores item environment variables in the old format and\n", path)
-	fmt.Println("has to be converted before it can be opened.")
-	fmt.Printf("The original will be saved as %s.\n", backupPath)
-	fmt.Println("Comments in the file will be lost.")
-	fmt.Print("Convert now? [y/N] ")
+	fmt.Println(configmigrate.PromptMessage(path, backupPath))
+	fmt.Print("[y/N] ")
 
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil {
