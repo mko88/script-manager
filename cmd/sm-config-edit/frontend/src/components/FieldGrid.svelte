@@ -42,10 +42,15 @@
     const input = e.currentTarget as HTMLInputElement
     const plain = input.value
     if (!plain || !onFillSecret) return
+    // The PIN dialog can outlive the row's position, so find it again by
+    // identity afterwards and drop the value if the row is gone.
+    const field = fields[i]
     const locked = await onFillSecret(plain)
     input.value = ''
     if (locked === null) return
-    fields[i] = { ...fields[i], value: locked, locked: true, unset: false, secret: true }
+    const at = fields.indexOf(field)
+    if (at < 0) return
+    fields[at] = { ...field, value: locked, locked: true, unset: false, secret: true }
     fields = fields
   }
   async function remove(i: number) {
