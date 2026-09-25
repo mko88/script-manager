@@ -2,6 +2,7 @@ package config
 
 import (
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -32,9 +33,42 @@ func (c *Config) Marshal() ([]byte, error) {
 	return yaml.Marshal(&root)
 }
 
+// CheckSecretItemNames reports an error if an item holding a locked or unset
+// env value has no name, or shares its name with another item — the local
+// secrets file keys entries by item name, so either would silently lose or
+// overwrite that item's secrets on save.
+func (c *Config) CheckSecretItemNames() error {
+	seen := make(map[string]bool, len(c.Items))
+	for _, item := range c.Items {
+		if !hasSecretValue(item.Env) {
+			continue
+		}
+		if item.Name == "" {
+			return errors.New("an item with PIN-locked values needs a name")
+		}
+		if seen[item.Name] {
+			return fmt.Errorf("item %q: items with PIN-locked values need a unique name", item.Name)
+		}
+		seen[item.Name] = true
+	}
+	return nil
+}
+
+func hasSecretValue(env map[string]any) bool {
+	for _, v := range env {
+		if secret.IsLockedValue(v) || secret.IsUnset(v) {
+			return true
+		}
+	}
+	return false
+}
+
 // Save writes the local secrets file first, when there's a PIN, so a watcher
 // on path never reloads a config whose secrets aren't on disk yet.
 func (c *Config) Save(path string) error {
+	if err := c.CheckSecretItemNames(); err != nil {
+		return err
+	}
 	if c.Secrets != nil {
 		if c.SecretsID == "" {
 			id, err := NewSecretsID()

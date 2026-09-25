@@ -324,6 +324,50 @@ func TestSaveWithoutPINLeavesLocalFileAlone(t *testing.T) {
 	}
 }
 
+func TestSaveRejectsDuplicateNamesWithSecrets(t *testing.T) {
+	withAppData(t)
+	_, enc := lockedValue(t, "1234", "x")
+	cfg := &Config{Items: []Item{
+		{Name: "dup", Env: map[string]any{"pw": enc}},
+		{Name: "dup", Env: map[string]any{"other": enc}},
+	}}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := cfg.Save(path); err == nil {
+		t.Fatal("want error for duplicate item names sharing a locked value")
+	}
+	if cfg.SecretsID != "" {
+		t.Error("a rejected save should not assign a secretsId")
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Error("shared file should not have been written")
+	}
+}
+
+func TestSaveRejectsEmptyNameWithSecret(t *testing.T) {
+	withAppData(t)
+	_, enc := lockedValue(t, "1234", "x")
+	cfg := &Config{Items: []Item{{Name: "", Env: map[string]any{"pw": enc}}}}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := cfg.Save(path); err == nil {
+		t.Fatal("want error for an unnamed item holding a locked value")
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Error("shared file should not have been written")
+	}
+}
+
+func TestSaveAllowsDuplicateNamesWithoutSecrets(t *testing.T) {
+	withAppData(t)
+	cfg := &Config{Items: []Item{
+		{Name: "dup", Env: map[string]any{"a": "1"}},
+		{Name: "dup", Env: map[string]any{"b": "2"}},
+	}}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := cfg.Save(path); err != nil {
+		t.Fatalf("Save() = %v, want nil for duplicate names without secrets", err)
+	}
+}
+
 func TestRemoveLocalSecrets(t *testing.T) {
 	withAppData(t)
 	writeFile(t, LocalSecretsPath(testID), "env: {}\n")
