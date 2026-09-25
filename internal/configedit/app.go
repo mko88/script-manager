@@ -61,6 +61,13 @@ func (a *App) stateFor(cfg *config.Config) StateDTO {
 		a.secretParams = nil
 	}
 	a.dropLocalSecrets = false
+	// A legacy config with inline secrets gets its ID now, so every save of
+	// this session writes the same local file.
+	if cfg.Secrets != nil && cfg.SecretsID == "" {
+		if id, err := config.NewSecretsID(); err == nil {
+			cfg.SecretsID = id
+		}
+	}
 	a.cfg = cfg
 	a.path = cfg.SourcePath
 	recent.Add(a.appDataDir, cfg.SourcePath)
@@ -175,7 +182,7 @@ func (a *App) Save(state ConfigDTO, path string) (SaveResultDTO, error) {
 	a.cfg = cfg
 	a.path = path
 	recent.Add(a.appDataDir, path)
-	return SaveResultDTO{Path: path}, nil
+	return SaveResultDTO{Path: path, SecretsID: cfg.SecretsID}, nil
 }
 
 func (a *App) PreviewItem(item ItemDTO, envFields []FieldDTO, displays []DisplayDTO, displayName string) PreviewDTO {

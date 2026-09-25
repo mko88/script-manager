@@ -333,6 +333,7 @@
 
   async function setPin(newPin: string): Promise<string> {
     try {
+      if (!cfg.secretsId) cfg.secretsId = await NewSecretsID()
       cfg.secrets = await CreateSecretsPIN(newPin)
       cfg = cfg
       secretsUnlocked = true
@@ -384,6 +385,9 @@
     try {
       const result = await Save(cfg, target)
       path = result.path
+      // Save assigns an ID when the draft had none; adopting it before
+      // markClean keeps later saves on the same secrets file.
+      if (result.secretsId && result.secretsId !== cfg.secretsId) cfg.secretsId = result.secretsId
       markClean()
       await refreshRecents()
       if (!silent) flash(t('toast.saved'))

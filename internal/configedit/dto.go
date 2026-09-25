@@ -75,7 +75,8 @@ type StateDTO struct {
 }
 
 type SaveResultDTO struct {
-	Path string `json:"path"`
+	Path      string `json:"path"`
+	SecretsID string `json:"secretsId"`
 }
 
 type ValidationIssueDTO struct {

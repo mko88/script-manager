@@ -140,14 +140,18 @@ func TestSaveAfterRemovePINDeletesLocalFile(t *testing.T) {
 	withAppData(t)
 	a, dto := lockedDraft(t, "demo1234")
 	path := filepath.Join(t.TempDir(), "config.yaml")
-	if _, err := a.Save(dto, path); err != nil {
+	result, err := a.Save(dto, path)
+	if err != nil {
 		t.Fatal(err)
 	}
-	id := a.cfg.SecretsID
+	id := result.SecretsID
+	if id == "" {
+		t.Fatal("Save() returned no secretsId for a config with a PIN")
+	}
 	if _, err := os.Stat(config.LocalSecretsPath(id)); err != nil {
 		t.Fatalf("local file not written: %v", err)
 	}
-	dto.SecretsID = id
+	dto.SecretsID = result.SecretsID
 	updated, err := a.RemoveSecretsPIN("demo1234", dto)
 	if err != nil {
 		t.Fatal(err)
@@ -157,6 +161,51 @@ func TestSaveAfterRemovePINDeletesLocalFile(t *testing.T) {
 	}
 	if _, err := os.Stat(config.LocalSecretsPath(id)); !os.IsNotExist(err) {
 		t.Errorf("local file still there after Remove PIN + save: %v", err)
+	}
+}
+
+func TestConsecutiveSavesKeepTheSecretsID(t *testing.T) {
+	withAppData(t)
+	a, dto := lockedDraft(t, "demo1234")
+	path := filepath.Join(t.TempDir(), "config.yaml")
+
+	first, err := a.Save(dto, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dto.SecretsID = first.SecretsID
+	second, err := a.Save(dto, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.SecretsID == "" || second.SecretsID != first.SecretsID {
+		t.Errorf("secretsId changed between saves: %q then %q", first.SecretsID, second.SecretsID)
+	}
+	entries, err := os.ReadDir(filepath.Dir(config.LocalSecretsPath(first.SecretsID)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("secrets dir holds %d files after two saves, want 1", len(entries))
+	}
+}
+
+func TestLoadingLegacyInlineSecretsAssignsAnID(t *testing.T) {
+	withAppData(t)
+	a, dto := lockedDraft(t, "demo1234")
+	cfg, err := FromConfigDTO(dto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SecretsID != "" {
+		t.Fatalf("draft already has secretsId %q", cfg.SecretsID)
+	}
+	state := a.stateFor(cfg)
+	if state.Config.SecretsID == "" {
+		t.Error("a config with a PIN but no secretsId reached the editor without one")
+	}
+	if a.cfg.SecretsID != state.Config.SecretsID {
+		t.Errorf("app cfg secretsId %q differs from the DTO's %q", a.cfg.SecretsID, state.Config.SecretsID)
 	}
 }
 
