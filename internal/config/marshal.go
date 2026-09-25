@@ -104,7 +104,36 @@ func (c *Config) writeLocalSecrets() error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, out, 0o600)
+	return writeFileAtomic(path, out)
+}
+
+// writeFileAtomic replaces path with a 0600 file holding data, so a crash or a
+// concurrent writer never leaves the only copy of the secrets truncated.
+func writeFileAtomic(path string, data []byte) (err error) {
+	tmp, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return err
+	}
+	name := tmp.Name()
+	defer func() {
+		if err != nil {
+			tmp.Close()
+			os.Remove(name)
+		}
+	}()
+	if err = os.Chmod(name, 0o600); err != nil {
+		return err
+	}
+	if _, err = tmp.Write(data); err != nil {
+		return err
+	}
+	if err = tmp.Sync(); err != nil {
+		return err
+	}
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+	return os.Rename(name, path)
 }
 
 // buildLocalSecrets collects every locked value. Entries in existing for items

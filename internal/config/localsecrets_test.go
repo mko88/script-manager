@@ -426,3 +426,29 @@ func TestRemoveLocalSecrets(t *testing.T) {
 		t.Errorf("removing a missing file: %v", err)
 	}
 }
+
+func TestSaveReplacesALooserLocalFile(t *testing.T) {
+	withAppData(t)
+	params, enc := lockedValue(t, "1234", "hunter2")
+	cfg := &Config{SecretsID: testID, Secrets: &params, Env: map[string]any{"token": enc}}
+	target := LocalSecretsPath(testID)
+	writeFile(t, target, "env: {}\n")
+	if err := os.Chmod(target, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := cfg.Save(filepath.Join(t.TempDir(), "config.yaml")); err != nil {
+		t.Fatal(err)
+	}
+	if info, err := os.Stat(target); err != nil {
+		t.Fatal(err)
+	} else if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
+		t.Errorf("local file mode = %v, want 0600", info.Mode().Perm())
+	}
+	entries, err := os.ReadDir(filepath.Dir(target))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("secrets dir holds %d entries, want only the secrets file", len(entries))
+	}
+}
