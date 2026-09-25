@@ -50,7 +50,7 @@ type App struct {
 }
 
 func NewApp(cfg *config.Config, reload func() (*config.Config, error), loadErr error) *App {
-	list := newListTile(cfg.Items, cfg.Display)
+	list := newListTile(cfg.Items, cfg.Display, cfg.Env)
 
 	description := newDescriptionTile(cfg.Display)
 	description.SetConfigPath(cfg.SourcePath)
@@ -103,7 +103,7 @@ func (a *App) applyConfig(cfg *config.Config) {
 		a.secretParams = nil
 	}
 	a.cfg = cfg
-	a.list.SetItems(cfg.Items, cfg.Display)
+	a.list.SetItems(cfg.Items, cfg.Display, cfg.Env)
 
 	a.description.SetDisplays(cfg.Display)
 	a.description.SetConfigPath(cfg.SourcePath)

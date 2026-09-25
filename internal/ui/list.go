@@ -5,7 +5,9 @@ import (
 	"strings"
 	"text/template"
 
+	"script-manager/internal/action"
 	"script-manager/internal/config"
+	"script-manager/internal/secret"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -79,11 +81,12 @@ type ListTile struct {
 	selectableList
 	items    []config.Item
 	displays []config.DisplayConfig
+	env      map[string]any
 	tmpls    map[string]*template.Template
 	title    string
 }
 
-func newListTile(items []config.Item, displays []config.DisplayConfig) *ListTile {
+func newListTile(items []config.Item, displays []config.DisplayConfig, env map[string]any) *ListTile {
 	t := &ListTile{
 		BaseTile: &tl.BaseTile{
 			Name: "list",
@@ -91,11 +94,11 @@ func newListTile(items []config.Item, displays []config.DisplayConfig) *ListTile
 		},
 		title: "Items",
 	}
-	t.SetItems(items, displays)
+	t.SetItems(items, displays, env)
 	return t
 }
 
-func (t *ListTile) SetItems(items []config.Item, displays []config.DisplayConfig) {
+func (t *ListTile) SetItems(items []config.Item, displays []config.DisplayConfig, env map[string]any) {
 	tmpls := make(map[string]*template.Template, len(displays))
 	for _, d := range displays {
 		tmpl, _ := template.New("list").Parse(d.List)
@@ -103,6 +106,7 @@ func (t *ListTile) SetItems(items []config.Item, displays []config.DisplayConfig
 	}
 	t.items = items
 	t.displays = displays
+	t.env = env
 	t.tmpls = tmpls
 	switch {
 	case len(items) == 0:
@@ -121,7 +125,7 @@ func (t *ListTile) renderLabel(item *config.Item) string {
 		return item.Name
 	}
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, item.Values()); err != nil {
+	if err := tmpl.Execute(&buf, secret.Redact(action.Merge(t.env, item))); err != nil {
 		return item.Name
 	}
 	return buf.String()

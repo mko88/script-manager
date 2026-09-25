@@ -207,7 +207,7 @@ func (a *App) GetItems() []ItemDTO {
 
 func (a *App) renderListLabel(item *config.Item) string {
 	d := config.FindDisplay(a.cfg.Display, item)
-	out, err := action.Expand(d.List, item.Values())
+	out, err := action.Expand(d.List, a.mergedItem(item))
 	if err != nil {
 		return item.Name
 	}

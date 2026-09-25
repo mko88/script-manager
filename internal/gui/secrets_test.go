@@ -176,3 +176,18 @@ func TestActionNeedsUnlockOnlyWhenSomethingIsLocked(t *testing.T) {
 		t.Error("ActionNeedsUnlock() = true for an item with nothing locked")
 	}
 }
+
+func TestListLabelRedactsSecrets(t *testing.T) {
+	cfg := &config.Config{
+		Env:     map[string]any{"host": "example"},
+		Display: config.DisplayList{{Name: "default", List: "{{.name}} {{.password}} {{.token}} {{.host}}"}},
+		Items:   []config.Item{{Name: "one", Env: map[string]any{"password": secret.Prefix + "Y2lwaGVydGV4dA==", "token": secret.Unset}}},
+	}
+	a := &App{cfg: cfg}
+
+	got := a.GetItems()[0].Label
+	want := "one " + secret.LockedDisplayText + " " + secret.UnsetDisplayText + " example"
+	if got != want {
+		t.Errorf("list label = %q, want %q", got, want)
+	}
+}
