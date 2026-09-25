@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"script-manager/internal/secret"
+
 	"gopkg.in/yaml.v3"
 )
 
@@ -152,4 +154,44 @@ func TestTerminalConfigMarshal(t *testing.T) {
 			t.Errorf("round trip: got %+v, want %+v", reloaded.Terminal, cfg.Terminal)
 		}
 	})
+}
+
+func TestMarshalWritesSecretTag(t *testing.T) {
+	params, enc := func() (secret.Params, string) {
+		p, key, err := secret.NewParams("1234")
+		if err != nil {
+			t.Fatal(err)
+		}
+		e, err := secret.Encrypt(key, "hunter2")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return p, e
+	}()
+	cfg := &Config{
+		SecretsID: "0123456789abcdef0123456789abcdef",
+		Secrets:   &params,
+		Env:       map[string]any{"token": enc, "missing": secret.Unset, "region": "eu"},
+		Items:     []Item{{Name: "db", Env: map[string]any{"password": enc}}},
+	}
+	out, err := cfg.Marshal()
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	for _, bad := range []string{"sm-enc:", secret.Unset, "salt", "secrets:"} {
+		if strings.Contains(s, bad) {
+			t.Errorf("shared output contains %q:\n%s", bad, s)
+		}
+	}
+	if strings.Count(s, "!secret") != 3 {
+		t.Errorf("want 3 !secret tags:\n%s", s)
+	}
+	reparsed, err := parseConfig(out)
+	if err != nil {
+		t.Fatalf("reparse: %v\n%s", err, s)
+	}
+	if !secret.IsUnset(reparsed.Env["token"]) || !secret.IsUnset(reparsed.Items[0].Env["password"]) || reparsed.Env["region"] != "eu" {
+		t.Errorf("reparsed = %v / %v", reparsed.Env, reparsed.Items[0].Env)
+	}
 }
