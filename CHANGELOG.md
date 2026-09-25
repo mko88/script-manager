@@ -9,8 +9,12 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 ### Changes
 
 - PIN-locked values now live in a per-user secrets file instead of the config, which only marks them `!secret` — a config with locked values is safe to commit and share, and each person sets their own PIN and values.
-- A config saved by an earlier version has its locked values moved into the secrets file the next time `sm-config-edit` saves it; the PIN stays the same.
+- A config saved by an earlier version has its locked values moved into the secrets file the next time `sm-config-edit` saves it; the PIN stays the same. For a shared config, the other teammates then set their own PIN and re-enter their values.
 - `sm-config-edit`: Remove PIN deletes this computer's secrets file instead of writing the values into the config as plain text.
+
+### Bug fixes
+
+- `script-manager` and `script-manager-gui`: an item's list label can use the global `env:` values, as the Details pane already could.
 
 ## 1.4.2
 

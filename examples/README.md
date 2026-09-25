@@ -66,3 +66,7 @@ in `pin-secrets.local.yaml` on purpose so the demo works out of the box. A real
 local secrets file lives only in your app-data directory and would not be
 committed to a repository, and `demo1234` is exactly the kind of PIN the main
 README tells you not to use.
+
+If you copy one of these examples as the start of your own config, click
+**Give this config its own secrets** in the Config Editor's PIN section so it
+stops sharing the demo's secrets file.

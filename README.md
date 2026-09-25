@@ -265,6 +265,8 @@ What this protects against: someone reading your `config.yaml` — it never cont
 
 A config last saved by an earlier version keeps its locked values inline in `config.yaml`, and loads fine as-is; the next time the Config Editor saves it, those values move into the secrets file automatically, under the same PIN.
 
+For a shared config, that first save moves the values into the secrets file of whoever saved it, and nobody else's. Once the migrated `config.yaml` is committed, every other teammate sets their own PIN and re-enters their own values. Anyone still on an earlier version reads the `!secret` values as empty.
+
 A ready-made demo lives in [`examples/`](examples/) — a config with locked and unlocked values side by side, PIN `demo1234`; see [`examples/README.md`](examples/README.md) for the secrets file it needs.
 
 #### Multi-line values
