@@ -242,7 +242,7 @@ Until someone sets a PIN and enters a value on their own computer, that value sh
 Set the PIN first, in the Config Editor's **PIN** section — it shows whether a PIN is set and how many values are locked on this computer, and is where you change or remove it later. All three need the current PIN, and take effect on the next Save:
 
 - **Change PIN** re-encrypts every locked value in the secrets file in one step.
-- **Remove PIN** deletes this computer's secrets file. The values stay declared secret in `config.yaml` and go back to showing as `(not set)` until entered again under a new PIN.
+- **Remove PIN** asks for confirmation, then deletes this computer's secrets file. The values stay declared secret in `config.yaml` and go back to showing as `(not set)` until entered again under a new PIN.
 
 Then click the padlock next to any environment variable, global or per-item, to lock it. A locked field shows `••••••` once a value has been entered on this computer, or invites you to type one otherwise; typing a value asks for the PIN (setting one first if this config doesn't have one yet) and stores it in the secrets file. Clicking the padlock before a PIN exists takes you to the PIN section instead.
 
@@ -255,7 +255,7 @@ Which actions may use locked values is per action: tick **Requires PIN** on an a
 
 One PIN covers every locked value in a config, and stays unlocked until you close the app or load a different config; reloading the same one (F5) keeps it unlocked.
 
-A locked value is **never** rendered anywhere on screen — it shows as `(locked)` in the Details pane, in the list label, and in the Config Editor's preview whenever a value exists but the PIN hasn't been entered yet. Entering the PIN only lets a `requiresPin` action receive the value; it never puts it on screen or on the clipboard.
+A locked value is **never** rendered anywhere on screen — it shows as `(locked)` in the Details pane, in the list label, and in the Config Editor's preview, whether or not the PIN has been entered (a value with nothing entered on this computer shows as `(not set)` instead). Entering the PIN only lets a `requiresPin` action receive the value; it never puts it on screen or on the clipboard.
 
 An item that holds a PIN-locked value needs a name, and no other item — secret or not — may share it: the Config Editor blocks Save with an error until names are unique.
 
