@@ -8,6 +8,17 @@ feature, differing only in `shell:` and the action commands.
 
 **The PIN is `demo1234`.**
 
+Both configs reference the same `secretsId`, and the locked values' ciphertext
+lives in `pin-secrets.local.yaml`. Copy it into your app-data directory before
+loading either config, so the locked values decrypt instead of showing
+`(locked)`:
+
+- Windows: `%AppData%\script-manager\secrets\5e1ec7ed5e1ec7ed5e1ec7ed5e1ec7ed.yaml`
+- Linux: `~/.config/script-manager/secrets/5e1ec7ed5e1ec7ed5e1ec7ed5e1ec7ed.yaml`
+
+Without that file, the configs still load fine — the locked values just stay
+unset.
+
 Load one with any of the three apps:
 
 ```bash
@@ -41,13 +52,15 @@ What to try:
    `demo1234` and the script prints the real passwords.
 4. Run **Pretend to connect** — no prompt this time; the unlock lasts until the
    app closes.
-5. Open the file in a text editor. Only `sm-enc:v1:…` ciphertext is there.
+5. Open the file in a text editor. Locked values show as `!secret`, with no
+   ciphertext in sight — that lives in the local secrets file instead.
 6. In `sm-config-edit`, click the padlock beside `db_password` to reveal or
    re-lock it (a locked field is read-only until you do), and find the
    **Requires PIN** checkbox on each action.
 
 The locked values here are `correct-horse-battery-staple`, its API equivalent,
-and a fake Vault token — all throwaway strings committed on purpose so the demo
-works out of the box. A real config would not be committed with its ciphertext
-in a public repository, and `demo1234` is exactly the kind of PIN the main
+and a fake Vault token — all throwaway strings, with their ciphertext committed
+in `pin-secrets.local.yaml` on purpose so the demo works out of the box. A real
+local secrets file lives only in your app-data directory and would not be
+committed to a repository, and `demo1234` is exactly the kind of PIN the main
 README tells you not to use.
