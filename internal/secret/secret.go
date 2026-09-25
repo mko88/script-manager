@@ -163,15 +163,39 @@ func HasLocked(values map[string]any) bool {
 
 const LockedDisplayText = "(locked)"
 
+// Unset stands in for a value the shared config declares with !secret but
+// this machine's local secrets file doesn't provide. It is never shown or
+// exported as-is.
+const Unset = "sm-secret:unset"
+
+const UnsetDisplayText = "(not set)"
+
+func IsUnset(v any) bool {
+	s, ok := v.(string)
+	return ok && s == Unset
+}
+
+func hasHidden(values map[string]any) bool {
+	for _, v := range values {
+		if IsLockedValue(v) || IsUnset(v) {
+			return true
+		}
+	}
+	return false
+}
+
 func Reveal(values map[string]any, key []byte) (map[string]any, error) {
-	if !HasLocked(values) {
+	if !hasHidden(values) {
 		return values, nil
 	}
-	if len(key) == 0 {
+	if HasLocked(values) && len(key) == 0 {
 		return nil, ErrLocked
 	}
 	out := make(map[string]any, len(values))
 	for k, v := range values {
+		if IsUnset(v) {
+			continue
+		}
 		if s, ok := v.(string); ok && IsLocked(s) {
 			plain, err := Decrypt(key, s)
 			if err != nil {
@@ -186,27 +210,30 @@ func Reveal(values map[string]any, key []byte) (map[string]any, error) {
 }
 
 func Redact(values map[string]any) map[string]any {
-	if !HasLocked(values) {
+	if !hasHidden(values) {
 		return values
 	}
 	out := make(map[string]any, len(values))
 	for k, v := range values {
-		if IsLockedValue(v) {
+		switch {
+		case IsUnset(v):
+			out[k] = UnsetDisplayText
+		case IsLockedValue(v):
 			out[k] = LockedDisplayText
-			continue
+		default:
+			out[k] = v
 		}
-		out[k] = v
 	}
 	return out
 }
 
 func Strip(values map[string]any) map[string]any {
-	if !HasLocked(values) {
+	if !hasHidden(values) {
 		return values
 	}
 	out := make(map[string]any, len(values))
 	for k, v := range values {
-		if IsLockedValue(v) {
+		if IsLockedValue(v) || IsUnset(v) {
 			continue
 		}
 		out[k] = v
