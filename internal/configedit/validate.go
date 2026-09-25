@@ -5,6 +5,12 @@ import "fmt"
 func ValidateConfig(dto ConfigDTO) []ValidationIssueDTO {
 	issues := []ValidationIssueDTO{}
 
+	if cfg, err := FromConfigDTO(dto); err == nil {
+		if err := cfg.CheckSecretItemNames(); err != nil {
+			issues = append(issues, ValidationIssueDTO{Severity: "error", Message: err.Error()})
+		}
+	}
+
 	actionIDs := map[string]bool{}
 	for _, act := range dto.Actions {
 		if act.Cmd != "" && act.Script != "" {

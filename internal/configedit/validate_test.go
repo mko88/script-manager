@@ -1,6 +1,10 @@
 package configedit
 
-import "testing"
+import (
+	"testing"
+
+	"script-manager/internal/secret"
+)
 
 func hasIssue(issues []ValidationIssueDTO, severity string) bool {
 	for _, i := range issues {
@@ -86,6 +90,31 @@ func TestValidateConfig(t *testing.T) {
 		dto := ConfigDTO{Actions: []ActionDTO{{ID: "deploy", Script: "./deploy.sh"}}}
 		if issues := ValidateConfig(dto); len(issues) != 0 {
 			t.Errorf("expected no issues, got %+v", issues)
+		}
+	})
+
+	t.Run("duplicate item name with a locked field is an error", func(t *testing.T) {
+		dto := ConfigDTO{Items: []ItemDTO{
+			{Name: "a", Fields: []FieldDTO{{Key: "pw", Kind: "string", Value: secret.Prefix + "ZmFrZQ==", Locked: true}}},
+			{Name: "a", Fields: []FieldDTO{{Key: "host", Kind: "string", Value: "example"}}},
+		}}
+		issues := ValidateConfig(dto)
+		if !hasIssue(issues, "error") {
+			t.Errorf("expected an error-severity issue, got %+v", issues)
+		}
+	})
+
+	t.Run("duplicate item name with no locked fields stays a warning", func(t *testing.T) {
+		dto := ConfigDTO{Items: []ItemDTO{
+			{Name: "a", Fields: []FieldDTO{{Key: "host", Kind: "string", Value: "example"}}},
+			{Name: "a", Fields: []FieldDTO{{Key: "host", Kind: "string", Value: "example2"}}},
+		}}
+		issues := ValidateConfig(dto)
+		if hasIssue(issues, "error") {
+			t.Errorf("expected no error-severity issue, got %+v", issues)
+		}
+		if !hasIssue(issues, "warning") {
+			t.Errorf("expected the duplicate-name warning to remain, got %+v", issues)
 		}
 	})
 }

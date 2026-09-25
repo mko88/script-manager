@@ -85,6 +85,10 @@ func FieldsFromMap(m map[string]any) []FieldDTO {
 
 	fields := make([]FieldDTO, 0, len(keys))
 	for _, k := range keys {
+		if secret.IsUnset(m[k]) {
+			fields = append(fields, FieldDTO{Key: k, Kind: "string", Secret: true, Locked: true, Unset: true})
+			continue
+		}
 		kind, value, isSecret := classifyValue(k, m[k])
 		locked := secret.IsLocked(value)
 		fields = append(fields, FieldDTO{Key: k, Kind: kind, Value: value, Secret: isSecret || locked, Locked: locked})
@@ -96,6 +100,10 @@ func FieldsToMap(fields []FieldDTO) (map[string]any, error) {
 	out := make(map[string]any, len(fields))
 	for _, f := range fields {
 		if f.Key == "" {
+			continue
+		}
+		if f.Unset {
+			out[f.Key] = secret.Unset
 			continue
 		}
 		v, err := decodeValue(f.Kind, f.Value)
@@ -223,6 +231,7 @@ func terminalFromDTO(dto TerminalDTO) config.TerminalConfig {
 
 func ToConfigDTO(cfg *config.Config) ConfigDTO {
 	dto := ConfigDTO{
+		SecretsID:    cfg.SecretsID,
 		Secrets:      secretsToDTO(cfg.Secrets),
 		Shell:        nonNil(append([]string(nil), cfg.Shell...)),
 		Terminal:     terminalToDTO(cfg.Terminal),
@@ -249,9 +258,10 @@ func ToConfigDTO(cfg *config.Config) ConfigDTO {
 
 func FromConfigDTO(dto ConfigDTO) (*config.Config, error) {
 	cfg := &config.Config{
-		Secrets:  secretsFromDTO(dto.Secrets),
-		Shell:    append([]string(nil), dto.Shell...),
-		Terminal: terminalFromDTO(dto.Terminal),
+		SecretsID: dto.SecretsID,
+		Secrets:   secretsFromDTO(dto.Secrets),
+		Shell:     append([]string(nil), dto.Shell...),
+		Terminal:  terminalFromDTO(dto.Terminal),
 	}
 	for _, d := range dto.Display {
 		cfg.Display = append(cfg.Display, config.DisplayConfig{Name: d.Name, List: d.List, Details: d.Details})

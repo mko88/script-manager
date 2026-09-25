@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -20,14 +19,15 @@ import (
 )
 
 type App struct {
-	ctx          context.Context
-	cfgPath      string
-	cfg          *config.Config
-	path         string
-	appDataDir   string
-	secretKey    []byte
-	secretParams *secret.Params
-	scriptWatch  *filewatch.Watcher
+	ctx              context.Context
+	cfgPath          string
+	cfg              *config.Config
+	path             string
+	appDataDir       string
+	secretKey        []byte
+	secretParams     *secret.Params
+	dropLocalSecrets bool
+	scriptWatch      *filewatch.Watcher
 
 	conversionMu     sync.Mutex
 	conversionAnswer chan bool
@@ -60,6 +60,7 @@ func (a *App) stateFor(cfg *config.Config) StateDTO {
 		a.secretKey = nil
 		a.secretParams = nil
 	}
+	a.dropLocalSecrets = false
 	a.cfg = cfg
 	a.path = cfg.SourcePath
 	recent.Add(a.appDataDir, cfg.SourcePath)
@@ -97,6 +98,7 @@ func (a *App) NewBlank() StateDTO {
 	a.path = ""
 	a.secretKey = nil
 	a.secretParams = nil
+	a.dropLocalSecrets = false
 	return StateDTO{Config: ToConfigDTO(cfg)}
 }
 
@@ -160,13 +162,15 @@ func (a *App) Save(state ConfigDTO, path string) (SaveResultDTO, error) {
 	if err != nil {
 		return SaveResultDTO{}, err
 	}
-	out, err := cfg.Marshal()
-	if err != nil {
+	if err := cfg.Save(path); err != nil {
 		return SaveResultDTO{}, err
 	}
-	if err := os.WriteFile(path, out, 0o644); err != nil {
-		return SaveResultDTO{}, err
+	if a.dropLocalSecrets && cfg.Secrets == nil {
+		if err := config.RemoveLocalSecrets(cfg.SecretsID); err != nil {
+			return SaveResultDTO{}, err
+		}
 	}
+	a.dropLocalSecrets = false
 	cfg.SourcePath = path
 	a.cfg = cfg
 	a.path = path

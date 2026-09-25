@@ -3,6 +3,7 @@ package configedit
 import (
 	"fmt"
 
+	"script-manager/internal/config"
 	"script-manager/internal/secret"
 )
 
@@ -115,55 +116,40 @@ func (a *App) ChangeSecretsPIN(oldPIN, newPIN string, dto ConfigDTO) (ConfigDTO,
 	return dto, nil
 }
 
+// RemoveSecretsPIN keeps every locked field declared as a secret but empties
+// it; the next save deletes this user's local secrets file.
 func (a *App) RemoveSecretsPIN(pin string, dto ConfigDTO) (ConfigDTO, error) {
 	current := secretsFromDTO(dto.Secrets)
 	if current == nil {
 		return dto, fmt.Errorf("this config has no PIN set")
 	}
-	key, err := current.Unlock(pin)
-	if err != nil {
+	if _, err := current.Unlock(pin); err != nil {
 		return dto, err
 	}
-
-	type decrypted struct {
-		fields []FieldDTO
-		index  int
-		value  string
-	}
-	var pending []decrypted
-
-	collect := func(fields []FieldDTO) error {
-		for i, f := range fields {
-			if !secret.IsLocked(f.Value) {
-				continue
+	unset := func(fields []FieldDTO) {
+		for i := range fields {
+			if fields[i].Locked {
+				fields[i] = FieldDTO{Key: fields[i].Key, Kind: "string", Secret: true, Locked: true, Unset: true}
 			}
-			plain, err := secret.Decrypt(key, f.Value)
-			if err != nil {
-				return fmt.Errorf("%q could not be decrypted, so the PIN was not removed", f.Key)
-			}
-			pending = append(pending, decrypted{fields, i, plain})
-		}
-		return nil
-	}
-
-	if err := collect(dto.EnvFields); err != nil {
-		return dto, err
-	}
-	for _, item := range dto.Items {
-		if err := collect(item.Fields); err != nil {
-			return dto, err
 		}
 	}
-
-	for _, p := range pending {
-		p.fields[p.index].Value = p.value
-		p.fields[p.index].Locked = false
-		p.fields[p.index].Secret = true
+	unset(dto.EnvFields)
+	for i := range dto.Items {
+		unset(dto.Items[i].Fields)
 	}
 	dto.Secrets = nil
 	a.secretKey = nil
 	a.secretParams = nil
+	a.dropLocalSecrets = true
 	return dto, nil
+}
+
+func (a *App) NewSecretsID() (string, error) {
+	return config.NewSecretsID()
+}
+
+func (a *App) SecretsFilePath(id string) string {
+	return config.LocalSecretsPath(id)
 }
 
 func (a *App) LockValue(plain string) (string, error) {
