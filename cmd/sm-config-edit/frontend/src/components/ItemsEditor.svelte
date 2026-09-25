@@ -34,6 +34,7 @@
   export let validateField: (kind: string, value: string) => Promise<string>
   export let onToggleLock: ((field: { key: string; value: string; locked?: boolean }) => Promise<string | null>) | null =
     null
+  export let onFillSecret: ((plain: string) => Promise<string | null>) | null = null
   export let browseScriptFile: () => Promise<string>
   export let previewScriptFile: (path: string) => Promise<configedit.ScriptPreviewDTO>
 
@@ -226,7 +227,7 @@
       <div class="field">
         <span>{t('nav.environment')}</span>
         <p class="hint">{t('hint.envItem')}</p>
-        <FieldGrid bind:fields={items[selectedItem].fields} {validateField} {onToggleLock} />
+        <FieldGrid bind:fields={items[selectedItem].fields} {validateField} {onToggleLock} {onFillSecret} />
       </div>
 
       <div class="preview-pane panel">

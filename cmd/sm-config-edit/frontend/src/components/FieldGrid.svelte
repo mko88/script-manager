@@ -5,10 +5,12 @@
   import IconButton from '@shared/components/IconButton.svelte'
   import CodeMirror from '@shared/components/CodeMirror.svelte'
 
-  export let fields: { key: string; kind: string; value: string; secret: boolean; locked?: boolean }[] = []
+  export let fields: { key: string; kind: string; value: string; secret: boolean; locked?: boolean; unset?: boolean }[] =
+    []
   export let validateField: (kind: string, value: string) => Promise<string> = async () => ''
   export let onToggleLock: ((field: { key: string; value: string; locked?: boolean }) => Promise<string | null>) | null =
     null
+  export let onFillSecret: ((plain: string) => Promise<string | null>) | null = null
 
   const kinds = ['string', 'multiline', 'number', 'bool', 'yaml'] as const
 
@@ -34,6 +36,16 @@
     fields[i].value = next
     fields[i].locked = next.startsWith(LOCK_PREFIX)
     if (fields[i].locked) fields[i].secret = true
+    fields = fields
+  }
+  async function fillSecret(i: number, e: Event) {
+    const input = e.currentTarget as HTMLInputElement
+    const plain = input.value
+    if (!plain || !onFillSecret) return
+    const locked = await onFillSecret(plain)
+    input.value = ''
+    if (locked === null) return
+    fields[i] = { ...fields[i], value: locked, locked: true, unset: false, secret: true }
     fields = fields
   }
   async function remove(i: number) {
@@ -75,7 +87,15 @@
       <select class="field-kind sm-select" bind:value={fields[i].kind} on:change={() => onKindChange(i)}>
         {#each kinds as k}<option value={k}>{k}</option>{/each}
       </select>
-      {#if fields[i].kind === 'bool'}
+      {#if fields[i].unset}
+        <input
+          class="field-value field-value-unset"
+          type="password"
+          autocomplete="off"
+          placeholder={t('text.secretNotSet')}
+          on:change={(e) => fillSecret(i, e)}
+        />
+      {:else if fields[i].kind === 'bool'}
         <select class="field-value sm-select" bind:value={fields[i].value} on:change={() => check(i)}>
           <option value="true">true</option>
           <option value="false">false</option>
@@ -153,6 +173,7 @@
         <IconButton
           class="btn icon-btn field-icon-btn"
           active={fields[i].locked}
+          disabled={fields[i].unset}
           title={t('tooltip.pinProtected')}
           on:click={() => toggleLock(i)}
         >
@@ -200,6 +221,11 @@
 
   .field-value-secret {
     -webkit-text-security: disc;
+  }
+
+  .field-value-unset::placeholder {
+    color: var(--sm-warning, var(--sm-text-muted));
+    font-style: italic;
   }
 
   .field-error {
