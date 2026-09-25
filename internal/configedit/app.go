@@ -126,11 +126,22 @@ func (a *App) BrowseOpen() (StateDTO, error) {
 		return a.currentState(), nil
 	}
 
+	return a.openPath(path)
+}
+
+// openPath loads the config at path. One that loads with an error but still
+// has a source (a broken local secrets file) opens with the error as a
+// warning, as it does at startup.
+func (a *App) openPath(path string) (StateDTO, error) {
 	cfg, err := config.LoadFromWithError(path)
-	if err != nil {
+	if cfg.SourcePath == "" {
 		return StateDTO{}, err
 	}
-	return a.stateFor(cfg), nil
+	state := a.stateFor(cfg)
+	if err != nil {
+		state.Warning = err.Error()
+	}
+	return state, nil
 }
 
 // currentState is what the frontend already has: nothing changed.

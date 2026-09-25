@@ -7,36 +7,38 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"script-manager/internal/config"
 	"script-manager/internal/configmigrate"
-	"script-manager/internal/recent"
 
 	wailsruntime "github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-func (a *App) BrowseConfig() (string, error) {
+// OpenedConfigDTO is the config a file dialog opened: Path is empty when
+// nothing changed, and Warning is set when it opened but not cleanly.
+type OpenedConfigDTO struct {
+	Path    string `json:"path"`
+	Warning string `json:"warning"`
+}
+
+func (a *App) BrowseConfig() (OpenedConfigDTO, error) {
 	path, err := wailsruntime.OpenFileDialog(a.ctx, wailsruntime.OpenDialogOptions{
 		Title:   "Open config file",
 		Filters: []wailsruntime.FileFilter{{DisplayName: "YAML config (*.yaml, *.yml)", Pattern: "*.yaml;*.yml"}},
 	})
 	if err != nil || path == "" {
-		return "", err
+		return OpenedConfigDTO{}, err
 	}
 
 	// Declining leaves the config already open in place, so this reads to the
 	// frontend like a cancelled dialog.
 	if err := a.ensureFormat(path); errors.Is(err, configmigrate.ErrDeclined) {
-		return "", nil
+		return OpenedConfigDTO{}, nil
 	}
 
-	cfg, err := config.LoadFromWithError(path)
+	warning, err := a.openConfigFile(path)
 	if err != nil {
-		return "", err
+		return OpenedConfigDTO{}, err
 	}
-	a.configPath = path
-	a.setConfig(cfg)
-	recent.Add(a.appDataDir, cfg.SourcePath)
-	return path, nil
+	return OpenedConfigDTO{Path: path, Warning: warning}, nil
 }
 
 func siblingBinaryName(base string) string {

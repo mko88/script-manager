@@ -333,17 +333,17 @@
   }
 
   async function browseConfig() {
-    let path = ''
+    let opened: gui.OpenedConfigDTO
     try {
-      path = await BrowseConfig()
+      opened = await BrowseConfig()
     } catch (err) {
       flash(t('toast.loadFailed', { error: String(err) }))
       return
     }
-    if (!path) return
+    if (!opened.path) return
     await refreshAfterConfigChange()
     await refreshRecents()
-    flash(t('toast.loaded', { path }))
+    flashLoaded(opened.path, opened.warning)
   }
 
   let recents: string[] = []
@@ -355,8 +355,9 @@
   }
 
   async function loadRecent(path: string) {
+    let warning = ''
     try {
-      await LoadRecentConfig(path)
+      warning = await LoadRecentConfig(path)
     } catch (err) {
       await refreshRecents()
       flash(t('toast.loadFailed', { error: String(err) }))
@@ -364,7 +365,11 @@
     }
     await refreshAfterConfigChange()
     await refreshRecents()
-    flash(t('toast.loaded', { path }))
+    flashLoaded(path, warning)
+  }
+
+  function flashLoaded(path: string, warning: string) {
+    flash(warning ? t('toast.loadedWithWarning', { path, warning }) : t('toast.loaded', { path }))
   }
 
   async function clearRecents() {

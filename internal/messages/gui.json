@@ -12,6 +12,7 @@
     "openScriptFailed": "Could not open the script: {error}",
     "loadFailed": "Load failed: {error}",
     "loaded": "Loaded {path}",
+    "loadedWithWarning": "Loaded {path} with a warning: {warning}",
     "openConfigEditorFailed": "Failed to open config editor: {error}",
     "configEditorAlreadyOpen": "Config editor is already open"
   },

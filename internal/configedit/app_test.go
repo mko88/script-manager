@@ -139,3 +139,31 @@ func TestKnownTerminals(t *testing.T) {
 		t.Error("expected at least one known terminal name")
 	}
 }
+
+func TestOpenRecentWarnsAboutABrokenSecretsFile(t *testing.T) {
+	withAppData(t)
+	const id = "0123456789abcdef0123456789abcdef"
+	local := config.LocalSecretsPath(id)
+	if err := os.MkdirAll(filepath.Dir(local), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(local, []byte("env: [unclosed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := os.WriteFile(path, []byte("secretsId: "+id+"\nshell: [bash]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	a := NewApp("")
+	state, err := a.OpenRecent(path)
+	if err != nil {
+		t.Fatalf("OpenRecent() error = %v, want the config opened with a warning", err)
+	}
+	if state.Warning == "" {
+		t.Error("OpenRecent() gave no warning for a broken secrets file")
+	}
+	if state.Path == "" || len(state.Config.Shell) != 1 {
+		t.Errorf("state = %+v, want the config loaded", state)
+	}
+}

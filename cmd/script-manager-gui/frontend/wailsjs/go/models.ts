@@ -110,6 +110,20 @@ export namespace gui {
 	        this.label = source["label"];
 	    }
 	}
+	export class OpenedConfigDTO {
+	    path: string;
+	    warning: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new OpenedConfigDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.path = source["path"];
+	        this.warning = source["warning"];
+	    }
+	}
 	export class SecretsStateDTO {
 	    configured: boolean;
 	    unlocked: boolean;

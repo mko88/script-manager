@@ -8,7 +8,7 @@ export function ActionNeedsUnlock(arg1:number,arg2:number):Promise<boolean>;
 
 export function AnswerConversion(arg1:boolean):Promise<void>;
 
-export function BrowseConfig():Promise<string>;
+export function BrowseConfig():Promise<gui.OpenedConfigDTO>;
 
 export function CancelInlineAction(arg1:number,arg2:number):Promise<void>;
 
@@ -44,7 +44,7 @@ export function LaunchConfigEditor():Promise<boolean>;
 
 export function LoadError():Promise<string>;
 
-export function LoadRecentConfig(arg1:string):Promise<void>;
+export function LoadRecentConfig(arg1:string):Promise<string>;
 
 export function LockSecrets():Promise<void>;
 
