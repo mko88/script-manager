@@ -34,11 +34,15 @@ func (c *Config) Marshal() ([]byte, error) {
 }
 
 // CheckSecretItemNames reports an error if an item holding a locked or unset
-// env value has no name, or shares its name with another item — the local
-// secrets file keys entries by item name, so either would silently lose or
-// overwrite that item's secrets on save.
+// env value has no name, or shares its name with any other item — secret or
+// not. buildLocalSecrets resolves "is this item still declared?" by name, so
+// a same-named plain item lets a secret item's keys look undeclared and its
+// ciphertext gets replaced by a stale orphan.
 func (c *Config) CheckSecretItemNames() error {
-	seen := make(map[string]bool, len(c.Items))
+	counts := make(map[string]int, len(c.Items))
+	for _, item := range c.Items {
+		counts[item.Name]++
+	}
 	for _, item := range c.Items {
 		if !hasSecretValue(item.Env) {
 			continue
@@ -46,10 +50,9 @@ func (c *Config) CheckSecretItemNames() error {
 		if item.Name == "" {
 			return errors.New("an item with PIN-locked values needs a name")
 		}
-		if seen[item.Name] {
+		if counts[item.Name] > 1 {
 			return fmt.Errorf("item %q: items with PIN-locked values need a unique name", item.Name)
 		}
-		seen[item.Name] = true
 	}
 	return nil
 }

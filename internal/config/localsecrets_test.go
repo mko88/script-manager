@@ -368,6 +368,51 @@ func TestSaveAllowsDuplicateNamesWithoutSecrets(t *testing.T) {
 	}
 }
 
+func TestSaveRejectsSecretItemThenPlainItemSharingAName(t *testing.T) {
+	withAppData(t)
+	params, encA1 := lockedValue(t, "1234", "a1")
+	cfg := &Config{Secrets: &params, Items: []Item{{Name: "dup", Env: map[string]any{"pw": encA1}}}}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := cfg.Save(path); err != nil {
+		t.Fatal(err)
+	}
+	id := cfg.SecretsID
+	sharedBefore, _ := os.ReadFile(path)
+
+	_, encA2 := lockedValue(t, "1234", "a2")
+	cfg.Items = []Item{
+		{Name: "dup", Env: map[string]any{"pw": encA2}},
+		{Name: "dup", Env: map[string]any{"foo": "bar"}},
+	}
+	if err := cfg.Save(path); err == nil {
+		t.Fatal("want error when a secret item shares its name with a later plain item")
+	}
+
+	sharedAfter, _ := os.ReadFile(path)
+	if string(sharedBefore) != string(sharedAfter) {
+		t.Error("shared file was modified by a rejected save")
+	}
+	if got := readLocal(t, id).Items["dup"]["pw"]; got != encA1 {
+		t.Errorf("local file was modified by a rejected save: %q, want %q", got, encA1)
+	}
+}
+
+func TestSaveRejectsPlainItemThenSecretItemSharingAName(t *testing.T) {
+	withAppData(t)
+	_, enc := lockedValue(t, "1234", "x")
+	cfg := &Config{Items: []Item{
+		{Name: "dup", Env: map[string]any{"foo": "bar"}},
+		{Name: "dup", Env: map[string]any{"pw": enc}},
+	}}
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	if err := cfg.Save(path); err == nil {
+		t.Fatal("want error when a plain item shares its name with a secret item")
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Error("shared file should not have been written")
+	}
+}
+
 func TestRemoveLocalSecrets(t *testing.T) {
 	withAppData(t)
 	writeFile(t, LocalSecretsPath(testID), "env: {}\n")
