@@ -4,6 +4,14 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
+## Unreleased
+
+### Changes
+
+- PIN-locked values now live in a per-user secrets file instead of the config, which only marks them `!secret` — a config with locked values is safe to commit and share, and each person sets their own PIN and values.
+- A config saved by an earlier version has its locked values moved into the secrets file the next time `sm-config-edit` saves it; the PIN stays the same.
+- `sm-config-edit`: Remove PIN deletes this computer's secrets file instead of writing the values into the config as plain text.
+
 ## 1.4.2
 
 ### Changes
