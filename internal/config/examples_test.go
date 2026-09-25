@@ -66,15 +66,41 @@ func TestExampleSecretsLoadFromLocalFile(t *testing.T) {
 	if err := os.WriteFile(target, local, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	cfg, err = config.LoadFromWithError("../../examples/pin-secrets.yaml")
-	if err != nil {
-		t.Fatal(err)
+	for _, path := range []string{
+		"../../examples/pin-secrets.yaml",
+		"../../examples/pin-secrets-win.yaml",
+	} {
+		cfg, err := config.LoadFromWithError(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		key, err := cfg.Secrets.Unlock("demo1234")
+		if err != nil {
+			t.Fatalf("%s: example PIN: %v", path, err)
+		}
+		if _, err := secret.Reveal(cfg.Env, key); err != nil {
+			t.Errorf("%s: env values don't decrypt: %v", path, err)
+		}
+		for _, name := range []string{"demo-database", "demo-api"} {
+			item := findItem(cfg, name)
+			if item == nil {
+				t.Fatalf("%s: item %s not found", path, name)
+			}
+			if !secret.IsLockedValue(item.Env["db_password"]) {
+				t.Errorf("%s: %s.db_password = %v, want locked after loading the local file", path, name, item.Env["db_password"])
+			}
+			if _, err := secret.Reveal(item.Env, key); err != nil {
+				t.Errorf("%s: %s env values don't decrypt: %v", path, name, err)
+			}
+		}
 	}
-	key, err := cfg.Secrets.Unlock("demo1234")
-	if err != nil {
-		t.Fatalf("example PIN: %v", err)
+}
+
+func findItem(cfg *config.Config, name string) *config.Item {
+	for i := range cfg.Items {
+		if cfg.Items[i].Name == name {
+			return &cfg.Items[i]
+		}
 	}
-	if _, err := secret.Reveal(cfg.Env, key); err != nil {
-		t.Errorf("example values don't decrypt: %v", err)
-	}
+	return nil
 }

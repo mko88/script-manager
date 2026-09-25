@@ -10,14 +10,15 @@ feature, differing only in `shell:` and the action commands.
 
 Both configs reference the same `secretsId`, and the locked values' ciphertext
 lives in `pin-secrets.local.yaml`. Copy it into your app-data directory before
-loading either config, so the locked values decrypt instead of showing
-`(locked)`:
+loading either config, so there is something for the PIN to decrypt:
 
 - Windows: `%AppData%\script-manager\secrets\5e1ec7ed5e1ec7ed5e1ec7ed5e1ec7ed.yaml`
 - Linux: `~/.config/script-manager/secrets/5e1ec7ed5e1ec7ed5e1ec7ed5e1ec7ed.yaml`
 
-Without that file, the configs still load fine — the locked values just stay
-unset.
+Without that file, the configs still load fine, but the locked values show as
+`(not set)` instead of `(locked)` and no PIN can ever reveal them. A locked
+value always displays as `(locked)`, with or without the PIN entered — the
+walkthrough below relies on the local file being in place first.
 
 Load one with any of the three apps:
 
@@ -43,8 +44,9 @@ What it contains:
 
 What to try:
 
-1. Open an item before entering the PIN — the Details pane shows `(locked)`
-   where a locked value would be.
+1. With `pin-secrets.local.yaml` copied into place (see above), open an item
+   before entering the PIN — the Details pane shows `(locked)` where a locked
+   value would be.
 2. Run **Show the same values (no PIN)** first. It runs with no prompt, and
    prints `db_password=[]` and `vault_token=[]` — the locked variables are
    never set for an action that doesn't ask for them.
