@@ -120,16 +120,19 @@ func (t TerminalConfig) MarshalYAML() (interface{}, error) {
 }
 
 type Config struct {
+	SecretsID    string         `yaml:"secretsId,omitempty"`
 	Shell        []string       `yaml:"shell,omitempty"`
 	Display      DisplayList    `yaml:"display,omitempty"`
 	Terminal     TerminalConfig `yaml:"terminal,omitempty"`
-	Secrets      *secret.Params `yaml:"secrets,omitempty"`
 	Env          map[string]any `yaml:"env,omitempty"`
 	Items        []Item         `yaml:"items,omitempty"`
 	ActionGroups []ActionGroup  `yaml:"actionGroups,omitempty"`
 	Actions      []Action       `yaml:"actions,omitempty"`
 
-	SourcePath string `yaml:"-"`
+	// Secrets comes from the local secrets file (or, in a config not yet
+	// saved by this version, an inline secrets: block).
+	Secrets    *secret.Params `yaml:"-"`
+	SourcePath string         `yaml:"-"`
 }
 
 func ActionsForItem(allActions []Action, item *Item) []Action {
@@ -271,8 +274,8 @@ func loadPaths(paths []string) (*Config, error) {
 			lastErr = err
 			continue
 		}
-		var cfg Config
-		if err := yaml.Unmarshal(data, &cfg); err != nil {
+		cfg, err := parseConfig(data)
+		if err != nil {
 			wrapped := fmt.Errorf("%s: %w", p, err)
 			if parseErr == nil {
 				parseErr = wrapped
@@ -284,6 +287,9 @@ func loadPaths(paths []string) (*Config, error) {
 			cfg.SourcePath = abs
 		} else {
 			cfg.SourcePath = p
+		}
+		if err := cfg.applyLocalSecrets(); err != nil {
+			return &cfg, err
 		}
 		return &cfg, parseErr
 	}

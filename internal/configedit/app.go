@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"sync"
 
@@ -20,14 +19,15 @@ import (
 )
 
 type App struct {
-	ctx          context.Context
-	cfgPath      string
-	cfg          *config.Config
-	path         string
-	appDataDir   string
-	secretKey    []byte
-	secretParams *secret.Params
-	scriptWatch  *filewatch.Watcher
+	ctx              context.Context
+	cfgPath          string
+	cfg              *config.Config
+	path             string
+	appDataDir       string
+	secretKey        []byte
+	secretParams     *secret.Params
+	dropLocalSecrets bool
+	scriptWatch      *filewatch.Watcher
 
 	conversionMu     sync.Mutex
 	conversionAnswer chan bool
@@ -59,6 +59,14 @@ func (a *App) stateFor(cfg *config.Config) StateDTO {
 	if !secret.SameParams(a.secretParams, cfg.Secrets) {
 		a.secretKey = nil
 		a.secretParams = nil
+	}
+	a.dropLocalSecrets = false
+	// A legacy config with inline secrets gets its ID now, so every save of
+	// this session writes the same local file.
+	if cfg.Secrets != nil && cfg.SecretsID == "" {
+		if id, err := config.NewSecretsID(); err == nil {
+			cfg.SecretsID = id
+		}
 	}
 	a.cfg = cfg
 	a.path = cfg.SourcePath
@@ -97,6 +105,7 @@ func (a *App) NewBlank() StateDTO {
 	a.path = ""
 	a.secretKey = nil
 	a.secretParams = nil
+	a.dropLocalSecrets = false
 	return StateDTO{Config: ToConfigDTO(cfg)}
 }
 
@@ -117,11 +126,22 @@ func (a *App) BrowseOpen() (StateDTO, error) {
 		return a.currentState(), nil
 	}
 
+	return a.openPath(path)
+}
+
+// openPath loads the config at path. One that loads with an error but still
+// has a source (a broken local secrets file) opens with the error as a
+// warning, as it does at startup.
+func (a *App) openPath(path string) (StateDTO, error) {
 	cfg, err := config.LoadFromWithError(path)
-	if err != nil {
+	if cfg.SourcePath == "" {
 		return StateDTO{}, err
 	}
-	return a.stateFor(cfg), nil
+	state := a.stateFor(cfg)
+	if err != nil {
+		state.Warning = err.Error()
+	}
+	return state, nil
 }
 
 // currentState is what the frontend already has: nothing changed.
@@ -160,18 +180,20 @@ func (a *App) Save(state ConfigDTO, path string) (SaveResultDTO, error) {
 	if err != nil {
 		return SaveResultDTO{}, err
 	}
-	out, err := cfg.Marshal()
-	if err != nil {
+	if err := cfg.Save(path); err != nil {
 		return SaveResultDTO{}, err
 	}
-	if err := os.WriteFile(path, out, 0o644); err != nil {
-		return SaveResultDTO{}, err
+	if a.dropLocalSecrets && cfg.Secrets == nil {
+		if err := config.RemoveLocalSecrets(cfg.SecretsID); err != nil {
+			return SaveResultDTO{}, err
+		}
 	}
+	a.dropLocalSecrets = false
 	cfg.SourcePath = path
 	a.cfg = cfg
 	a.path = path
 	recent.Add(a.appDataDir, path)
-	return SaveResultDTO{Path: path}, nil
+	return SaveResultDTO{Path: path, SecretsID: cfg.SecretsID}, nil
 }
 
 func (a *App) PreviewItem(item ItemDTO, envFields []FieldDTO, displays []DisplayDTO, displayName string) PreviewDTO {

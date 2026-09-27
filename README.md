@@ -228,14 +228,25 @@ The Details pane shows `••••••` instead of the real value. When you 
 
 #### PIN-locked values
 
-Masking only hides a value on screen — the value itself still sits in `config.yaml` in plain text. A value can instead be **locked behind a PIN**, so the config file holds only the encrypted form.
+Masking only hides a value on screen — the value itself still sits in `config.yaml` in plain text. A value can instead be **locked behind a PIN**: the value moves into a secrets file on your own computer, and `config.yaml` keeps only a marker saying the field is secret. That marker is all `config.yaml` ever holds for a locked value, so a config with locked values is safe to commit and share — everyone who opens it sets their own PIN and types in their own values.
 
-Set the PIN first, in the Config Editor's **PIN** section — it shows whether a PIN is set and how many values are locked, and is where you change or remove it later. All three need the current PIN, and take effect on the next Save:
+The secrets file lives at:
 
-- **Change PIN** re-encrypts every locked value in the config in one step.
-- **Remove PIN** decrypts every locked value and leaves it marked secret, so it stays masked on screen — but it is then stored in `config.yaml` as plain text.
+- Windows: `%AppData%\script-manager\secrets\<secretsId>.yaml`
+- Linux: `~/.config/script-manager/secrets/<secretsId>.yaml`
 
-Then click the padlock next to any environment variable, global or per-item, to encrypt it in place. A locked field shows `••••••`, is read-only, and the padlock reveals it again after you enter the PIN. Clicking the padlock before a PIN exists takes you to the PIN section instead.
+`<secretsId>` is a random id the config is given the first time anyone sets a PIN on it. The Config Editor's **PIN** section shows the exact path (or that the file hasn't been created yet).
+
+Until someone sets a PIN and enters a value on their own computer, that value shows as `(not set)` everywhere — the Details pane, the list label, both GUI apps and the TUI — and it is simply left out of a script's environment; no PIN prompt appears for a value nobody has set.
+
+Set the PIN first, in the Config Editor's **PIN** section — it shows whether a PIN is set and how many values are locked on this computer, and is where you change or remove it later. All three need the current PIN, and take effect on the next Save:
+
+- **Change PIN** re-encrypts every locked value in the secrets file in one step.
+- **Remove PIN** asks for confirmation, then deletes this computer's secrets file. The values stay declared secret in `config.yaml` and go back to showing as `(not set)` until entered again under a new PIN.
+
+Then click the padlock next to any environment variable, global or per-item, to lock it. A locked field shows `••••••` once a value has been entered on this computer, or invites you to type one otherwise; typing a value asks for the PIN (setting one first if this config doesn't have one yet) and stores it in the secrets file. Clicking the padlock before a PIN exists takes you to the PIN section instead.
+
+Copying a config to start a new one carries its `secretsId` along, so the copy would still read and write the original's secrets file. Click **Give this config its own secrets** in the PIN section to give the copy a fresh secrets file — your current values move to it on the next save, and the original config's file is left as it was.
 
 Which actions may use locked values is per action: tick **Requires PIN** on an action in the Config Editor (`requiresPin: true` in YAML).
 
@@ -244,13 +255,19 @@ Which actions may use locked values is per action: tick **Requires PIN** on an a
 
 One PIN covers every locked value in a config, and stays unlocked until you close the app or load a different config; reloading the same one (F5) keeps it unlocked.
 
-A locked value is **never** rendered anywhere on screen — it shows as `(locked)` in the Details pane, in the list label, and in the Config Editor's preview, whether or not the PIN has been entered. Entering the PIN only lets a `requiresPin` action receive the value; it never puts it on screen or on the clipboard.
+A locked value is **never** rendered anywhere on screen — it shows as `(locked)` in the Details pane, in the list label, and in the Config Editor's preview, whether or not the PIN has been entered (a value with nothing entered on this computer shows as `(not set)` instead). Entering the PIN only lets a `requiresPin` action receive the value; it never puts it on screen or on the clipboard.
 
-What this protects against: someone reading your `config.yaml`, or the file ending up in a backup, a sync folder, or a repository. What it does **not** protect against: anything that can already run code as you while the app is unlocked. Choose a PIN you would choose for a password, not a 4-digit number — a short numeric PIN can be guessed offline by anyone holding the file, and the deliberately slow key derivation only buys time.
+An item that holds a PIN-locked value needs a name, and no other item — secret or not — may share it: the Config Editor blocks Save with an error until names are unique.
+
+What this protects against: someone reading your `config.yaml` — it never contains anything beyond the secret marker — or the secrets file, which itself holds only encrypted values, ending up in a backup, a sync folder, or a repository. What it does **not** protect against: anything that can already run code as you while the app is unlocked. Choose a PIN you would choose for a password, not a 4-digit number — a short numeric PIN can be guessed offline by anyone holding the file, and the deliberately slow key derivation only buys time.
 
 **There is no recovery.** Forgetting the PIN means re-entering every value it locked.
 
-A ready-made demo lives in [`examples/`](examples/) — a config with locked and unlocked values side by side, PIN `demo1234`.
+A config last saved by an earlier version keeps its locked values inline in `config.yaml`, and loads fine as-is; the next time the Config Editor saves it, those values move into the secrets file automatically, under the same PIN.
+
+For a shared config, that first save moves the values into the secrets file of whoever saved it, and nobody else's. Once the migrated `config.yaml` is committed, every other teammate sets their own PIN and re-enters their own values. Anyone still on an earlier version reads the `!secret` values as empty.
+
+A ready-made demo lives in [`examples/`](examples/) — a config with locked and unlocked values side by side, PIN `demo1234`; see [`examples/README.md`](examples/README.md) for the secrets file it needs.
 
 #### Multi-line values
 
@@ -424,8 +441,8 @@ The Windows GUI binaries are cross-compiled from Linux; only the `mingw-w64` C c
 - **Code panes**: script previews, command previews, the inline command, YAML fields and the Displays details template are CodeMirror editors. In the details template, typing `{{` offers the item's and environment's variables (Ctrl+Space brings the list up at any point inside a `{{ }}`); a variable whose name looks like a secret also offers its `mask` form. They bring syntax highlighting for shell, PowerShell and YAML, folding, and undo/redo, themed to match whatever theme is active.
 - **Live preview**: with an item selected, its rendered list label, details, and any action's expanded command update as you type — no save needed. The Displays section previews templates against any item, with edit/preview/split view modes; an **Insert env…** dropdown inserts any available variable at the cursor, and formatting buttons wrap the selection in bold, italic, highlight, or `{{mask ...}}` markup.
 - **Script files**: a button beside an action's script path opens it in your default editor, and the preview reloads when the file changes on disk — the same in `script-manager-gui`, whose Command pane refreshes itself.
-- **PIN-locked values**: the padlock next to an environment variable encrypts it with the config's PIN, so `config.yaml` stores only the ciphertext — see [PIN-locked values](#pin-locked-values).
-- **Validation**: duplicate global action IDs block Save; duplicate item names and an item referencing a display/action/group that doesn't exist are shown as non-blocking warnings.
+- **PIN-locked values**: the padlock next to an environment variable locks it with the config's PIN, storing the value in a secrets file on this computer rather than in `config.yaml` — see [PIN-locked values](#pin-locked-values).
+- **Validation**: duplicate global action IDs block Save, and so does a blank or duplicate item name once any of its values are PIN-locked; other duplicate item names and an item referencing a display/action/group that doesn't exist are shown as non-blocking warnings.
 - **Fonts and interface scale** *(Theme section)*: name any font installed on the machine for the interface and for monospace text, or leave either empty for the bundled Nunito. **Ctrl +** and **Ctrl -** scale the whole interface between 70% and 200%, **Ctrl 0** resets it — spacing scales with the type, not just the text. Both settings are shared with `script-manager-gui` and stored in the app-data directory; the other app picks them up the next time it starts.
 - **Themes** *(Theme section)*: pick a theme from the dropdown to apply it immediately, everywhere; **Add** / **Copy** / **Delete** / **Reset** manage custom themes (the built-in Dark/Light are read-only). Every color the apps use is editable, with a live preview panel — click any preview element to filter the field list to just the colors it uses. Saved themes are shared with `script-manager-gui` (see [Theme](#theme) above).
 - **Messages**: every piece of UI text in *either* GUI app — toasts, tooltips, labels, empty states — can be customized. A tab per app picks which one you're editing, and a search box filters by key or text. A customized message gets a restore button to reset just that one; **Restore defaults** resets everything. Changes are written by the global Save and take effect the next time the edited app is launched; customizations survive upgrades.

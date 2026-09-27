@@ -3,7 +3,6 @@ package configedit
 import (
 	"errors"
 
-	"script-manager/internal/config"
 	"script-manager/internal/configmigrate"
 	"script-manager/internal/recent"
 )
@@ -22,10 +21,10 @@ func (a *App) OpenRecent(path string) (StateDTO, error) {
 		return a.currentState(), nil
 	}
 
-	cfg, err := config.LoadFromWithError(path)
+	state, err := a.openPath(path)
 	if err != nil {
 		recent.Remove(a.appDataDir, path)
 		return StateDTO{}, err
 	}
-	return a.stateFor(cfg), nil
+	return state, nil
 }

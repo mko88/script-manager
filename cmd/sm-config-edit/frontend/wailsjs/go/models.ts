@@ -110,6 +110,7 @@ export namespace configedit {
 	    value: string;
 	    secret: boolean;
 	    locked: boolean;
+	    unset: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new FieldDTO(source);
@@ -122,6 +123,7 @@ export namespace configedit {
 	        this.value = source["value"];
 	        this.secret = source["secret"];
 	        this.locked = source["locked"];
+	        this.unset = source["unset"];
 	    }
 	}
 	export class TerminalDTO {
@@ -177,6 +179,7 @@ export namespace configedit {
 	    }
 	}
 	export class ConfigDTO {
+	    secretsId: string;
 	    secrets?: SecretsDTO;
 	    shell: string[];
 	    display: DisplayDTO[];
@@ -192,6 +195,7 @@ export namespace configedit {
 	
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.secretsId = source["secretsId"];
 	        this.secrets = this.convertValues(source["secrets"], SecretsDTO);
 	        this.shell = source["shell"];
 	        this.display = this.convertValues(source["display"], DisplayDTO);
@@ -243,6 +247,7 @@ export namespace configedit {
 	}
 	export class SaveResultDTO {
 	    path: string;
+	    secretsId: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new SaveResultDTO(source);
@@ -251,6 +256,7 @@ export namespace configedit {
 	    constructor(source: any = {}) {
 	        if ('string' === typeof source) source = JSON.parse(source);
 	        this.path = source["path"];
+	        this.secretsId = source["secretsId"];
 	    }
 	}
 	export class ScriptPreviewDTO {

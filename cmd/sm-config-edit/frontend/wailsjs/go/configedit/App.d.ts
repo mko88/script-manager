@@ -42,6 +42,8 @@ export function LockValue(arg1:string):Promise<string>;
 
 export function NewBlank():Promise<configedit.StateDTO>;
 
+export function NewSecretsID():Promise<string>;
+
 export function OpenDataFolder():Promise<void>;
 
 export function OpenInEditor():Promise<void>;
@@ -67,6 +69,8 @@ export function Save(arg1:configedit.ConfigDTO,arg2:string):Promise<configedit.S
 export function SaveMessages(arg1:string,arg2:Record<string, any>):Promise<void>;
 
 export function SaveTheme(arg1:string,arg2:string,arg3:Record<string, string>):Promise<void>;
+
+export function SecretsFilePath(arg1:string):Promise<string>;
 
 export function SecretsState(arg1:configedit.SecretsDTO):Promise<configedit.SecretsStateDTO>;
 

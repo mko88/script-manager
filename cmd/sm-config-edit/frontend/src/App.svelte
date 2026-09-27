@@ -45,6 +45,8 @@
     UnlockSecrets,
     LockValue,
     RevealValue,
+    NewSecretsID,
+    SecretsFilePath,
     BrowseSaveAs,
     BrowseScriptFile,
     PreviewScriptFile,
@@ -302,12 +304,36 @@
     }
   }
 
+  async function fillSecret(plain: string): Promise<string | null> {
+    if (!(await ensureUnlocked())) return null
+    try {
+      return await LockValue(plain)
+    } catch (err) {
+      flash(t('toast.lockFailed', { error: String(err) }))
+      return null
+    }
+  }
+
+  let secretsPath = ''
+  $: SecretsFilePath(cfg?.secretsId ?? '').then((p) => (secretsPath = p))
+
+  async function newSecretsId(): Promise<string> {
+    try {
+      cfg.secretsId = await NewSecretsID()
+      cfg = cfg
+      return ''
+    } catch (err) {
+      return String(err)
+    }
+  }
+
   $: lockedValueCount =
-    (cfg?.envFields ?? []).filter((f) => f.locked).length +
-    (cfg?.items ?? []).reduce((n, it) => n + (it.fields ?? []).filter((f) => f.locked).length, 0)
+    (cfg?.envFields ?? []).filter((f) => f.locked && !f.unset).length +
+    (cfg?.items ?? []).reduce((n, it) => n + (it.fields ?? []).filter((f) => f.locked && !f.unset).length, 0)
 
   async function setPin(newPin: string): Promise<string> {
     try {
+      if (!cfg.secretsId) cfg.secretsId = await NewSecretsID()
       cfg.secrets = await CreateSecretsPIN(newPin)
       cfg = cfg
       secretsUnlocked = true
@@ -359,6 +385,9 @@
     try {
       const result = await Save(cfg, target)
       path = result.path
+      // Save assigns an ID when the draft had none; adopting it before
+      // markClean keeps later saves on the same secrets file.
+      if (result.secretsId && result.secretsId !== cfg.secretsId) cfg.secretsId = result.secretsId
       markClean()
       await refreshRecents()
       if (!silent) flash(t('toast.saved'))
@@ -584,7 +613,12 @@
           {/if}
         {:else if section === 'env'}
           <p class="hint">{t('hint.envGlobal')}</p>
-          <FieldGrid bind:fields={cfg.envFields} validateField={ValidateField} onToggleLock={toggleFieldLock} />
+          <FieldGrid
+            bind:fields={cfg.envFields}
+            validateField={ValidateField}
+            onToggleLock={toggleFieldLock}
+            onFillSecret={fillSecret}
+          />
         {:else if section === 'display'}
           <DisplaysEditor
             bind:displays={cfg.display}
@@ -630,6 +664,7 @@
             browseScriptFile={BrowseScriptFile}
             previewScriptFile={PreviewScriptFile}
             onToggleLock={toggleFieldLock}
+            onFillSecret={fillSecret}
           />
         {:else if section === 'theme'}
           <ThemeEditor
@@ -653,6 +688,8 @@
             onSetPin={setPin}
             onChangePin={changePin}
             onRemovePin={removePin}
+            {secretsPath}
+            onNewSecretsId={newSecretsId}
           />
         {:else if section === 'messages'}
           <MessagesEditor

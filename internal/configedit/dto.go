@@ -36,6 +36,7 @@ type FieldDTO struct {
 	Value  string `json:"value"`
 	Secret bool   `json:"secret"`
 	Locked bool   `json:"locked"`
+	Unset  bool   `json:"unset"`
 }
 
 type SecretsDTO struct {
@@ -56,6 +57,7 @@ type ItemDTO struct {
 }
 
 type ConfigDTO struct {
+	SecretsID    string           `json:"secretsId"`
 	Secrets      *SecretsDTO      `json:"secrets,omitempty"`
 	Shell        []string         `json:"shell"`
 	Display      []DisplayDTO     `json:"display"`
@@ -73,7 +75,8 @@ type StateDTO struct {
 }
 
 type SaveResultDTO struct {
-	Path string `json:"path"`
+	Path      string `json:"path"`
+	SecretsID string `json:"secretsId"`
 }
 
 type ValidationIssueDTO struct {

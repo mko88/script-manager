@@ -1,10 +1,20 @@
 package configedit
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
+	"script-manager/internal/config"
 	"script-manager/internal/secret"
 )
+
+func withAppData(t *testing.T) {
+	t.Helper()
+	dir := t.TempDir()
+	t.Setenv("AppData", dir)
+	t.Setenv("XDG_CONFIG_HOME", dir)
+}
 
 func lockedDraft(t *testing.T, pin string) (*App, ConfigDTO) {
 	t.Helper()
@@ -107,32 +117,95 @@ func TestChangePINIsAtomicWhenOneValueFails(t *testing.T) {
 	}
 }
 
-func TestRemovePINDecryptsEverythingAndKeepsValuesMasked(t *testing.T) {
+func TestRemovePINLeavesDeclarationsUnset(t *testing.T) {
 	a, dto := lockedDraft(t, "demo1234")
-
 	updated, err := a.RemoveSecretsPIN("demo1234", dto)
 	if err != nil {
-		t.Fatalf("RemoveSecretsPIN() error = %v", err)
+		t.Fatal(err)
 	}
-
 	if updated.Secrets != nil {
-		t.Error("the secrets block survived removing the PIN")
+		t.Error("params still set")
 	}
-	env := updated.EnvFields[0]
-	if env.Value != "vault-token" {
-		t.Errorf("env value = %q, want the decrypted plaintext", env.Value)
+	for _, f := range []FieldDTO{updated.EnvFields[0], updated.Items[0].Fields[0]} {
+		if !f.Unset || !f.Locked || f.Value != "" {
+			t.Errorf("field %q = %+v, want an unset declaration", f.Key, f)
+		}
 	}
-	if env.Locked {
-		t.Error("the field is still marked locked after the PIN was removed")
+	if updated.Items[0].Fields[1].Unset || updated.Items[0].Fields[1].Value != "example" {
+		t.Errorf("plain field changed: %+v", updated.Items[0].Fields[1])
 	}
-	if !env.Secret {
-		t.Error("a previously locked value should stay marked secret so it is still masked on screen")
+}
+
+func TestSaveAfterRemovePINDeletesLocalFile(t *testing.T) {
+	withAppData(t)
+	a, dto := lockedDraft(t, "demo1234")
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	result, err := a.Save(dto, path)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if item := updated.Items[0].Fields[0]; item.Value != "item-password" || item.Locked {
-		t.Errorf("item value = %q locked=%v, want the decrypted plaintext and locked=false", item.Value, item.Locked)
+	id := result.SecretsID
+	if id == "" {
+		t.Fatal("Save() returned no secretsId for a config with a PIN")
 	}
-	if a.SecretsState(nil).Unlocked {
-		t.Error("the session key was kept after the PIN was removed")
+	if _, err := os.Stat(config.LocalSecretsPath(id)); err != nil {
+		t.Fatalf("local file not written: %v", err)
+	}
+	dto.SecretsID = result.SecretsID
+	updated, err := a.RemoveSecretsPIN("demo1234", dto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := a.Save(updated, path); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(config.LocalSecretsPath(id)); !os.IsNotExist(err) {
+		t.Errorf("local file still there after Remove PIN + save: %v", err)
+	}
+}
+
+func TestConsecutiveSavesKeepTheSecretsID(t *testing.T) {
+	withAppData(t)
+	a, dto := lockedDraft(t, "demo1234")
+	path := filepath.Join(t.TempDir(), "config.yaml")
+
+	first, err := a.Save(dto, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dto.SecretsID = first.SecretsID
+	second, err := a.Save(dto, path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.SecretsID == "" || second.SecretsID != first.SecretsID {
+		t.Errorf("secretsId changed between saves: %q then %q", first.SecretsID, second.SecretsID)
+	}
+	entries, err := os.ReadDir(filepath.Dir(config.LocalSecretsPath(first.SecretsID)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 {
+		t.Errorf("secrets dir holds %d files after two saves, want 1", len(entries))
+	}
+}
+
+func TestLoadingLegacyInlineSecretsAssignsAnID(t *testing.T) {
+	withAppData(t)
+	a, dto := lockedDraft(t, "demo1234")
+	cfg, err := FromConfigDTO(dto)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.SecretsID != "" {
+		t.Fatalf("draft already has secretsId %q", cfg.SecretsID)
+	}
+	state := a.stateFor(cfg)
+	if state.Config.SecretsID == "" {
+		t.Error("a config with a PIN but no secretsId reached the editor without one")
+	}
+	if a.cfg.SecretsID != state.Config.SecretsID {
+		t.Errorf("app cfg secretsId %q differs from the DTO's %q", a.cfg.SecretsID, state.Config.SecretsID)
 	}
 }
 

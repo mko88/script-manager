@@ -97,3 +97,40 @@ func TestHasLocked(t *testing.T) {
 		t.Error("HasLocked() = false for a map containing a locked value")
 	}
 }
+
+func TestRedactShowsNotSet(t *testing.T) {
+	got := Redact(map[string]any{"a": Unset, "b": "plain"})
+	if got["a"] != UnsetDisplayText || got["b"] != "plain" {
+		t.Errorf("Redact = %v", got)
+	}
+}
+
+func TestStripDropsUnset(t *testing.T) {
+	got := Strip(map[string]any{"a": Unset, "b": "plain"})
+	if _, ok := got["a"]; ok || got["b"] != "plain" {
+		t.Errorf("Strip = %v", got)
+	}
+}
+
+func TestRevealDropsUnset(t *testing.T) {
+	// No locked values and no key: Unset must still be removed, not passed through.
+	got, err := Reveal(map[string]any{"a": Unset, "b": "plain"}, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := got["a"]; ok || got["b"] != "plain" {
+		t.Errorf("Reveal = %v", got)
+	}
+}
+
+func TestHasLockedIgnoresUnset(t *testing.T) {
+	if HasLocked(map[string]any{"a": Unset}) {
+		t.Error("HasLocked counted an unset value as locked")
+	}
+	if IsLocked(Unset) {
+		t.Error("IsLocked(Unset) = true")
+	}
+	if !IsUnset(Unset) || IsUnset("x") || IsUnset(nil) {
+		t.Error("IsUnset wrong")
+	}
+}

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"script-manager/internal/config"
+	"script-manager/internal/secret"
 )
 
 func TestEmptyConfigDTOHasNoNullSlices(t *testing.T) {
@@ -230,6 +231,17 @@ func TestConfigDTORoundTrip(t *testing.T) {
 	}
 	if string(firstOut) != string(secondOut) {
 		t.Errorf("marshal output mismatch:\nfirst:\n%s\nsecond:\n%s", firstOut, secondOut)
+	}
+}
+
+func TestFieldsUnsetRoundTrip(t *testing.T) {
+	fields := FieldsFromMap(map[string]any{"pw": secret.Unset})
+	if len(fields) != 1 || !fields[0].Unset || !fields[0].Locked || fields[0].Value != "" {
+		t.Fatalf("FieldsFromMap = %+v", fields)
+	}
+	back, err := FieldsToMap(fields)
+	if err != nil || !secret.IsUnset(back["pw"]) {
+		t.Errorf("FieldsToMap = %v, %v", back, err)
 	}
 }
 

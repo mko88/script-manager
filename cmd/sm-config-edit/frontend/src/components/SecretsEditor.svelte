@@ -8,6 +8,8 @@
   export let onSetPin: (pin: string) => Promise<string>
   export let onChangePin: (oldPin: string, newPin: string) => Promise<string>
   export let onRemovePin: (pin: string) => Promise<string>
+  export let secretsPath = ''
+  export let onNewSecretsId: () => Promise<string>
 
   let pin = ''
   let confirmPin = ''
@@ -43,6 +45,14 @@
     busy = false
     if (!error) reset()
   }
+
+  async function newId() {
+    if (busy) return
+    if (!(await confirmAsk(t('secrets.newIdConfirm')))) return
+    busy = true
+    error = await onNewSecretsId()
+    busy = false
+  }
 </script>
 
 <div class="secrets-editor">
@@ -53,6 +63,11 @@
     {:else}
       {t('secrets.statusNone')}
     {/if}
+  </div>
+
+  <div class="secrets-path">
+    <span>{t('secrets.localPath')}</span>
+    {#if secretsPath}<code>{secretsPath}</code>{:else}<em>{t('secrets.localPathNone')}</em>{/if}
   </div>
 
   <p class="hint">{configured ? t('secrets.changeHint') : t('secrets.setHint')}</p>
@@ -82,6 +97,15 @@
       </button>
     </div>
   </div>
+
+  {#if configured}
+    <div class="secrets-remove">
+      <p class="hint">{t('secrets.newIdHint')}</p>
+      <div class="secrets-actions">
+        <button class="btn" type="button" disabled={busy} on:click={newId}>{t('secrets.newIdButton')}</button>
+      </div>
+    </div>
+  {/if}
 
   {#if configured}
     <div class="secrets-remove">
@@ -117,6 +141,14 @@
 
   .secrets-status-set {
     border-color: var(--sm-run-ok);
+  }
+
+  .secrets-path {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    font-size: var(--sm-type-sm, var(--sm-type-base));
+    word-break: break-all;
   }
 
   .secrets-form {

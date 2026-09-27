@@ -78,6 +78,10 @@ export function NewBlank() {
   return window['go']['configedit']['App']['NewBlank']();
 }
 
+export function NewSecretsID() {
+  return window['go']['configedit']['App']['NewSecretsID']();
+}
+
 export function OpenDataFolder() {
   return window['go']['configedit']['App']['OpenDataFolder']();
 }
@@ -128,6 +132,10 @@ export function SaveMessages(arg1, arg2) {
 
 export function SaveTheme(arg1, arg2, arg3) {
   return window['go']['configedit']['App']['SaveTheme'](arg1, arg2, arg3);
+}
+
+export function SecretsFilePath(arg1) {
+  return window['go']['configedit']['App']['SecretsFilePath'](arg1);
 }
 
 export function SecretsState(arg1) {
