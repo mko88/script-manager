@@ -244,7 +244,7 @@ Set the PIN first, in the Config Editor's **PIN** section — it shows whether a
 - **Change PIN** re-encrypts every locked value in the secrets file in one step.
 - **Remove PIN** asks for confirmation, then deletes this computer's secrets file. The values stay declared secret in `config.yaml` and go back to showing as `(not set)` until entered again under a new PIN.
 
-Then click the padlock next to any environment variable, global or per-item, to lock it. A locked field shows `••••••` once a value has been entered on this computer, or invites you to type one otherwise; typing a value asks for the PIN (setting one first if this config doesn't have one yet) and stores it in the secrets file. Clicking the padlock before a PIN exists takes you to the PIN section instead.
+Then click the padlock next to any environment variable, global or per-item, to lock it. A locked field shows `••••••` once a value has been entered on this computer, or invites you to type one otherwise; typing a value asks for the PIN (setting one first if this config doesn't have one yet) and stores it in the secrets file. Clicking the padlock before a PIN exists takes you to the PIN section instead. A locked field is always marked secret: its secret toggle is disabled until you unlock it, and unlocking keeps it marked secret.
 
 Copying a config to start a new one carries its `secretsId` along, so the copy would still read and write the original's secrets file. Click **Give this config its own secrets** in the PIN section to give the copy a fresh secrets file — your current values move to it on the next save, and the original config's file is left as it was.
 
