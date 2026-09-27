@@ -161,6 +161,7 @@
     "exitReorderMode": "Exit reorder mode",
     "enterReorderMode": "Enter reorder mode",
     "markSecret": "Mark as secret",
+    "secretWhilePinProtected": "PIN-protected values are always secret — turn PIN protection off first",
     "remove": "Remove",
     "convertTitle": "Convert config?",
     "convertConfirmButton": "Convert",

@@ -4,7 +4,7 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
-## Unreleased
+## 1.5.0
 
 ### Changes
 
@@ -15,6 +15,7 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 ### Bug fixes
 
 - `script-manager` and `script-manager-gui`: an item's list label can use the global `env:` values, as the Details pane already could.
+- `sm-config-edit`: a PIN-protected field could be marked non-secret; its secret toggle is now disabled while it is locked.
 
 ## 1.4.2
 

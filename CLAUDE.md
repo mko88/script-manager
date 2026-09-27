@@ -84,6 +84,18 @@ Does NOT belong (put it in CLAUDE.md or a code comment instead, or drop it):
 - Build internals that don't change how the build is invoked (e.g. that
   build.sh parallelizes its jobs).
 
+Shape and emphasis:
+- Section order: intro, Disclaimer, Getting started, GUI, Config Editor,
+  Configuration, Terminal UI, Building, Dependencies.
+- The GUI, the Config Editor and the config settings get the detail. The
+  TUI section is only its limitations compared with the GUI plus its
+  keybinding tables — don't re-describe features it shares with the GUI.
+- Describe each setting by what it does for the user; prefer tables for
+  config keys and action fields, and short bullets over paragraphs.
+- Keep the Disclaimer section word for word.
+- Keep the Dependencies list and the manual per-target build commands
+  ("To build for a specific target manually"), even when trimming.
+
 ## No changelog comments in code
 
 **Rule: don't leave comments that narrate a change's history** — "retired

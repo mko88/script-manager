@@ -1,10 +1,12 @@
 # script-manager
 
-A tool for organising and running shell scripts across a list of configurable items, driven by a single YAML config. It ships two separate interfaces that both read the same `config.yaml`:
+Organise and run shell scripts against a list of items (servers, clusters, environments — anything), all driven by one YAML config. Three apps read the same config:
 
-- **TUI** (`script-manager`) — a terminal UI. Browse items and actions, and run actions directly in the same terminal session.
-- **GUI** (`script-manager-gui`) — a desktop app. Browse items and actions in a resizable, mouse-driven window; actions run in a separate terminal window (see [GUI](#gui)).
-- **Config Editor** (`sm-config-edit`) — a second desktop app for creating a new `config.yaml` or editing an existing one through forms, instead of hand-writing YAML (see [Config Editor](#config-editor)).
+- **`script-manager-gui`**: a desktop app for browsing items and running their actions.
+- **`sm-config-edit`**: a desktop app for creating and editing the config through forms.
+- **`script-manager`**: a terminal UI with the same items and actions, driven by the keyboard.
+
+All three run on Windows and Linux.
 
 # Disclaimer
 
@@ -12,484 +14,356 @@ This app is 100% vibe-coded by Claude. No human has read most of this code, and 
 
 *PS: Claude also wrote this disclaimer, so take it with the appropriate grain of salt.*
 
-## Features
-
-- **Config-driven** — define items, display templates, and actions in a YAML file; no code changes needed
-- **Free-form items** — each item carries its own `env:` block of variables, usable in templates and passed to actions
-- **Template expansion** — action commands are Go templates, so you can interpolate item fields directly into commands
-- **Cross-platform** — Windows and Linux binaries for all three apps
-- **Scrollable panes** — all four panes are independently scrollable when focused
-- **Command preview** — the expanded command for the selected action is shown in a dedicated pane with clipboard copy support
-- **State preserved** — returns to the same position after an action completes
-
-## Two-step flow
-
-The UI works in two modes:
-
-**1 — Item selection** (start here)
-Navigate the items list and press `Enter` to select an item.
-
-**2 — Action selection**
-The items list shrinks to show only the selected item. Navigate and run actions, browse details, or copy the command. Press `Esc` to go back to item selection.
-
-## Layout
-
-**Item selection mode**
-```
-┌─────────────────┬──────────────────────────────────┐
-│ Items           │ Details                          │
-│  > Nightly CDM  │  Description: Nightly build CDM  │
-│    Staging      │  Cluster Name: test-cluster1     │
-│    Production…  │  Cluster IP:  10.20.30.40        │
-│    ...          │                                  │
-└─────────────────┴──────────────────────────────────┘
-  ↑↓/kj Navigate items   Enter Select   Q/Esc Quit
-```
-
-**Action selection mode**
-```
-┌─────────────────┬──────────────────────────────────┐
-│  > Nightly CDM  │ Details                          │
-├─────────────────┤  Description: Nightly build CDM  │
-│ Actions         │  Cluster Name: test-cluster1     │
-│  > Test output  │                                  │
-│    Test input   ├──────────────────────────────────┤
-│    Start k9s    │ Command                          │
-│    ...          │  $ cat /etc/hosts                │
-└─────────────────┴──────────────────────────────────┘
-  ↑↓/kj Navigate   Tab/←→ Focus   [ ] Group   Enter Run   y Copy   Esc Back
-```
-
-## Keybindings
-
-### Item selection mode
-
-| Key | Action |
-|-----|--------|
-| `↑` / `k` | Move up |
-| `↓` / `j` | Move down |
-| `Enter` / `Tab` | Select item, enter action mode |
-| `F5` | Reload `config.yaml` from disk |
-| `Q` / `Esc` / `Ctrl+C` | Quit |
-
-### Action selection mode
-
-| Key | Action |
-|-----|--------|
-| `↑` / `k` | Move up / scroll up |
-| `↓` / `j` | Move down / scroll down |
-| `Tab` / `→` | Next pane: Actions → Details → Command |
-| `Shift+Tab` / `←` | Previous pane |
-| `[` / `]` | Cycle through groups (Actions pane focused) |
-| `Enter` | Run action (Actions pane) / enter copy-value mode (Details pane) |
-| `y` | Copy the expanded command to clipboard |
-| `F5` | Reload `config.yaml` from disk |
-| `Esc` | Back to item selection |
-| `Q` / `Ctrl+C` | Quit |
-
-`F5` works in either mode: it re-reads the config file in place and keeps your current selection where still valid. If the file fails to read or parse, your session is untouched and the error is shown in the status bar.
-
-## Usage
+## Getting started
 
 ```bash
-# Auto-detect config.yaml next to the binary, in the working directory, or
-# in the app-data directory
-./bin/script-manager
-
-# Explicit config file
-./bin/script-manager -config /path/to/config.yaml
+./bin/script-manager-gui                        # find the config automatically
+./bin/script-manager-gui -config /path/to/config.yaml
 ```
+
+`sm-config-edit` and `script-manager` take the same `-config` flag. Without it, all three apps look for the config in this order:
+
+1. next to the binary,
+2. in the working directory,
+3. in the app-data directory: `%AppData%\script-manager` on Windows, `~/.config/script-manager` on Linux.
+
+On Windows, `config-win.yaml` wins over `config.yaml` at each location. If a file fails to load, the next one is used and the error is shown once. If there is no config anywhere, a small starter config is created in the app-data directory.
+
+The easiest way to build a config is the [Config Editor](#config-editor). The [Configuration](#configuration) section describes every setting.
+
+## GUI
+
+`script-manager-gui` shows four panes:
+
+- **Items**: rows labelled by your `display.list` template.
+- **Actions**: the actions available for the selected item.
+- **Details**: the item, rendered as Markdown from your `display.details` template.
+- **Command**: the selected action's expanded command.
+
+To use it:
+
+- **Pick an item, then an action.** Chips under the Actions header filter by group. Selecting several chips shows only actions in *all* of them; **All** clears the filter.
+- **Copy values.** Click any `` `backticked` `` value in Details to copy it. Masked values (`••••••`) copy the real value without ever showing it. Multi-line values show as a placeholder such as `(6-line value)`; hover it to see the value, click it to copy.
+- **Arrange the panes.** Click a pane header to collapse it, and drag the dividers to resize. Sizes and collapsed state are remembered.
+- **Reload the config** with `F5` or the **Refresh config** button. The GUI also picks up every save from the Config Editor on its own.
+
+### Running actions
+
+The Command pane has two ways to run the selected action:
+
+- **Run** opens it in a new terminal window. The window is independent — its output does not come back into the app. With `noWait: true` the window closes when the command finishes; otherwise it stays open so you can read the output.
+- **Run here** runs it inside the app and streams the output into the pane's **OUTPUT** section, with **Cancel** and **Copy output** buttons. The command gets no keyboard input, so a command that asks for input fails straight away. Actions marked `interactive: true` don't offer **Run here**.
+
+Several actions can run inline at once. A dot next to an item or action shows a run in progress or finished: green for success, red for failure. Selecting the action again brings its output back.
+
+Both kinds of run start in the app-data directory, so relative paths in a command resolve there. For a `script:` action, the Command pane shows the file's source, and a pencil button opens it in your default editor. The preview refreshes when the file changes.
+
+A PIN-protected action asks for the PIN before it runs (see [PIN-locked values](#pin-locked-values)).
+
+The terminal used by **Run** is picked automatically, or set with [`terminal:`](#terminal).
+
+### Toolbar
+
+The toolbar is also the window's title bar: drag an empty part of it to move the window. From left to right:
+
+- **Load config**: the last 10 configs you opened, **Browse…** to pick another file, and **Clear recent**. The list is shared with the Config Editor.
+- **Refresh config**: same as `F5`.
+- **Pin**: keeps the window on top of other windows.
+- **Opacity** (checkerboard icon): a slider from 20% to 100%. It only has an effect on Windows.
+  - **Shrink on focus loss** is available while the window is pinned. When you click away, the window shrinks to a small nub on the right edge of the screen. Hover the nub to enlarge it, and click it to restore the window.
+- **About** ("i" icon): version and project link.
+- **Config Editor** (gear icon, `Ctrl+E`): opens the loaded config in the Config Editor.
+- Minimize, maximize and close.
+
+`Ctrl +` / `Ctrl -` scale the interface from 70% to 200%, and `Ctrl 0` resets it. The pin and opacity are remembered. The scale and the theme are shared with the Config Editor, where themes are chosen.
+
+## Config Editor
+
+`sm-config-edit` edits the config through forms. With an item selected, a live preview shows its list label, its details and every action's expanded command.
+
+> **Saving rewrites the whole file: comments and custom formatting in `config.yaml` are lost.** Autosave is on by default and writes about a second after you stop typing, so turn autosave off before opening a hand-written config whose comments you want to keep.
+
+- **File**: **New**, **Open**, **Save** and **Save As** (`Ctrl+N` / `Ctrl+O` / `Ctrl+S` / `Ctrl+Shift+S`).
+  - **Open** lists your recent configs, the same list the GUI shows.
+  - On launch the editor opens the same config the GUI would.
+  - Autosave is toggled with the circular-arrow button. It waits while a blocking error is shown, and a new config is only written once you have saved it with a name.
+  - Buttons on the right open the app-data folder, or the config in your default editor.
+- **Sections**: one form per part of the config: Items, Action Groups, Actions, Displays, Environment, Shell, Terminal and PIN. Two more sections hold app-wide settings rather than the config: Theme and Messages.
+- **Fields**: each variable has a type: string, multiline, number, bool or yaml.
+  - The **Mark as secret** button (open lock) marks a field **secret**, so its value is hidden until you click into it. Names ending in "password", "secret" or "key" are marked secret automatically.
+  - The **PIN-protected** button (padlock) makes a field PIN-protected (see [PIN-locked values](#pin-locked-values)). A PIN-protected field is always secret: turning PIN protection on switches secret on, and the secret button stays disabled until PIN protection is turned off again.
+- **Actions**: switch between **Command** (an inline command) and **Script file** (a path with **Browse…** and a preview of the file).
+- **Reorder** items, action groups and actions by drag and drop, using the grip button. The order is what the other apps show.
+- **Duplicate** the selected item, action group, action, display or theme with the copy button. The copy gets a " - Copy" name and, for actions and groups, a new id.
+- **Code editors** highlight shell, PowerShell and YAML. In a template, typing `{{` suggests the available variables (`Ctrl+Space` shows the list anywhere inside `{{ }}`). The Displays section adds edit/preview/split views, an **Insert env…** menu, and buttons for bold, italic, highlight and mask.
+- **Validation**: these block saving:
+  - duplicate action ids;
+  - an item with PIN-protected values that has no name, or shares its name with another item.
+
+  Other problems, such as a reference to a display, action or group that doesn't exist, are shown as warnings.
+- **Theme**: pick a theme to apply it in both apps at once. Add, copy, delete or reset custom themes; the built-in Dark and Light themes can't be changed. Every color can be edited with a live preview, and clicking an element in the preview shows only the colors it uses.
+- **Fonts** (in the Theme section): set the interface font and the code font to any installed font, or leave them empty for the built-in font. The other app picks the change up the next time it starts.
+- **Messages**: change any text either GUI app shows (toasts, tooltips, labels). Search by key or text, restore one message or all of them. Changes take effect the next time that app starts.
 
 ## Configuration
 
-Place `config.yaml` next to the binary, or pass a path with `-config`. On Windows, `config-win.yaml` takes precedence over `config.yaml` when both exist. Without `-config`, the file is looked for next to the binary, then in the working directory, then in the app-data directory (`%AppData%\script-manager` on Windows, `~/.config/script-manager` on Linux). If a candidate file fails to parse, the next one is used and the error is shown once at startup.
+A config has these top-level keys, all optional:
 
-On a first-ever run with no config anywhere, a minimal starter config (one example item and action) is created in the app-data directory. All three binaries (`script-manager`, `script-manager-gui`, `sm-config-edit`) resolve the config the same way.
+| Key | What it sets |
+|---|---|
+| `shell` | how commands are run, e.g. `[bash, -c]` or `[pwsh, -NoProfile, -Command]` |
+| `terminal` | which terminal **Run** opens (see [Terminal](#terminal)) |
+| `display` | how items look in the list and the Details pane |
+| `env` | variables shared by all items |
+| `items` | the things you run actions against |
+| `actionGroups` | titles and colors for action groups |
+| `actions` | the commands you can run |
 
-Rather than hand-writing this file, you can use the [Config Editor](#config-editor) (`cmd/sm-config-edit`) to create or edit it through forms.
-
-An item has six keys: `name`, `display`, `actions`, `actionGroups`, `customActions`, and `env:` for its own variables. Any other key is an error naming the item and the key. A config that predates the `env:` block — with variables sitting directly under the item — is offered for conversion when any of the three apps opens it; accepting writes a timestamped `.bak` beside the original first. **Comments in the file are lost in the conversion.** Declining means the config isn't opened.
+### Example
 
 ```yaml
-shell:
-  - bash
-  - -c
+shell: [bash, -c]
 
 display:
-  - name: default                 # name used by items via display: default
-    list: "{{.description}}"      # template for each row in the Items pane
-    details: |                    # rendered as Markdown in the Details pane
+  - name: default                 # items use the first display unless they pick another
+    list: "{{.description}}"      # label in the Items list
+    details: |                    # Markdown in the Details pane
       **{{.description}}**
 
       | Field   | Value |
       |---------|-------|
       | Cluster | `{{.clusterName}}` |
       | IP      | `{{.clusterIp}}` |
-  - name: compact                 # alternative display — items opt in with display: compact
+  - name: compact
     list: "{{.name}} ({{.clusterIp}})"
-    details: |
-      ## {{.name}}
-      **IP:** `{{.clusterIp}}`
+    details: "## {{.name}}"
 
-env:                              # optional — global variables available to all actions
-  region: eu-west-1               # can be used in templates: {{.region}}
-  sshUser: admin                  # overridden per item if the item defines the same key
+env:                              # available to every item; an item's own value wins
+  region: eu-west-1
+  sshUser: admin
 
 items:
   - name: Production
-    # show only the "safe" group + the ssh action by ID
-    actionGroups: [safe]
-    actions: [ssh]
-    # inline actions available only for this item
-    customActions:
+    actionGroups: [safe]          # show only these groups…
+    actions: [ssh]                # …plus these actions
+    customActions:                # actions only this item has
       - title: Emergency rollback
         cmd: echo "Rolling back {{.clusterName}}"
-    env:                          # this item's variables
+    env:
       description: Production cluster
       clusterName: prod-cluster-eu
       clusterIp: 10.0.0.1
   - name: Dev
-    display: compact              # optional — picks a named display config; omit to use first
+    display: compact
     env:
       description: Dev cluster
       clusterIp: 10.0.0.2
 
-actionGroups:                       # optional — gives groups a friendlier title/color
+actionGroups:
   - id: connect
     title: Connectivity
     color: "#7fd4ff"
   - id: safe
     title: Safe to run anytime
     color: "#4caf50"
-  - id: diagnostics                 # title/color are both optional
 
 actions:
-  - id: ssh              # optional — used for per-item action filtering
+  - id: ssh
     title: SSH into cluster
-    description: Open an interactive SSH session to the cluster node.   # single-line
-    groups: [connect]    # optional — one or more groups for per-item filtering
-    cmd: ssh admin@{{.clusterIp}}
-    interactive: true    # needs terminal input — hides "Run here" in the GUI (see below)
+    description: Open an SSH session to the node.
+    groups: [connect]
+    cmd: ssh {{.sshUser}}@{{.clusterIp}}
+    interactive: true
   - id: hosts
     title: Show hosts
-    description: |                # multiline — rendered above the command in the Command pane
-      Prints the system hosts file.
-      Useful for verifying DNS overrides on the node.
-    groups: [safe, diagnostics]   # action belongs to multiple groups
+    groups: [safe]
     cmd: cat /etc/hosts
   - id: dashboard
     title: Open dashboard
     cmd: xdg-open http://{{.clusterIp}}:8080
-    noWait: true         # return to UI immediately, don't wait for a keypress
+    noWait: true
   - id: deploy
     title: Deploy
-    script: C:\scripts\deploy-{{.clusterName}}.ps1   # mutually exclusive with cmd — see below
+    script: /opt/scripts/deploy-{{.clusterName}}.sh
 ```
 
-`cmd` and `script` are mutually exclusive per action — set one or the other, not both. `cmd` is a command template, expanded and run through the configured `shell:`. `script` is a path to a script file or executable (the path itself supports `{{.field}}` templates) that is invoked directly — a `.ps1` just works on Windows, a POSIX script uses its own shebang, and native executables (`.exe`/`.bat`/`.cmd`, POSIX binaries) run as-is. Either way the action gets the same environment variables (the item's `env:` block plus the global one, uppercased).
+On Windows, use a PowerShell `shell:` and Windows commands. Keeping them in `config-win.yaml` lets one folder hold both configs.
 
-### Action filtering
+### Items
 
-By default every item sees all global actions. To restrict which actions appear for a specific item, add any combination of these keys:
+An item has these keys, and only these:
 
-| Item key | Type | Effect |
-|---|---|---|
-| `actions` | list of IDs | include global actions whose `id` matches |
-| `actionGroups` | list of group names | include global actions whose `group` matches |
-| `customActions` | list of action objects | append item-specific actions (same fields as global actions) |
+| Key | Meaning |
+|---|---|
+| `name` | the item's name, available as `{{.name}}` |
+| `display` | which named display to use (default: the first one) |
+| `actions` | ids of actions to show |
+| `actionGroups` | groups whose actions to show |
+| `customActions` | extra actions for this item only, with the same fields as `actions` |
+| `env` | the item's variables |
 
-If none of these keys are set the full action list is shown. When several keys are set, their matches combine without duplicates, with `customActions` last.
+Filtering: with none of `actions`, `actionGroups` or `customActions` set, an item shows every action. With any of them set, it shows only the matching actions, with custom actions last.
 
-#### Naming and coloring groups
+A config from an older version, with variables directly under the item instead of under `env:`, is offered for conversion when opened. The conversion keeps a timestamped `.bak` copy of the file, and comments are lost. Declining means the config isn't opened.
 
-The top-level `actionGroups:` list is optional: give a group a `title` and/or a `color` and the GUI shows that friendlier label and a colored chip instead of the bare ID.
+### Actions
 
-### Templates
+| Field | Meaning |
+|---|---|
+| `title` | what the Actions list shows |
+| `id` | lets items pick this action with `actions:` |
+| `description` | shown above the command (one line or several) |
+| `groups` | groups the action belongs to |
+| `cmd` | a command template, run through `shell:` |
+| `script` | a path to a script or program, run directly (the path can use templates) |
+| `interactive` | `true` for commands that need keyboard input: hides **Run here** in the GUI |
+| `noWait` | `true` to close the terminal (GUI) or return straight away (TUI) when the command ends |
+| `requiresPin` | `true` to ask for the PIN and pass PIN-locked values to the command |
 
-`display.list`, `display.details`, and `actions[*].cmd` are [Go templates](https://pkg.go.dev/text/template). An item's `env:` values and its `name` are available as `{{.fieldName}}`, unprefixed, along with the global `env:` block.
+Use either `cmd` or `script`, not both. A `script` can be a `.ps1`, a shell script with its own shebang, or an executable.
 
-`display.details` is rendered as **Markdown** in the Details pane — you can use `**bold**`, `*italic*`, `` `code spans` ``, `## headings`, tables, and bullet lists. Backtick-wrapped values (`` `value` ``) are highlighted in cyan and can be copied to the clipboard.
+Action groups need no declaration. Listing one under `actionGroups:` just gives it a nicer `title` and a `color` for the GUI's filter chips.
 
-If the details template references a field an item doesn't have, the field renders as a `<nil>` placeholder instead of failing, and a ⚠️ warning above the details lists the missing field names.
+### Variables
 
-#### Masking sensitive values
-
-Use the built-in `mask` template function to hide passwords or tokens in the Details pane while still making them copyable:
-
-```yaml
-details: |
-  | Field    | Value                  |
-  |----------|------------------------|
-  | Password | `{{mask .password}}`   |
-  | Token    | `{{mask .apiToken}}`   |
-```
-
-The Details pane shows `••••••` instead of the real value. When you enter copy mode and select that row, pressing `Enter` copies the actual secret to the clipboard — it is never displayed.
-
-#### PIN-locked values
-
-Masking only hides a value on screen — the value itself still sits in `config.yaml` in plain text. A value can instead be **locked behind a PIN**: the value moves into a secrets file on your own computer, and `config.yaml` keeps only a marker saying the field is secret. That marker is all `config.yaml` ever holds for a locked value, so a config with locked values is safe to commit and share — everyone who opens it sets their own PIN and types in their own values.
-
-The secrets file lives at:
-
-- Windows: `%AppData%\script-manager\secrets\<secretsId>.yaml`
-- Linux: `~/.config/script-manager/secrets/<secretsId>.yaml`
-
-`<secretsId>` is a random id the config is given the first time anyone sets a PIN on it. The Config Editor's **PIN** section shows the exact path (or that the file hasn't been created yet).
-
-Until someone sets a PIN and enters a value on their own computer, that value shows as `(not set)` everywhere — the Details pane, the list label, both GUI apps and the TUI — and it is simply left out of a script's environment; no PIN prompt appears for a value nobody has set.
-
-Set the PIN first, in the Config Editor's **PIN** section — it shows whether a PIN is set and how many values are locked on this computer, and is where you change or remove it later. All three need the current PIN, and take effect on the next Save:
-
-- **Change PIN** re-encrypts every locked value in the secrets file in one step.
-- **Remove PIN** asks for confirmation, then deletes this computer's secrets file. The values stay declared secret in `config.yaml` and go back to showing as `(not set)` until entered again under a new PIN.
-
-Then click the padlock next to any environment variable, global or per-item, to lock it. A locked field shows `••••••` once a value has been entered on this computer, or invites you to type one otherwise; typing a value asks for the PIN (setting one first if this config doesn't have one yet) and stores it in the secrets file. Clicking the padlock before a PIN exists takes you to the PIN section instead.
-
-Copying a config to start a new one carries its `secretsId` along, so the copy would still read and write the original's secrets file. Click **Give this config its own secrets** in the PIN section to give the copy a fresh secrets file — your current values move to it on the next save, and the original config's file is left as it was.
-
-Which actions may use locked values is per action: tick **Requires PIN** on an action in the Config Editor (`requiresPin: true` in YAML).
-
-- **Requires PIN on** — running the action asks for the PIN first (a dialog in `script-manager-gui`, a prompt in the TUI), then passes the decrypted values to the script as normal environment variables.
-- **Requires PIN off** — the action runs with no prompt, and every PIN-locked variable is simply **not set**. A script that reads one gets an empty value. Nothing warns you: knowing which of your scripts need which variables is up to you.
-
-One PIN covers every locked value in a config, and stays unlocked until you close the app or load a different config; reloading the same one (F5) keeps it unlocked.
-
-A locked value is **never** rendered anywhere on screen — it shows as `(locked)` in the Details pane, in the list label, and in the Config Editor's preview, whether or not the PIN has been entered (a value with nothing entered on this computer shows as `(not set)` instead). Entering the PIN only lets a `requiresPin` action receive the value; it never puts it on screen or on the clipboard.
-
-An item that holds a PIN-locked value needs a name, and no other item — secret or not — may share it: the Config Editor blocks Save with an error until names are unique.
-
-What this protects against: someone reading your `config.yaml` — it never contains anything beyond the secret marker — or the secrets file, which itself holds only encrypted values, ending up in a backup, a sync folder, or a repository. What it does **not** protect against: anything that can already run code as you while the app is unlocked. Choose a PIN you would choose for a password, not a 4-digit number — a short numeric PIN can be guessed offline by anyone holding the file, and the deliberately slow key derivation only buys time.
-
-**There is no recovery.** Forgetting the PIN means re-entering every value it locked.
-
-A config last saved by an earlier version keeps its locked values inline in `config.yaml`, and loads fine as-is; the next time the Config Editor saves it, those values move into the secrets file automatically, under the same PIN.
-
-For a shared config, that first save moves the values into the secrets file of whoever saved it, and nobody else's. Once the migrated `config.yaml` is committed, every other teammate sets their own PIN and re-enters their own values. Anyone still on an earlier version reads the `!secret` values as empty.
-
-A ready-made demo lives in [`examples/`](examples/) — a config with locked and unlocked values side by side, PIN `demo1234`; see [`examples/README.md`](examples/README.md) for the secrets file it needs.
-
-#### Multi-line values
-
-If a backtick-wrapped value (`` `{{.field}}` ``) spans multiple lines (e.g. a certificate), the Details pane shows a placeholder like `` `(6-line value)` `` instead of the content. Pressing `Enter` in copy mode (or clicking it in the GUI) copies the real, full value to the clipboard, and in the GUI hovering shows it in a tooltip (a `{{mask ...}}` value never does — it's an actual secret).
-
-**Always wrap a field in backticks** (`` `{{.field}}` ``) if it might hold a multi-line value — a bare `{{.field}}` reference outside backticks gets none of this handling, and a multi-line value there will break the surrounding Markdown.
-
-#### Printing every variable for an item
-
-Rather than listing each field by hand, `display.details` can include either of these literal placeholders (not `{{ }}` template syntax — just the bare text) to render every variable the item exports to its actions' environment:
-
-```yaml
-details: |
-  ### {{.description}}
-
-  #ALL_ENV_LIST#
-
-  #ALL_ENV_TABLE#
-```
-
-- `#ALL_ENV_LIST#` renders a Markdown bullet list: `` - **CLUSTERIP:** `10.0.0.1` ``
-- `#ALL_ENV_TABLE#` renders a two-column Markdown table (`Variable` / `Value`)
-
-Both list every merged variable under its exported (uppercase) name, sorted alphabetically (the `display`, `actions`, `actionGroups`, and `customActions` keys are skipped). Any variable whose name ends in `password`, `passwd`, `pwd`, `secret`, `key`, `token`, `credential`, `credentials`, or `auth` (case-insensitive) is masked automatically, exactly like an explicit `{{mask ...}}` call. Multi-line values get the same placeholder-plus-copy treatment described above.
-
-#### Showing which config file is loaded
-
-The literal placeholder `#CONFIG_FILE#` expands to the full path of the config file in use — handy for confirming which of several candidates won:
-
-```yaml
-details: |
-  ### {{.description}}
-
-  _Config: `#CONFIG_FILE#`_
-```
-
-### Environment variables
-
-When an action runs, the global `env` block, the item's own `env` block and the item's `name` are exported as uppercase environment variables. An item's variables override globals with the same name.
+Every action receives the global `env:`, the item's `env:` and the item's `name` as **uppercase** environment variables. An item's value overrides a global one with the same name.
 
 ```bash
-# For an item with env clusterIp: 10.0.0.1 and global env region: eu-west-1
-echo $CLUSTERIP   # → 10.0.0.1
-echo $REGION      # → eu-west-1
+# item env clusterIp: 10.0.0.1, global env region: eu-west-1
+echo $CLUSTERIP   # 10.0.0.1
+echo $REGION      # eu-west-1
 ```
 
-The item's other keys — `display`, `actions`, `actionGroups`, `customActions` — configure the app rather than the action, and are not exported. Because they live outside `env:`, a variable may be named after any of them.
+The same values are available in templates, unprefixed and in their original case: `{{.clusterIp}}`.
 
-### Windows config
+> **Secrets in commands:** **Run** writes the fully expanded command to a temporary file for a moment. A secret written into a `cmd:` template sits there in plain text until the file is cleaned up. Prefer reading secrets from environment variables in the script.
 
-Use `config-win.yaml` with a PowerShell shell and Windows-appropriate commands:
+### Displays and templates
 
-```yaml
-shell:
-  - pwsh
-  - -NoProfile
-  - -Command
+`display.list`, `display.details`, `cmd` and `script` are [Go templates](https://pkg.go.dev/text/template). `display.details` is rendered as Markdown: headings, bold, italic, tables and lists.
 
-actions:
-  - title: Show hosts
-    cmd: Get-Content C:\Windows\System32\drivers\etc\hosts
-```
+- **Copyable values**: wrap a value in backticks (`` `{{.clusterIp}}` ``) to highlight it and make it copyable. Always use backticks for values that may span several lines, such as certificates. They then show as a copyable placeholder instead of breaking the layout.
+- **Masking**: `` `{{mask .password}}` `` shows `••••••` and still copies the real value. Masking only hides the value on screen; it is still plain text in the config. For real protection, see [PIN-locked values](#pin-locked-values).
+- **Missing fields** render as `<nil>`, and a warning above the details names them.
+- **Placeholders** (plain text, not `{{ }}`):
+  - `#ALL_ENV_LIST#` — a bullet list of every variable the item passes to its actions.
+  - `#ALL_ENV_TABLE#` — the same as a two-column table.
+  - `#CONFIG_FILE#` — the path of the loaded config.
 
-## GUI
+  Variables named like secrets (ending in password, pwd, secret, key, token, credential or auth) are masked automatically in the two lists.
 
-`script-manager-gui` is a desktop app that reads the **same `config.yaml`** as the TUI:
+### Terminal
 
-- Items pane → Actions pane → Details pane, exactly as configured in `display.list` / `display.details`
-- Actions can be filtered by group with a row of chips below the Actions list header. Multiple groups can be selected at once — an action must belong to *all* selected groups to show; clicking "All" clears the filter
-- Markdown details rendering, with masked (`{{mask ...}}`) values click-to-copy without ever displaying the secret
-- Command preview (expanded template) for the selected action, with a copy button. An **OUTPUT** section appears once a "Run here" run has started (see below)
-- All four panes are collapsible (click anywhere on a pane's header, not just the chevron) and resizable by dragging the dividers; sizes and collapsed state persist across restarts
-- `F5` reloads the config from disk in place — same semantics as the TUI, with errors shown as a toast
+By default, **Run** uses the first terminal it finds:
 
-### Running actions (Windows and Linux)
+- **Windows**: Windows Terminal (`wt`, reusing one window), then `wezterm`, `alacritty`, `cmd`.
+- **Linux**: `x-terminal-emulator`, then `gnome-terminal`, `konsole`, `xfce4-terminal`, `terminator`, `kitty`, `alacritty`, `wezterm`, `foot`, `xterm`.
 
-The **Run** button in the Command pane opens the expanded command in a terminal window. For a `script:` action, the Command pane shows the path plus the file's own source, and **Run**/**Run here** invoke that file directly — same env vars and buttons as a `cmd:` action. By default the most common terminal for the current OS is auto-detected, tried in this order until one is found on `PATH`:
-
-- **Windows** — `wt` (Windows Terminal; reuses the same dedicated `script-manager`-named window across runs) → `wezterm` → `alacritty` → `cmd` (always present, so Run never has nothing to fall back to)
-- **Linux** — `x-terminal-emulator` (the Debian-alternatives default, so your configured terminal wins) → `gnome-terminal` → `konsole` → `xfce4-terminal` → `terminator` → `kitty` → `alacritty` → `wezterm` → `foot` → `xterm`
-
-#### Choosing a specific terminal
-
-Auto-detection can be overridden with an optional `terminal:` key in `config.yaml`/`config-win.yaml`:
+To choose one, name it:
 
 ```yaml
-# Pick one specific terminal by name from the built-in list above,
-# skipping auto-detection entirely. Errors clearly if it isn't installed.
 terminal: alacritty
 ```
 
+Or give a full launch command. `{{title}}` and `{{dir}}` are filled in, and the command to run is appended at the end:
+
 ```yaml
-# Or give a fully custom launch command for a terminal that isn't built
-# in. The first element is the binary; the rest are its flags. "{{title}}"
-# and "{{dir}}" are substituted; the resolved shell command (script path
-# and any wrapper flags) is always appended as the final arguments.
 terminal: [wezterm-gui, start, --title, "{{title}}", --cwd, "{{dir}}", --]
 ```
 
-Only Windows and Linux are supported; macOS gets a clear "not supported" error.
+### PIN-locked values
 
-On both platforms:
+A PIN-locked value is stored encrypted **on your computer**, not in the config. The config only marks the variable as secret (`password: !secret`), so it is safe to commit and share. Everyone who uses a shared config sets their own PIN and enters their own values.
 
-- The action's `noWait` flag controls whether the terminal stays open after the command finishes: `false` (default) keeps it open so you can read the output; `true` closes it automatically — same intent as the TUI's `noWait`
-- The starting directory is the app-data directory (`%AppData%\script-manager` on Windows, `~/.config/script-manager` on Linux), so relative paths in a `cmd:` template — or files the script writes with a relative path — land in a reliably writable location
+**Setting it up (Config Editor):**
 
-The expanded command runs via a temporary script file that is cleaned up automatically.
+1. In the **PIN** section, set a PIN. Choose something like a password, not a 4-digit code.
+2. Click the padlock next to any variable, global or per item, to lock it. For a field that has no value on this computer yet, type the value and it is stored encrypted.
+3. On each action that needs the locked values, tick **Requires PIN**.
 
-> **Note on secrets:** the temp script contains the *fully expanded* command. If a `cmd:` template interpolates a value you hide with `{{mask ...}}` in the Details pane, that value sits in plain text in the OS temp directory for the brief window before cleanup. Avoid putting secrets in `cmd:` templates on shared machines.
+**How it behaves:**
 
-The **Run** terminal window is independent once launched — no output streams back into the GUI.
+- A locked value is **never shown**. It displays as `(locked)` everywhere, even after the PIN is entered, and it can't be copied.
+- A value that nobody has entered on this computer shows as `(not set)`.
+- Running a **Requires PIN** action asks for the PIN once per app session, then passes the values to the command as normal environment variables.
+- Actions without **Requires PIN** run with no prompt, and the locked variables are simply not set.
+- The PIN section also shows where your secrets file is and lets you:
+  - **Change PIN**;
+  - **Remove PIN**: after a confirmation, the next save deletes your secrets file, and the values go back to `(not set)`;
+  - **Give this config its own secrets**: use this after copying a config, so the copy stops sharing the original's secrets.
+- Your secrets file is `%AppData%\script-manager\secrets\<id>.yaml` on Windows or `~/.config/script-manager/secrets/<id>.yaml` on Linux.
+- **There is no recovery**: a forgotten PIN means entering every value again.
+- A config with PIN-locked values from an older version keeps working. The next save in the Config Editor moves its values into your secrets file, with the same PIN. For a shared config, the other people then set their own PIN and enter their values again.
 
-#### Running a command without a terminal ("Run here")
+The PIN protects the values in the file, in backups, sync folders and repositories. It does not protect against other programs running as you while the app is unlocked.
 
-For a script-mode action, a pencil button beside the script path opens the file in your default editor.
+A demo config with locked values (PIN `demo1234`) is in [`examples/`](examples/).
 
-The Command pane holds two collapsible sections, **COMMAND** above **OUTPUT**; each open section shares the pane's height and scrolls on its own, so neither pushes the other out of view. Starting an inline run collapses COMMAND and opens OUTPUT.
+## Terminal UI
 
-For a command that doesn't need interactive input, the **Run here** button next to **Run** executes it directly and streams the output live into the Command pane's **OUTPUT** section, with **Cancel** and **Copy output** buttons alongside. Like **Run**, the working directory is the app-data directory. Stdin is disconnected, so a command that unexpectedly prompts for input fails fast instead of hanging.
+`script-manager` runs in a terminal. It uses the same config and supports PIN prompts.
 
-An action's `interactive: true` (see the config example above) hides **Run here** entirely for that action — it can only be run via **Run**, in a real terminal.
+Compared with the GUI, it has these limitations:
 
-Different actions can run inline at the same time. A dot marks items and actions with a run in progress or finished — green for exit code 0, red otherwise — and switching back to an action picks its output back up.
+- An action runs in the same terminal, taking over the screen until it finishes. Only one action runs at a time, and there is no **Run here** or captured output.
+- There is no mouse support, toolbar or recent-configs list. Choose the config with `-config` when launching.
+- Group titles and colors are not shown; groups are cycled with `[` and `]`.
+- There are no themes, interface scaling or window options.
 
-#### Toolbar
+It works in two modes: pick an item with `Enter`, then pick and run an action; `Esc` goes back.
 
-`script-manager-gui` has no native title bar — the toolbar above the panes doubles as the window's drag handle: click and drag any empty part of it to move the window, same as dragging a normal title bar. Double-click doesn't maximize; use the maximize button instead.
+**Choosing an item**
 
-Controls on the toolbar: **Load config** opens a dropdown of the last 10 configs you've opened, listed by full path — click one to switch to it, or use **Browse…** at the bottom to pick a different YAML file and **Clear recent** to empty the list. The list is shared with the [Config Editor](#config-editor) (opening a config in either app adds it in both) and is stored in the app-data directory; an entry that no longer loads drops off the list; **Refresh config** re-reads the current file (same as F5); the pin icon toggles keeping the window always on top of other windows; the checkerboard icon opens an opacity slider (20-100%) that fades the whole window, including its content, so whatever's behind it shows through; the "i" icon opens an **About** panel with the app's version, a short description, and a link to the project's GitHub page (opened in your system browser); the gearbox icon (**Ctrl+E**) launches the [Config Editor](#config-editor) pointed at the currently loaded config file. **Ctrl +** / **Ctrl -** scale the interface (70-200%) and **Ctrl 0** resets it, sharing the setting with the Config Editor. Always-on-top and the chosen opacity are both remembered across restarts. Window opacity is Windows-only for now — the slider has no visible effect on Linux/macOS builds.
+| Key | Action |
+|---|---|
+| `↑` / `k`, `↓` / `j` | move |
+| `Enter` / `Tab` | select the item |
+| `F5` | reload the config |
+| `Q` / `Esc` / `Ctrl+C` | quit |
 
-The opacity popover also has a **Shrink on focus loss** checkbox, enabled only while the pin (always-on-top) is on. With it checked, clicking away to another window fades this one down to a tiny icon-only nub parked at the vertical center of the screen's right edge. Hover the nub to pop it out to a bigger, fully-opaque badge; move away and it shrinks back after a moment. Click it (nub or popped-out) to restore the window's previous size, position, and opacity.
+**Choosing an action**
 
-At the far right, minimize/maximize/close buttons replace the native window controls that the missing title bar would otherwise have provided.
-
-#### Theme
-
-Both GUI apps default to the dark theme. The active theme is shared between the two apps, and themes are managed in the Config Editor's **Theme** section (see below); `script-manager-gui` simply reflects whatever's active.
-
-Launch it the same way as the TUI:
-
-```bash
-./bin/script-manager-gui
-./bin/script-manager-gui -config /path/to/config.yaml
-```
-
-### GUI build requirements
-
-Building the GUI requires the [Wails CLI](https://wails.io/docs/gettingstarted/installation), Node.js, and (for the Linux target) GTK/WebKit headers, in addition to Go:
-
-```bash
-go install github.com/wailsapp/wails/v2/cmd/wails@latest
-
-# Linux target — GTK/WebKit headers and Node.js
-sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config nodejs npm
-```
-
-This devcontainer already has all of this preinstalled — nothing needs to be installed on your host machine to build any target, including Windows, from here.
-
-The Windows GUI binaries are cross-compiled from Linux; only the `mingw-w64` C cross-compiler is needed at build time (`sudo apt install gcc-mingw-w64-x86-64`). macOS is the one target that has to be built on macOS.
-
-## Config Editor
-
-`sm-config-edit` is a second desktop app for creating or editing `config.yaml` through forms instead of hand-writing YAML.
-
-- **No native title bar**: the toolbar doubles as the window's drag handle, with minimize, maximize and close at its right end — the same as `script-manager-gui`.
-- **Autosave** (on by default): once a config has a path, edits are written about a second after you stop typing — no Ctrl+S needed. The circular-arrow button in the toolbar toggles it, and the choice is remembered. Autosave holds off while a blocking validation error is showing, and a brand-new config isn't written until you've saved it once and given it a path. `script-manager-gui` watches the config file and picks up each save on its own, so the two apps stay in step with no Refresh.
-- **New / Open / Save / Save As** (Ctrl+N/O/S/Shift+S). **Open** drops down the last 10 configs opened, by full path, with **Browse…** and **Clear recent** below — the same list `script-manager-gui` shows, so a config opened in either app appears in both. On launch it auto-detects the same config file the TUI/GUI would; finding nothing just starts blank. Save also covers the Theme and Messages sections while one of them is open. Toolbar buttons on the far right open the app-data directory in your file manager or the config file in your default editor.
-- **Sections**: Items, Action Groups, Actions, Displays, Environment, Shell, Terminal, PIN, Theme, Messages — one form per top-level `config.yaml` concern (Theme and Messages live outside `config.yaml` — see below). Item fields get type-appropriate editors, with a lock button to mark a field secret (auto-enabled for key names like "Password"); secret values stay hidden until focused. Actions switch between **Command** and **Script file** mode; Script file mode has a **Browse…** button and a preview of the file's source.
-- **Reordering**: Items, Action Groups, and Actions can be drag-and-drop reordered (toggle with the grip icon button) — the order is what ends up in `config.yaml` and what the TUI/GUI display.
-- **Duplicating**: with an Item, Action Group, or Action selected, the copy button in that section's toolbar duplicates it in full — environment fields, custom actions, and group memberships included — and selects the new entry, placed directly below the original. Displays and Themes have the same copy button, adding their duplicate at the end of the list. Names and titles get a `" - Copy"` suffix ("Server" → "Server - Copy", then "Server - Copy 2"); actions and action groups also get a fresh id (`ssh` → `ssh-copy`), so the duplicate doesn't collide with the original. The copy is a fresh entry: nothing that referenced the original refers to it.
-- **Code panes**: script previews, command previews, the inline command, YAML fields and the Displays details template are CodeMirror editors. In the details template, typing `{{` offers the item's and environment's variables (Ctrl+Space brings the list up at any point inside a `{{ }}`); a variable whose name looks like a secret also offers its `mask` form. They bring syntax highlighting for shell, PowerShell and YAML, folding, and undo/redo, themed to match whatever theme is active.
-- **Live preview**: with an item selected, its rendered list label, details, and any action's expanded command update as you type — no save needed. The Displays section previews templates against any item, with edit/preview/split view modes; an **Insert env…** dropdown inserts any available variable at the cursor, and formatting buttons wrap the selection in bold, italic, highlight, or `{{mask ...}}` markup.
-- **Script files**: a button beside an action's script path opens it in your default editor, and the preview reloads when the file changes on disk — the same in `script-manager-gui`, whose Command pane refreshes itself.
-- **PIN-locked values**: the padlock next to an environment variable locks it with the config's PIN, storing the value in a secrets file on this computer rather than in `config.yaml` — see [PIN-locked values](#pin-locked-values).
-- **Validation**: duplicate global action IDs block Save, and so does a blank or duplicate item name once any of its values are PIN-locked; other duplicate item names and an item referencing a display/action/group that doesn't exist are shown as non-blocking warnings.
-- **Fonts and interface scale** *(Theme section)*: name any font installed on the machine for the interface and for monospace text, or leave either empty for the bundled Nunito. **Ctrl +** and **Ctrl -** scale the whole interface between 70% and 200%, **Ctrl 0** resets it — spacing scales with the type, not just the text. Both settings are shared with `script-manager-gui` and stored in the app-data directory; the other app picks them up the next time it starts.
-- **Themes** *(Theme section)*: pick a theme from the dropdown to apply it immediately, everywhere; **Add** / **Copy** / **Delete** / **Reset** manage custom themes (the built-in Dark/Light are read-only). Every color the apps use is editable, with a live preview panel — click any preview element to filter the field list to just the colors it uses. Saved themes are shared with `script-manager-gui` (see [Theme](#theme) above).
-- **Messages**: every piece of UI text in *either* GUI app — toasts, tooltips, labels, empty states — can be customized. A tab per app picks which one you're editing, and a search box filters by key or text. A customized message gets a restore button to reset just that one; **Restore defaults** resets everything. Changes are written by the global Save and take effect the next time the edited app is launched; customizations survive upgrades.
-
-**Important:** saving always re-serializes the whole file — comments and the original file's exact formatting/key order are **not preserved**. Editing a hand-crafted `config.yaml` with inline comments through this tool will lose those comments on save. With autosave on (the default), that happens on its own shortly after your first edit — turn autosave off before opening a config whose comments you want to keep.
-
-Launch the same way as the other two:
-
-```bash
-./bin/sm-config-edit
-./bin/sm-config-edit -config /path/to/config.yaml
-```
-
-It has the same [GUI build requirements](#gui-build-requirements) as `script-manager-gui` and is built by the same `bash build.sh` / `build-container.ps1` workflow described below.
+| Key | Action |
+|---|---|
+| `↑` / `k`, `↓` / `j` | move / scroll |
+| `Tab` / `→`, `Shift+Tab` / `←` | next / previous pane: Actions, Details, Command |
+| `[` / `]` | previous / next action group |
+| `Enter` | run the action (Actions pane) / copy a value (Details pane) |
+| `y` | copy the expanded command |
+| `F5` | reload the config |
+| `Esc` | back to items |
+| `Q` / `Ctrl+C` | quit |
 
 ## Building
 
-Requires Go 1.21+.
-
 ```bash
-bash build.sh
+bash build.sh             # Windows and Linux
+bash build.sh --windows   # or --linux
 ```
 
-Builds both platforms by default. Produces:
-- `bin/script-manager` — Linux amd64
-- `bin/script-manager.exe` — Windows amd64
-- `bin/script-manager-gui` — Linux amd64 GUI (only if the `wails` CLI is installed; skipped otherwise)
-- `bin/script-manager-gui.exe` — Windows amd64 GUI, cross-compiled (only if `mingw-w64` is installed; skipped otherwise)
-- `bin/sm-config-edit` — Linux amd64 Config Editor (only if the `wails` CLI is installed; skipped otherwise)
-- `bin/sm-config-edit.exe` — Windows amd64 Config Editor, cross-compiled (only if `mingw-w64` is installed; skipped otherwise)
+This produces `bin/script-manager`, `bin/script-manager-gui` and `bin/sm-config-edit`, each for Linux and as `.exe` for Windows.
 
-Pass `--windows` or `--linux` to build only that platform:
+Requirements:
+- Go 1.21 or newer.
+- For the two GUI apps: the [Wails CLI](https://wails.io/docs/gettingstarted/installation) and Node.js.
+  - For Linux builds: GTK/WebKit headers.
+  - For Windows builds from Linux: `mingw-w64`.
+- The dev container has all of this installed.
+
+A GUI app whose tools are missing is skipped.
 
 ```bash
-bash build.sh --windows
-bash build.sh --linux
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+sudo apt install libgtk-3-dev libwebkit2gtk-4.0-dev build-essential pkg-config nodejs npm gcc-mingw-w64-x86-64
 ```
 
-`build.sh` stamps the version the GUI's About panel shows from `git describe --tags --always --dirty`: `v1.4.0` when the build sits exactly on a release tag, `v1.4.0-4-g94b2835` a few commits past one, plus a `-dirty` suffix when the working tree has uncommitted changes. Binaries produced by the manual commands further down — or built outside a git checkout — report `dev` instead.
+The version shown in the GUI's About panel comes from the git tag, for example `v1.4.0` or `v1.4.0-4-g94b2835`. Builds made outside `build.sh` or outside a git checkout say `dev`.
 
-### Building from a Windows host via a dev container
-
-If you develop on Windows with the Go toolchain only available inside a VS Code dev container (no Go on the host), `build-container.ps1` finds the dev container for this repo and runs `bash build.sh` inside it, stopping any running `script-manager*.exe`/`sm-config-edit*.exe` on the host first so the cross-compile can overwrite them:
+On a Windows host that has Go only inside the VS Code dev container, run `build-container.ps1` instead. It closes running copies of the apps and builds inside the container:
 
 ```powershell
 .\build-container.ps1
-.\build-container.ps1 -Windows   # or -Linux — same split as build.sh
+.\build-container.ps1 -Windows   # or -Linux
 ```
 
 To build for a specific target manually:

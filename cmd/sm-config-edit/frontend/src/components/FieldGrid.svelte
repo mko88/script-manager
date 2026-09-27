@@ -159,7 +159,8 @@
       <IconButton
         class="btn icon-btn field-icon-btn"
         active={fields[i].secret}
-        title={t('tooltip.markSecret')}
+        disabled={fields[i].locked}
+        title={fields[i].locked ? t('tooltip.secretWhilePinProtected') : t('tooltip.markSecret')}
         on:click={() => toggleSecret(i)}
       >
         {#if fields[i].secret}
