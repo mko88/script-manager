@@ -4,6 +4,12 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
+## 1.5.1
+
+### Changes
+
+- `script-manager-gui`: the OUTPUT section of **Run here** shows the colours and text styles a command writes as terminal escape sequences, instead of the raw codes.
+
 ## 1.5.0
 
 ### Changes
