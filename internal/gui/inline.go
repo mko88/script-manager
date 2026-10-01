@@ -7,6 +7,7 @@ import (
 	"os/exec"
 
 	"script-manager/internal/action"
+	"script-manager/internal/ansi"
 	"script-manager/internal/applog"
 	"script-manager/internal/config"
 
@@ -103,10 +104,12 @@ func exitCodeOf(waitErr error) (exitCode int, errMsg string) {
 }
 
 type InlineStatusDTO struct {
-	Running  bool   `json:"running"`
-	Output   string `json:"output"`
-	ExitCode int    `json:"exitCode"`
-	ErrMsg   string `json:"errMsg"`
+	Running bool   `json:"running"`
+	Output  string `json:"output"`
+	// Styled runs of Output, from the escape sequences the command wrote.
+	Spans    []ansi.Span `json:"spans"`
+	ExitCode int         `json:"exitCode"`
+	ErrMsg   string      `json:"errMsg"`
 }
 
 func (a *App) RunActionInline(itemIndex, actionIndex int) error {
@@ -185,12 +188,13 @@ func (a *App) GetInlineStatus(itemIndex, actionIndex int) InlineStatusDTO {
 	}
 
 	output := ""
+	var spans []ansi.Span
 	if run.outPath != "" {
 		if data, err := os.ReadFile(run.outPath); err == nil {
-			output = string(data)
+			output, spans = ansi.Parse(string(data))
 		}
 	}
-	return InlineStatusDTO{Running: run.cmd != nil, Output: output, ExitCode: run.exitCode, ErrMsg: run.errMsg}
+	return InlineStatusDTO{Running: run.cmd != nil, Output: output, Spans: spans, ExitCode: run.exitCode, ErrMsg: run.errMsg}
 }
 
 // SessionResetEvent tells the frontend to drop its own per-run state.

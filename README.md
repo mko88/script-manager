@@ -54,6 +54,8 @@ The Command pane has two ways to run the selected action:
 - **Run** opens it in a new terminal window. The window is independent — its output does not come back into the app. With `noWait: true` the window closes when the command finishes; otherwise it stays open so you can read the output.
 - **Run here** runs it inside the app and streams the output into the pane's **OUTPUT** section, with **Cancel** and **Copy output** buttons. The command gets no keyboard input, so a command that asks for input fails straight away. Actions marked `interactive: true` don't offer **Run here**.
 
+The OUTPUT section shows the colours and text styles a command writes as terminal escape sequences; **Copy output** copies the plain text. Many tools switch colour off when their output isn't a terminal, so they stay plain unless the command asks for colour explicitly (for example `--color=always`).
+
 Several actions can run inline at once. A dot next to an item or action shows a run in progress or finished: green for success, red for failure. Selecting the action again brings its output back.
 
 Both kinds of run start in the app-data directory, so relative paths in a command resolve there. For a `script:` action, the Command pane shows the file's source, and a pencil button opens it in your default editor. The preview refreshes when the file changes.

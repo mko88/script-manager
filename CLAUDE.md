@@ -18,6 +18,9 @@ internal/
   render/             ← mask pipeline (MaskFunc, ProcessMaskSpans) and the
                         #ALL_ENV_LIST#/#ALL_ENV_TABLE# placeholder expansion
                         (ExpandAllEnv), shared by both frontends
+  ansi/               ← terminal escape-sequence parsing (Parse → plain text +
+                        styled spans) for the GUI's inline run output; the
+                        frontend half is frontend-shared/ansi.ts
   exepath/            ← executable-directory resolution (Dir()), shared by gui
                         and configedit
   terminal/           ← terminal emulator detection/argv assembly (Launcher,

@@ -1,5 +1,6 @@
 import { writable, get } from 'svelte/store'
 import { flash } from '@shared/toast'
+import type { AnsiSpan } from '@shared/ansi'
 import { t } from '../messages'
 import { GetInlineStatus, RunActionInline, CancelInlineAction } from '../../wailsjs/go/gui/App.js'
 
@@ -7,6 +8,7 @@ export type InlineState = {
   itemIndex: number
   actionIndex: number
   output: string
+  spans: AnsiSpan[]
   running: boolean
   exitCode: number | null
 }
@@ -42,6 +44,7 @@ async function pollInlineStatus(itemIndex: number, actionIndex: number) {
     if (gen !== generation) return
     setInlineState(itemIndex, actionIndex, {
       output: status.output,
+      spans: status.spans ?? [],
       running: status.running,
       exitCode: status.running ? null : status.exitCode,
     })
@@ -57,14 +60,14 @@ async function pollInlineStatus(itemIndex: number, actionIndex: number) {
 export async function startInlineRun(itemIndex: number, actionIndex: number) {
   if (get(inlineStates)[inlineKey(itemIndex, actionIndex)]?.running) return
   const gen = generation
-  setInlineState(itemIndex, actionIndex, { output: '', running: true, exitCode: null })
+  setInlineState(itemIndex, actionIndex, { output: '', spans: [], running: true, exitCode: null })
   try {
     await RunActionInline(itemIndex, actionIndex)
     if (gen !== generation) return
     pollInlineStatus(itemIndex, actionIndex)
   } catch (err) {
     if (gen !== generation) return
-    setInlineState(itemIndex, actionIndex, { output: '', running: false, exitCode: null })
+    setInlineState(itemIndex, actionIndex, { output: '', spans: [], running: false, exitCode: null })
     flash(t('toast.runFailed', { error: String(err) }))
   }
 }

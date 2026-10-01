@@ -106,6 +106,7 @@
   $: currentInline = selectedItem >= 0 && selectedActionIndex >= 0 ? $inlineStates[inlineKey(selectedItem, selectedActionIndex)] : undefined
   $: inlineRunning = currentInline?.running ?? false
   $: inlineOutput = currentInline?.output ?? ''
+  $: inlineSpans = currentInline?.spans ?? []
   $: inlineExitCode = currentInline?.exitCode ?? null
 
   $: runningItemIndices = new Set(Object.values($inlineStates).filter((s) => s.running).map((s) => s.itemIndex))
@@ -974,7 +975,7 @@
                       on:click={() => copyToClipboard(inlineOutput)}><Icon name="copy" /></IconButton
                     >
                     <div class="cmd-output-body">
-                      <CodeMirror value={inlineOutput} readOnly followTail showLineNumbers={false} maxHeight="100%" />
+                      <CodeMirror value={inlineOutput} spans={inlineSpans} readOnly followTail showLineNumbers={false} maxHeight="100%" />
                     </div>
                   </div>
                 {/if}

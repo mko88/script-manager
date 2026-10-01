@@ -3,10 +3,12 @@ package gui
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"script-manager/internal/ansi"
 	"script-manager/internal/config"
 )
 
@@ -55,6 +57,21 @@ func TestRunActionInlineCapturesStderrAndNonZeroExit(t *testing.T) {
 	status := waitForInlineDone(t, a, 0, 0)
 	if status.ExitCode != 3 || !strings.Contains(status.Output, "oops") {
 		t.Errorf("final status = %+v, want exit 3 and output containing %q", status, "oops")
+	}
+}
+
+func TestGetInlineStatusSeparatesEscapeSequencesFromOutput(t *testing.T) {
+	a := inlineTestApp(config.Action{Title: "Colour", Cmd: `printf '\033[31mred\033[0m plain\n'`})
+
+	if err := a.RunActionInline(0, 0); err != nil {
+		t.Fatalf("RunActionInline() error = %v", err)
+	}
+	status := waitForInlineDone(t, a, 0, 0)
+	if status.Output != "red plain\n" {
+		t.Errorf("Output = %q, want the text without its escape sequences", status.Output)
+	}
+	if want := []ansi.Span{{From: 0, To: 3, FG: "ansi-1"}}; !reflect.DeepEqual(status.Spans, want) {
+		t.Errorf("Spans = %+v, want %+v", status.Spans, want)
 	}
 }
 

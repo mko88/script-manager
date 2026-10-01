@@ -136,6 +136,7 @@
   import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands'
   import { autocompletion, completionKeymap, type CompletionContext } from '@codemirror/autocomplete'
   import { bracketMatching, foldGutter, foldKeymap, indentOnInput } from '@codemirror/language'
+  import { ansiDecorations, ansiSpanField, setAnsiSpans, type AnsiSpan } from '../ansi'
 
   export let value = ''
   export let language: string = 'plain'
@@ -153,6 +154,9 @@
   export let singleLine = false
   // Tints {{ }} references, for the editors whose content is a template.
   export let templateRefs = false
+  // Colours and attributes laid over the text — the inline run output's,
+  // whose value has had its escape sequences taken out.
+  export let spans: AnsiSpan[] | null = null
   // Called after an edit made in this editor, for callers that validate or
   // react to the new text. A callback rather than a dispatched event: these
   // components are consumed as plain props everywhere else.
@@ -210,6 +214,7 @@
       EditorState.readOnly.of(readOnly),
       bracketMatching(),
       ...(templateRefs ? [templateRefHighlighter] : []),
+      ...(spans ? [ansiSpanField] : []),
       EditorView.updateListener.of((u) => {
         if (u.docChanged && !readOnly) {
           value = u.state.doc.toString()
@@ -257,6 +262,16 @@
       }
     } catch (err) {
       console.error('CodeMirror: setting the document failed', err)
+    }
+  }
+
+  // After the block above, so the spans are fitted to the document they
+  // arrived with and not the one it replaced.
+  $: if (view && spans) {
+    try {
+      view.dispatch({ effects: setAnsiSpans.of(ansiDecorations(spans, view.state.doc.length)) })
+    } catch (err) {
+      console.error('CodeMirror: styling the output failed', err)
     }
   }
 
