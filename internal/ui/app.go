@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"sync/atomic"
 	"time"
 
 	"script-manager/internal/action"
@@ -52,6 +53,8 @@ type App struct {
 	updater        *update.Client
 	updateExe      string
 	cancelInstall  func()
+	swapping       atomic.Bool
+	checkWanted    bool
 	checkOnStartup bool
 	updateResult   update.Result
 	checkingUpdate bool

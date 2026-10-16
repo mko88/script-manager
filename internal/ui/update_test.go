@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -169,9 +172,15 @@ func TestStartupCheckBlocksSecondCheck(t *testing.T) {
 	if _, cmd := a.Update(key("ctrl+u")); cmd != nil {
 		t.Error("Ctrl+U started a second check")
 	}
+	if !strings.Contains(a.status.message, "Checking") {
+		t.Errorf("no feedback: %q", a.status.message)
+	}
 	run(a, pending)
 	if a.checkingUpdate {
 		t.Error("still marked as checking")
+	}
+	if !a.updateConfirm {
+		t.Error("the startup result was not offered after Ctrl+U")
 	}
 }
 
@@ -237,6 +246,45 @@ func TestNotInstallableReleasePointsToPage(t *testing.T) {
 		t.Error("offered to install a release without checksums")
 	}
 	if !strings.Contains(a.status.message, "release") {
+		t.Errorf("message = %q", a.status.message)
+	}
+}
+
+func TestInstallOutcomeMessages(t *testing.T) {
+	cases := map[string]struct {
+		err  error
+		want string
+	}{
+		"stall":  {fmt.Errorf("downloading update: %w", update.ErrStalled), "stalled"},
+		"cancel": {fmt.Errorf("downloading update: %w", context.Canceled), "cancelled"},
+		"other":  {errors.New("boom"), "Update failed: boom"},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			a := NewApp(&config.Config{}, nil, nil)
+			a.installing = true
+			a.onUpdateInstalled(updateInstalledMsg{c.err})
+			if !strings.Contains(a.status.message, c.want) || a.restart {
+				t.Errorf("message = %q, restart = %v", a.status.message, a.restart)
+			}
+			if name == "stall" && strings.Contains(a.status.message, "cancelled") {
+				t.Error("stall reported as a cancel")
+			}
+		})
+	}
+}
+
+func TestCtrlCTooLateAfterSwapStarts(t *testing.T) {
+	a := NewApp(&config.Config{}, nil, nil)
+	cancelled := false
+	a.installing = true
+	a.cancelInstall = func() { cancelled = true }
+	a.swapping.Store(true)
+	a.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	if cancelled {
+		t.Error("cancelled during the swap")
+	}
+	if !strings.Contains(a.status.message, "Too late to cancel") {
 		t.Errorf("message = %q", a.status.message)
 	}
 }

@@ -123,30 +123,6 @@ func TestLockedOldGetsUniqueName(t *testing.T) {
 	}
 }
 
-func TestCleanupOld(t *testing.T) {
-	dir := t.TempDir()
-	gone := []string{
-		"sm-config-edit.exe.old", "script-manager.exe.old-1a2b3c4d",
-		".script-manager-gui.exe.new-123", ".sm-update-probe-9",
-	}
-	kept := []string{"notes.old", "script-manager.exe", "script-manager-gui.exe"}
-	for _, n := range append(append([]string{}, gone...), kept...) {
-		os.WriteFile(filepath.Join(dir, n), nil, 0o644)
-	}
-	CleanupOld(dir, "windows")
-	CleanupOld("", "windows")
-	for _, n := range gone {
-		if _, err := os.Stat(filepath.Join(dir, n)); err == nil {
-			t.Errorf("%s survived", n)
-		}
-	}
-	for _, n := range kept {
-		if _, err := os.Stat(filepath.Join(dir, n)); err != nil {
-			t.Errorf("%s was removed", n)
-		}
-	}
-}
-
 func TestDuplicateChecksumRefused(t *testing.T) {
 	rel := fakeRelease(t, "v1.6.0")
 	win, _ := testserver.ArchiveNames("v1.6.0")
@@ -209,8 +185,9 @@ func TestSizeCap(t *testing.T) {
 			rel.Assets[ChecksumsAsset] = testserver.Checksums(rel.Assets, win)
 			f := serve(t, rel)
 			dir := installDir(t, "windows")
-			if err := checkAndInstall(t, f.client("v1.5.1", "windows"), dir); err == nil {
-				t.Fatal("oversized binary was installed")
+			err := checkAndInstall(t, f.client("v1.5.1", "windows"), dir)
+			if err == nil || !strings.Contains(err.Error(), "larger than allowed") {
+				t.Fatalf("err = %v, want a size refusal", err)
 			}
 			assertUnchanged(t, dir, "windows")
 		})

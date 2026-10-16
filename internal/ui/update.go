@@ -65,9 +65,11 @@ func (a *App) clearPrompt() {
 
 func (a *App) onUpdateChecked(msg updateCheckedMsg) tea.Cmd {
 	a.checkingUpdate = false
+	manual := msg.manual || a.checkWanted
+	a.checkWanted = false
 	// A result that arrives under a prompt only updates the hint.
-	quiet := !msg.manual || a.modalOpen()
-	if msg.manual && !a.modalOpen() {
+	quiet := !manual || a.modalOpen()
+	if manual && !a.modalOpen() {
 		a.clearPrompt()
 	}
 	if msg.err != nil {
@@ -95,7 +97,12 @@ func (a *App) onUpdateChecked(msg updateCheckedMsg) tea.Cmd {
 // onUpdateKey handles Ctrl+U: offer a known update, or check for one.
 func (a *App) onUpdateKey() tea.Cmd {
 	switch {
-	case a.updater == nil || a.checkingUpdate:
+	case a.updater == nil:
+		return nil
+	case a.checkingUpdate:
+		// The startup check is still running; report its result instead.
+		a.checkWanted = true
+		a.setPrompt("Checking for updates…")
 		return nil
 	case a.updateResult.Available:
 		return a.offerUpdate()
@@ -109,7 +116,11 @@ func (a *App) onUpdateKey() tea.Cmd {
 
 func (a *App) offerUpdate() tea.Cmd {
 	if !a.updateResult.Installable {
-		return a.flashMessage(a.updateResult.Latest+" has no checksums, so it can't be installed here; download it from "+a.updateResult.ReleaseURL, 10*time.Second)
+		where := "the project's releases page"
+		if a.updateResult.ReleaseURL != "" {
+			where = a.updateResult.ReleaseURL
+		}
+		return a.flashMessage(a.updateResult.Latest+" has no checksums, so it can't be installed here; download it from "+where, 10*time.Second)
 	}
 	a.updateConfirm = true
 	a.setPrompt("Update to " + a.updateResult.Latest + " and restart? y: update, any other key: cancel. Replaces all three apps in this folder.")
@@ -123,22 +134,31 @@ func (a *App) updateConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return a, nil
 	}
 	a.installing = true
+	a.swapping.Store(false)
 	a.setPrompt("Downloading and installing " + a.updateResult.Latest + "…  (Ctrl+C to cancel)")
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancelInstall = cancel
-	c, res, exe := a.updater, a.updateResult, a.updateExe
+	c := *a.updater
+	c.BeforeSwap = func() { a.swapping.Store(true) }
+	res, exe := a.updateResult, a.updateExe
 	return a, func() tea.Msg {
 		defer cancel()
 		return updateInstalledMsg{c.Install(ctx, res, exe)}
 	}
 }
 
-// installingKey ignores every key except Ctrl+C, which cancels the install.
+// installingKey ignores every key except Ctrl+C, which cancels the install
+// until the files start being replaced.
 func (a *App) installingKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if msg.String() == "ctrl+c" && a.cancelInstall != nil {
-		a.cancelInstall()
-		a.setPrompt("Cancelling the update…")
+	if msg.String() != "ctrl+c" || a.cancelInstall == nil {
+		return a, nil
 	}
+	if a.swapping.Load() {
+		a.setPrompt("Too late to cancel: the apps are being replaced…")
+		return a, nil
+	}
+	a.cancelInstall()
+	a.setPrompt("Cancelling the update…")
 	return a, nil
 }
 
@@ -146,6 +166,8 @@ func (a *App) onUpdateInstalled(msg updateInstalledMsg) tea.Cmd {
 	a.installing = false
 	a.cancelInstall = nil
 	switch {
+	case errors.Is(msg.err, update.ErrStalled):
+		return a.flashMessage("Update failed: the download stalled; nothing was changed. Try again later.", 10*time.Second)
 	case errors.Is(msg.err, context.Canceled):
 		return a.flashMessage("Update cancelled; nothing was changed", 4*time.Second)
 	case msg.err != nil:

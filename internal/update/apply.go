@@ -16,6 +16,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"time"
 )
 
 const (
@@ -98,6 +99,9 @@ func (c *Client) Install(ctx context.Context, res Result, exe string) error {
 	}
 	if err := ctx.Err(); err != nil {
 		return err
+	}
+	if c.BeforeSwap != nil {
+		c.BeforeSwap()
 	}
 	return c.swap(staged, dir)
 }
@@ -295,6 +299,10 @@ func walkZip(archive string, add func(string, io.Reader) error) error {
 		}
 		err = add(name, rc)
 		rc.Close()
+		if errors.Is(err, zip.ErrFormat) {
+			// The reader reports more data than the header declared this way.
+			return fmt.Errorf("archive entry %q is larger than allowed by its header", f.Name)
+		}
 		if err != nil {
 			return err
 		}
@@ -416,24 +424,70 @@ func oldName(target string) (string, error) {
 	return old + "-" + hex.EncodeToString(b), nil
 }
 
-// CleanupOld removes what earlier updates left in dir: <name>.old* copies
-// and .<name>.new-* staging files. A copy that is still running (Windows
-// locks it) stays until a later start.
+// staleAfter is how old a staging or probe file must be before CleanupOld
+// treats it as abandoned rather than belonging to an update in progress.
+const staleAfter = 10 * time.Minute
+
+// CleanupOld removes what earlier updates left in dir: <name>.old and
+// <name>.old-<8 hex> copies, and staging and probe files older than
+// staleAfter. A copy that is still running (Windows locks it) stays until a
+// later start.
 func CleanupOld(dir, goos string) {
 	if dir == "" {
 		return
 	}
-	for _, b := range Binaries {
-		n := binaryName(b, goos)
-		for _, pattern := range []string{n + ".old", n + ".old-*", "." + n + ".new-*"} {
-			matches, _ := filepath.Glob(filepath.Join(dir, pattern))
-			for _, m := range matches {
-				os.Remove(m)
-			}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if name := e.Name(); leftover(name, goos) || (stagingFile(name, goos) && stale(e)) {
+			os.Remove(filepath.Join(dir, name))
 		}
 	}
-	matches, _ := filepath.Glob(filepath.Join(dir, ".sm-update-probe-*"))
-	for _, m := range matches {
-		os.Remove(m)
+}
+
+func leftover(name, goos string) bool {
+	for _, b := range Binaries {
+		old := binaryName(b, goos) + ".old"
+		if name == old {
+			return true
+		}
+		if suffix, ok := strings.CutPrefix(name, old+"-"); ok && isHex8(suffix) {
+			return true
+		}
 	}
+	return false
+}
+
+func stagingFile(name, goos string) bool {
+	if strings.HasPrefix(name, ".sm-update-probe-") {
+		return true
+	}
+	for _, b := range Binaries {
+		if strings.HasPrefix(name, "."+binaryName(b, goos)+".new-") {
+			return true
+		}
+	}
+	return false
+}
+
+func stale(e os.DirEntry) bool {
+	info, err := e.Info()
+	return err == nil && time.Since(info.ModTime()) > staleAfter
+}
+
+func isHex8(s string) bool {
+	if len(s) != 8 {
+		return false
+	}
+	for _, r := range s {
+		if !strings.ContainsRune("0123456789abcdef", r) {
+			return false
+		}
+	}
+	return true
 }

@@ -29,7 +29,8 @@ const (
 
 	// downloadPrefix is the only place assets may come from when the default
 	// source is in use; GitHub redirects from there to its CDN.
-	downloadPrefix = "https://github.com/mko88/script-manager/releases/download/"
+	downloadPrefix    = "https://github.com/mko88/script-manager/releases/download/"
+	releasePagePrefix = "https://github.com/mko88/script-manager/releases/tag/"
 
 	userAgent    = "script-manager-updater"
 	CheckTimeout = 10 * time.Second
@@ -66,6 +67,9 @@ type Client struct {
 	GOOS    string
 	GOARCH  string
 	Current string
+	// BeforeSwap, if set, runs once the download is verified and unpacked,
+	// just before files are replaced; cancelling has no effect after it.
+	BeforeSwap func()
 
 	// strict pins asset URLs to the project's GitHub download path and
 	// refuses non-https redirects; it is on unless EnvBaseURL is set.
@@ -164,7 +168,7 @@ func (c *Client) Check(ctx context.Context) (Result, error) {
 	if err != nil {
 		return Result{}, err
 	}
-	res := Result{Current: c.Current, Latest: rel.TagName, ReleaseURL: rel.HTMLURL}
+	res := Result{Current: c.Current, Latest: rel.TagName, ReleaseURL: c.releasePage(rel)}
 	if rel.Draft || rel.Prerelease {
 		return res, nil
 	}
@@ -187,7 +191,7 @@ func (c *Client) Check(ctx context.Context) (Result, error) {
 			continue
 		}
 		if c.strict && a.URL != downloadPrefix+rel.TagName+"/"+a.Name {
-			return Result{}, fmt.Errorf("release %s: %s has an unexpected download URL %s", rel.TagName, a.Name, a.URL)
+			return Result{}, fmt.Errorf("release %q: %s has an unexpected download URL %q", rel.TagName, a.Name, a.URL)
 		}
 	}
 	if res.archiveURL == "" {
@@ -196,6 +200,22 @@ func (c *Client) Check(ctx context.Context) (Result, error) {
 	res.Available = true
 	res.Installable = res.checksumsURL != ""
 	return res, nil
+}
+
+// releasePage is the release's web page. The default source builds it from
+// the tag; an override's html_url is used only when it is http(s).
+func (c *Client) releasePage(rel ghRelease) string {
+	if c.strict {
+		if _, ok := parseTag(rel.TagName); ok {
+			return releasePagePrefix + rel.TagName
+		}
+		return ""
+	}
+	u, err := url.Parse(rel.HTMLURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return ""
+	}
+	return rel.HTMLURL
 }
 
 func (c *Client) fetchLatest(ctx context.Context) (ghRelease, error) {
@@ -215,10 +235,10 @@ func (c *Client) fetchLatest(ctx context.Context) (ghRelease, error) {
 // get performs a GET and fails on any non-200 status. The body is cancelled
 // when it stalls for idleTimeout.
 func (c *Client) get(ctx context.Context, url, accept string) (*http.Response, error) {
-	ctx, cancel := context.WithCancel(ctx)
+	ctx, cancel := context.WithCancelCause(ctx)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		cancel()
+		cancel(nil)
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
@@ -227,21 +247,31 @@ func (c *Client) get(ctx context.Context, url, accept string) (*http.Response, e
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		cancel()
+		cancel(nil)
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
-		cancel()
-		return nil, fmt.Errorf("%s returned %s", url, resp.Status)
+		cancel(nil)
+		return nil, fmt.Errorf("%q returned %s", url, resp.Status)
 	}
-	resp.Body = &idleBody{rc: resp.Body, cancel: cancel, timer: time.AfterFunc(idleTimeout, cancel)}
+	resp.Body = &idleBody{
+		rc:     resp.Body,
+		ctx:    ctx,
+		cancel: cancel,
+		timer:  time.AfterFunc(idleTimeout, func() { cancel(ErrStalled) }),
+	}
 	return resp, nil
 }
 
+// ErrStalled is returned when a download stops sending data for longer than
+// the idle timeout.
+var ErrStalled = errors.New("the download stalled")
+
 type idleBody struct {
 	rc     io.ReadCloser
-	cancel context.CancelFunc
+	ctx    context.Context
+	cancel context.CancelCauseFunc
 	timer  *time.Timer
 }
 
@@ -250,13 +280,16 @@ func (b *idleBody) Read(p []byte) (int, error) {
 	if n > 0 {
 		b.timer.Reset(idleTimeout)
 	}
+	if err != nil && err != io.EOF && errors.Is(context.Cause(b.ctx), ErrStalled) {
+		err = ErrStalled
+	}
 	return n, err
 }
 
 func (b *idleBody) Close() error {
 	b.timer.Stop()
 	err := b.rc.Close()
-	b.cancel()
+	b.cancel(nil)
 	return err
 }
 
