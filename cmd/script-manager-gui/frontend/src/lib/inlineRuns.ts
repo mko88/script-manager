@@ -3,6 +3,7 @@ import { flash } from '@shared/toast'
 import type { AnsiSpan } from '@shared/ansi'
 import { t } from '../messages'
 import { GetInlineStatus, RunActionInline, CancelInlineAction } from '../../wailsjs/go/gui/App.js'
+import { gui } from '../../wailsjs/go/models'
 
 export type InlineState = {
   itemIndex: number
@@ -57,12 +58,12 @@ async function pollInlineStatus(itemIndex: number, actionIndex: number) {
   }
 }
 
-export async function startInlineRun(itemIndex: number, actionIndex: number) {
+export async function startInlineRun(itemIndex: number, actionIndex: number, input: gui.RunInputDTO) {
   if (get(inlineStates)[inlineKey(itemIndex, actionIndex)]?.running) return
   const gen = generation
   setInlineState(itemIndex, actionIndex, { output: '', spans: [], running: true, exitCode: null })
   try {
-    await RunActionInline(itemIndex, actionIndex)
+    await RunActionInline(itemIndex, actionIndex, input)
     if (gen !== generation) return
     pollInlineStatus(itemIndex, actionIndex)
   } catch (err) {

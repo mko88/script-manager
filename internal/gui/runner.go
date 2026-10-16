@@ -32,7 +32,7 @@ func cleanupTempScripts() {
 	}
 }
 
-func (a *App) RunAction(itemIndex, actionIndex int) error {
+func (a *App) RunAction(itemIndex, actionIndex int, input RunInputDTO) error {
 	if runtime.GOOS != "windows" && runtime.GOOS != "linux" {
 		return fmt.Errorf("running actions is not supported on %s", runtime.GOOS)
 	}
@@ -70,7 +70,11 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 		if err != nil {
 			return fmt.Errorf("script path template error: %w", err)
 		}
-		wrapped := action.WrapScriptFile(action.ShellBasename(a.cfg.Shell[0]), expandedScript, !act.NoWait)
+		args, err := a.commandArgs(expandedScript, merged, input)
+		if err != nil {
+			return err
+		}
+		wrapped := action.WrapScriptFileArgs(action.ShellBasename(a.cfg.Shell[0]), expandedScript, args, !act.NoWait)
 		scriptPath, err = action.WriteTempScript(a.cfg.Shell[0], wrapped)
 		if err != nil {
 			return fmt.Errorf("failed to write temp script: %w", err)
@@ -80,7 +84,11 @@ func (a *App) RunAction(itemIndex, actionIndex int) error {
 		if err != nil {
 			return fmt.Errorf("cmd template error: %w", err)
 		}
-		wrapped := wrapScript(action.ShellBasename(a.cfg.Shell[0]), expandedCmd, !act.NoWait)
+		args, err := a.commandArgs("", merged, input)
+		if err != nil {
+			return err
+		}
+		wrapped := wrapScript(action.ShellBasename(a.cfg.Shell[0]), action.AppendArgs(expandedCmd, args), !act.NoWait)
 		scriptPath, err = action.WriteTempScript(a.cfg.Shell[0], wrapped)
 		if err != nil {
 			return fmt.Errorf("failed to write temp script: %w", err)

@@ -39,7 +39,7 @@ func waitForInlineDone(t *testing.T, a *App, itemIndex, actionIndex int) InlineS
 func TestRunActionInline(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hello-inline"})
 
-	if err := a.RunActionInline(0, 0); err != nil {
+	if err := a.RunActionInline(0, 0, RunInputDTO{}); err != nil {
 		t.Fatalf("RunActionInline() error = %v", err)
 	}
 	status := waitForInlineDone(t, a, 0, 0)
@@ -51,7 +51,7 @@ func TestRunActionInline(t *testing.T) {
 func TestRunActionInlineCapturesStderrAndNonZeroExit(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Fail", Cmd: "echo oops >&2; exit 3"})
 
-	if err := a.RunActionInline(0, 0); err != nil {
+	if err := a.RunActionInline(0, 0, RunInputDTO{}); err != nil {
 		t.Fatalf("RunActionInline() error = %v", err)
 	}
 	status := waitForInlineDone(t, a, 0, 0)
@@ -63,7 +63,7 @@ func TestRunActionInlineCapturesStderrAndNonZeroExit(t *testing.T) {
 func TestGetInlineStatusSeparatesEscapeSequencesFromOutput(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Colour", Cmd: `printf '\033[31mred\033[0m plain\n'`})
 
-	if err := a.RunActionInline(0, 0); err != nil {
+	if err := a.RunActionInline(0, 0, RunInputDTO{}); err != nil {
 		t.Fatalf("RunActionInline() error = %v", err)
 	}
 	status := waitForInlineDone(t, a, 0, 0)
@@ -78,10 +78,10 @@ func TestGetInlineStatusSeparatesEscapeSequencesFromOutput(t *testing.T) {
 func TestRunActionInlineInvalidItemOrAction(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hi"})
 
-	if err := a.RunActionInline(5, 0); err == nil {
+	if err := a.RunActionInline(5, 0, RunInputDTO{}); err == nil {
 		t.Error("expected an error for an out-of-range item")
 	}
-	if err := a.RunActionInline(0, 5); err == nil {
+	if err := a.RunActionInline(0, 5, RunInputDTO{}); err == nil {
 		t.Error("expected an error for an out-of-range action")
 	}
 }
@@ -89,7 +89,7 @@ func TestRunActionInlineInvalidItemOrAction(t *testing.T) {
 func TestRunActionInlineRejectsInteractiveAction(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Prompt", Cmd: "read -r x", Interactive: true})
 
-	if err := a.RunActionInline(0, 0); err == nil {
+	if err := a.RunActionInline(0, 0, RunInputDTO{}); err == nil {
 		t.Error("expected an error for an interactive action")
 	}
 	if a.GetInlineStatus(0, 0).Running {
@@ -107,7 +107,7 @@ func TestRunActionInlineClearsStaleEntryOnFailedRestart(t *testing.T) {
 	key := inlineKey{itemIndex: 0, actionIndex: 5}
 	a.inlineRuns[key] = &inlineRun{outPath: staleOutPath, exitCode: 3, errMsg: "old error"}
 
-	if err := a.RunActionInline(0, 5); err == nil {
+	if err := a.RunActionInline(0, 5, RunInputDTO{}); err == nil {
 		t.Fatal("expected an error for an out-of-range action")
 	}
 
@@ -132,12 +132,12 @@ func waitForInlineRunning(t *testing.T, a *App, itemIndex, actionIndex int) {
 func TestRunActionInlineRejectsConcurrentRunsOfSameAction(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Sleep", Cmd: "sleep 2"})
 
-	if err := a.RunActionInline(0, 0); err != nil {
+	if err := a.RunActionInline(0, 0, RunInputDTO{}); err != nil {
 		t.Fatalf("first RunActionInline() error = %v", err)
 	}
 	waitForInlineRunning(t, a, 0, 0)
 
-	if err := a.RunActionInline(0, 0); err == nil {
+	if err := a.RunActionInline(0, 0, RunInputDTO{}); err == nil {
 		t.Error("expected an error running the same action again while it's still running")
 	}
 
@@ -153,12 +153,12 @@ func TestRunActionInlineAllowsConcurrentDifferentActions(t *testing.T) {
 		config.Action{Title: "Fast", Cmd: "echo fast-done"},
 	)
 
-	if err := a.RunActionInline(0, 0); err != nil {
+	if err := a.RunActionInline(0, 0, RunInputDTO{}); err != nil {
 		t.Fatalf("RunActionInline(slow) error = %v", err)
 	}
 	waitForInlineRunning(t, a, 0, 0)
 
-	if err := a.RunActionInline(0, 1); err != nil {
+	if err := a.RunActionInline(0, 1, RunInputDTO{}); err != nil {
 		t.Fatalf("RunActionInline(fast) error = %v, want the second action to start despite the first still running", err)
 	}
 	fastStatus := waitForInlineDone(t, a, 0, 1)
@@ -178,7 +178,7 @@ func TestRunActionInlineAllowsConcurrentDifferentActions(t *testing.T) {
 func TestGetInlineStatusPersistsAfterCompletion(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Echo", Cmd: "echo hello-inline"})
 
-	if err := a.RunActionInline(0, 0); err != nil {
+	if err := a.RunActionInline(0, 0, RunInputDTO{}); err != nil {
 		t.Fatalf("RunActionInline() error = %v", err)
 	}
 	waitForInlineDone(t, a, 0, 0)
@@ -194,7 +194,7 @@ func TestGetInlineStatusPersistsAfterCompletion(t *testing.T) {
 func TestGetInlineStatusReflectsPartialOutputWhileRunning(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Slow", Cmd: "echo first; sleep 2; echo second"})
 
-	if err := a.RunActionInline(0, 0); err != nil {
+	if err := a.RunActionInline(0, 0, RunInputDTO{}); err != nil {
 		t.Fatalf("RunActionInline() error = %v", err)
 	}
 	waitForInlineRunning(t, a, 0, 0)
@@ -226,7 +226,7 @@ func TestGetInlineStatusReflectsPartialOutputWhileRunning(t *testing.T) {
 func TestCancelInlineActionKillsProcessTree(t *testing.T) {
 	a := inlineTestApp(config.Action{Title: "Sleep", Cmd: "sleep 30"})
 
-	if err := a.RunActionInline(0, 0); err != nil {
+	if err := a.RunActionInline(0, 0, RunInputDTO{}); err != nil {
 		t.Fatalf("RunActionInline() error = %v", err)
 	}
 	waitForInlineRunning(t, a, 0, 0)

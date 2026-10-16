@@ -15,6 +15,7 @@ import (
 	"script-manager/internal/exepath"
 	"script-manager/internal/filewatch"
 	"script-manager/internal/recent"
+	"script-manager/internal/scriptparams"
 	"script-manager/internal/scriptsource"
 	"script-manager/internal/secret"
 	"script-manager/internal/version"
@@ -271,6 +272,12 @@ type ActionDetailDTO struct {
 	NoWait        bool   `json:"noWait"`
 	Interactive   bool   `json:"interactive"`
 	Language      string `json:"language"`
+	// Params is what the script documents about its parameters; empty for
+	// a cmd action or a script that couldn't be read.
+	Params scriptparams.Spec `json:"params"`
+	// CommandLanguage is the syntax of the command line that runs the
+	// action, which for a script is the shell's, not the script's.
+	CommandLanguage string `json:"commandLanguage"`
 }
 
 func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
@@ -286,22 +293,26 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 	merged := a.mergedItem(item)
 	script := action.Preview(act.Script, merged)
 	var scriptContent, scriptErr string
+	var spec scriptparams.Spec
 	if script != "" {
 		if content, err := scriptsource.Read(script); err != nil {
 			scriptErr = err.Error()
 		} else {
 			scriptContent = content
+			spec = scriptparams.Parse(script, content)
 		}
 	}
 	return ActionDetailDTO{
-		Description:   action.Preview(act.Description, merged),
-		Cmd:           action.Preview(act.Cmd, merged),
-		Script:        script,
-		ScriptContent: scriptContent,
-		ScriptError:   scriptErr,
-		Language:      a.scriptLanguage(script),
-		NoWait:        act.NoWait,
-		Interactive:   act.Interactive,
+		Description:     action.Preview(act.Description, merged),
+		Cmd:             action.Preview(act.Cmd, merged),
+		Script:          script,
+		ScriptContent:   scriptContent,
+		ScriptError:     scriptErr,
+		Language:        a.scriptLanguage(script),
+		NoWait:          act.NoWait,
+		Interactive:     act.Interactive,
+		Params:          spec,
+		CommandLanguage: a.scriptLanguage(""),
 	}
 }
 

@@ -38,7 +38,7 @@ The easiest way to build a config is the [Config Editor](#config-editor). The [C
 - **Items**: rows labelled by your `display.list` template.
 - **Actions**: the actions available for the selected item.
 - **Details**: the item, rendered as Markdown from your `display.details` template.
-- **Command**: the selected action's expanded command.
+- **Command**: the selected action's parameters and expanded command.
 
 To use it:
 
@@ -55,6 +55,14 @@ The Command pane has two ways to run the selected action:
 - **Run here** runs it inside the app and streams the output into the pane's **OUTPUT** section, with **Cancel** and **Copy output** buttons. The command gets no keyboard input, so a command that asks for input fails straight away. Actions marked `interactive: true` don't offer **Run here**.
 
 The OUTPUT section shows the colours and text styles a command writes as terminal escape sequences; **Copy output** copies the plain text. Many tools switch colour off when their output isn't a terminal, so they stay plain unless the command asks for colour explicitly (for example `--color=always`).
+
+The **PARAMETERS** section above the command sets the arguments both kinds of run pass:
+
+- **Documented scripts** get a control per parameter: a checkbox for a switch, a text box for a value, a drop-down for a fixed set of choices, a multi-select list for several choices, and a box with one value per line for a list of values. Required parameters are marked `*`, and each parameter shows its description from the script. An empty control passes nothing, so the script uses its own default (shown in grey).
+- **Other scripts and `cmd:` actions** get one **Arguments** box. Its text is added to the end of the command exactly as written, in the shell's own syntax. Documented scripts have it too, as **Additional arguments**.
+- **Presets** save the current values under a name: pick one from **Preset** to fill in the controls, **Save as…** to store the current values, **Update** to overwrite the selected preset and **Delete** to remove it. See [Presets](#presets).
+- The COMMAND section shows the **command line** that runs, with the arguments, and updates as you type. It also shows what is wrong, such as a missing required value or a value that isn't one of the choices; **Run** and **Run here** refuse to start until it is fixed.
+- Values and arguments can use templates such as `{{.name}}`, filled in from the selected item.
 
 Several actions can run inline at once. A dot next to an item or action shows a run in progress or finished: green for success, red for failure. Selecting the action again brings its output back.
 
@@ -226,6 +234,65 @@ Use either `cmd` or `script`, not both. A `script` can be a `.ps1`, a shell scri
 
 Action groups need no declaration. Listing one under `actionGroups:` just gives it a nicer `title` and a `color` for the GUI's filter chips.
 
+### Script parameters
+
+The GUI reads a `script:` action's parameters from the script's own documentation. The script is only read, never run to find them. A script without any of these gets the free-text **Arguments** box instead.
+
+| Script | What is read |
+|---|---|
+| PowerShell (`.ps1`) | the `param()` block: `[switch]` is a checkbox, `[ValidateSet(...)]` a drop-down (a multi-select for an array type such as `[string[]]`), an array type a list of values, `Mandatory` makes it required, and `= value` is the default. Descriptions come from comment-based help (`.PARAMETER Name`), a `HelpMessage`, or a `#` comment above the parameter. |
+| Python (`.py`) | `argparse` `add_argument(...)` calls: `action='store_true'`/`'store_false'` is a checkbox, `choices=` a drop-down (a multi-select with `nargs='+'`/`'*'`), `nargs` a list, plus `required=`, `default=`, `help=` and positional arguments. |
+| Shell (`.sh`, or a `#!` line naming `sh`/`bash`/`zsh`) | the comment block at the top of the file: a `Usage:` line, where `<name>` is a required positional argument and `[name]` an optional one, and option lines (below). Without option lines, a `getopts "ab:c"` string. |
+| Batch (`.bat`, `.cmd`) | the same header as shell scripts, written with `REM` or `::`; options can also start with `/`. |
+
+Option lines in a shell or batch header look like this:
+
+```bash
+# Usage: deploy.sh [options] <target> [region]
+#
+# Options:
+#   -f, --force          Skip the confirmation
+#   -e, --env ENV        Environment {dev|staging|prod} (required)
+#   -t, --tag TAG...     Image tags (repeatable)
+#   -n NAME              Release name, default: latest
+```
+
+- An option with no placeholder after it is a checkbox; one with a placeholder (`ENV`, `<env>`) takes a value.
+- Choices come from `{a|b|c}` or `(a|b)` in the placeholder or the description.
+- `...` after the placeholder makes it a list, passed as the option repeated for each value.
+- "required" in the description makes it required, and "default: x" sets the default.
+- Indented lines below an option continue its description.
+
+How the values are passed:
+
+- Each value is quoted as one argument for the configured `shell:`, so spaces and quotes reach the script unchanged.
+- A list for a PowerShell script run from a PowerShell `shell:` is passed as `-Name 'a','b'`; other lists repeat the value (`--arch 'x64' 'arm64'`), or the option for repeatable options.
+- With `cmd` as the shell, a value that contains `" % ! ^ & | < >` or a line break is refused. Use the **Arguments** box for those.
+- The **Arguments** text is never quoted or checked.
+
+### Presets
+
+Presets are stored in `presets.yaml`, in the same folder as the loaded config. Saving a preset only writes this file, never the config. Global actions are listed by `id` (or by `title` when they have none) under `actions:`; an item's `customActions` are listed under `customActions:` and the item's name.
+
+```yaml
+actions:
+  build:                      # the action's id
+    - name: release
+      values:
+        Configuration: Release     # a value
+        Fail: true                 # a switch
+        Environments: [dev, prod]  # a list
+        Version: "{{.version}}"    # a template, filled in from the item
+      args: -Verbose               # free text, added as written
+customActions:
+  web-1:                      # the item's name
+    restart:
+      - name: quick
+        args: --no-wait
+```
+
+The GUI reads the file each time an action is selected, so edits made by hand show up on the next selection. If the file can't be read, the GUI says so and won't save presets until it is fixed.
+
 ### Variables
 
 Every action receives the global `env:`, the item's `env:` and the item's `name` as **uppercase** environment variables. An item's value overrides a global one with the same name.
@@ -311,6 +378,7 @@ Compared with the GUI, it has these limitations:
 - There is no mouse support, toolbar or recent-configs list. Choose the config with `-config` when launching.
 - Group titles and colors are not shown; groups are cycled with `[` and `]`.
 - There are no themes, interface scaling or window options.
+- Presets and parameters are GUI-only; the TUI runs actions without arguments.
 
 It works in two modes: pick an item with `Enter`, then pick and run an action; `Esc` goes back.
 

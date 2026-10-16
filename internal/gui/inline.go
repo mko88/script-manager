@@ -28,7 +28,7 @@ type inlineRun struct {
 	errMsg   string
 }
 
-func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup func(), err error) {
+func (a *App) buildInlineCmd(itemIndex, actionIndex int, input RunInputDTO) (cmd *exec.Cmd, cleanup func(), err error) {
 	item := a.itemAt(itemIndex)
 	if item == nil {
 		return nil, nil, fmt.Errorf("invalid item")
@@ -56,7 +56,11 @@ func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup
 		if err != nil {
 			return nil, nil, fmt.Errorf("script path template error: %w", err)
 		}
-		wrapped := action.WrapScriptFile(action.ShellBasename(a.cfg.Shell[0]), expandedScript, false)
+		args, err := a.commandArgs(expandedScript, merged, input)
+		if err != nil {
+			return nil, nil, err
+		}
+		wrapped := action.WrapScriptFileArgs(action.ShellBasename(a.cfg.Shell[0]), expandedScript, args, false)
 		scriptPath, err := action.WriteTempScript(a.cfg.Shell[0], wrapped)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to write temp script: %w", err)
@@ -75,7 +79,11 @@ func (a *App) buildInlineCmd(itemIndex, actionIndex int) (cmd *exec.Cmd, cleanup
 	if err != nil {
 		return nil, nil, fmt.Errorf("cmd template error: %w", err)
 	}
-	script := wrapScript(action.ShellBasename(a.cfg.Shell[0]), expandedCmd, false)
+	args, err := a.commandArgs("", merged, input)
+	if err != nil {
+		return nil, nil, err
+	}
+	script := wrapScript(action.ShellBasename(a.cfg.Shell[0]), action.AppendArgs(expandedCmd, args), false)
 	scriptPath, err := action.WriteTempScript(a.cfg.Shell[0], script)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to write temp script: %w", err)
@@ -112,7 +120,7 @@ type InlineStatusDTO struct {
 	ErrMsg   string      `json:"errMsg"`
 }
 
-func (a *App) RunActionInline(itemIndex, actionIndex int) error {
+func (a *App) RunActionInline(itemIndex, actionIndex int, input RunInputDTO) error {
 	applog.Printf("RunActionInline enter item=%d action=%d", itemIndex, actionIndex)
 	defer applog.Printf("RunActionInline exit item=%d action=%d", itemIndex, actionIndex)
 	key := inlineKey{itemIndex, actionIndex}
@@ -128,7 +136,7 @@ func (a *App) RunActionInline(itemIndex, actionIndex int) error {
 	}
 	a.inlineMu.Unlock()
 
-	cmd, cleanup, err := a.buildInlineCmd(itemIndex, actionIndex)
+	cmd, cleanup, err := a.buildInlineCmd(itemIndex, actionIndex, input)
 	if err != nil {
 		return err
 	}

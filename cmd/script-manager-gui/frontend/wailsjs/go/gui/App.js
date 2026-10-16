@@ -30,6 +30,10 @@ export function CopyToClipboard(arg1) {
   return window['go']['gui']['App']['CopyToClipboard'](arg1);
 }
 
+export function DeletePreset(arg1, arg2, arg3) {
+  return window['go']['gui']['App']['DeletePreset'](arg1, arg2, arg3);
+}
+
 export function GetActionDetail(arg1, arg2) {
   return window['go']['gui']['App']['GetActionDetail'](arg1, arg2);
 }
@@ -56,6 +60,10 @@ export function GetItems() {
 
 export function GetMessages() {
   return window['go']['gui']['App']['GetMessages']();
+}
+
+export function GetPresets(arg1, arg2) {
+  return window['go']['gui']['App']['GetPresets'](arg1, arg2);
 }
 
 export function GetTheme() {
@@ -102,6 +110,10 @@ export function OpenScriptInEditor(arg1) {
   return window['go']['gui']['App']['OpenScriptInEditor'](arg1);
 }
 
+export function PreviewCommand(arg1, arg2, arg3) {
+  return window['go']['gui']['App']['PreviewCommand'](arg1, arg2, arg3);
+}
+
 export function RecentConfigs() {
   return window['go']['gui']['App']['RecentConfigs']();
 }
@@ -114,12 +126,16 @@ export function ReloadConfigOnChange() {
   return window['go']['gui']['App']['ReloadConfigOnChange']();
 }
 
-export function RunAction(arg1, arg2) {
-  return window['go']['gui']['App']['RunAction'](arg1, arg2);
+export function RunAction(arg1, arg2, arg3) {
+  return window['go']['gui']['App']['RunAction'](arg1, arg2, arg3);
 }
 
-export function RunActionInline(arg1, arg2) {
-  return window['go']['gui']['App']['RunActionInline'](arg1, arg2);
+export function RunActionInline(arg1, arg2, arg3) {
+  return window['go']['gui']['App']['RunActionInline'](arg1, arg2, arg3);
+}
+
+export function SavePreset(arg1, arg2, arg3) {
+  return window['go']['gui']['App']['SavePreset'](arg1, arg2, arg3);
 }
 
 export function SecretsState() {

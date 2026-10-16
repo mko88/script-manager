@@ -14,7 +14,12 @@
     "loaded": "Loaded {path}",
     "loadedWithWarning": "Loaded {path} with a warning: {warning}",
     "openConfigEditorFailed": "Failed to open config editor: {error}",
-    "configEditorAlreadyOpen": "Config editor is already open"
+    "configEditorAlreadyOpen": "Config editor is already open",
+    "presetSaved": "Preset \"{name}\" saved",
+    "presetDeleted": "Preset \"{name}\" deleted",
+    "presetFailed": "Preset not saved: {error}",
+    "presetsWarning": "Presets not loaded: {warning}",
+    "invalidParams": "Not run: {error}"
   },
   "panel": {
     "items": "Items",
@@ -23,6 +28,7 @@
     "command": "Command"
   },
   "section": {
+    "parameters": "Parameters",
     "command": "Command",
     "output": "Output"
   },
@@ -103,6 +109,32 @@
     "scriptLabel": "Script: ",
     "running": "Running…",
     "exitCode": "Exit code: {code}"
+  },
+  "params": {
+    "arguments": "Arguments",
+    "extraArguments": "Additional arguments",
+    "argumentsPlaceholder": "Passed to the command as written",
+    "preset": "Preset",
+    "noPreset": "(no preset)",
+    "savePreset": "Save as…",
+    "updatePreset": "Update",
+    "deletePreset": "Delete",
+    "updatePresetTitle": "Save the current values to the selected preset",
+    "presetNameTitle": "Save preset",
+    "presetNameLabel": "Name",
+    "presetNameSave": "Save",
+    "presetNameCancel": "Cancel",
+    "presetReplaceNote": "A preset with this name is replaced.",
+    "deleteTitle": "Delete preset?",
+    "deleteMessage": "The preset \"{name}\" is removed from presets.yaml.",
+    "deleteConfirm": "Delete",
+    "deleteCancel": "Cancel",
+    "defaultOption": "(default: {value})",
+    "unsetOption": "(not set)",
+    "multiValueHint": "One value per line",
+    "requiredMarker": "*",
+    "requiredTitle": "Required",
+    "commandLine": "Command line"
   },
   "about": {
     "title": "Script Manager",
