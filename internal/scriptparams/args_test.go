@@ -282,3 +282,20 @@ func TestUnknownValues(t *testing.T) {
 		t.Errorf("UnknownNames = %v", got)
 	}
 }
+
+func TestArgsCmdRefusesNonASCIIOptionNames(t *testing.T) {
+	spec := Spec{Language: PowerShell, Params: []Param{
+		{Name: "Größe", Flag: "-Größe", Kind: Value},
+		{Name: "Schnell", Flag: "-Schnell", Kind: Flag},
+	}}
+	_, err := Args("cmd", spec, Values{"Größe": "1"})
+	if err == nil || !strings.Contains(err.Error(), "Arguments box") {
+		t.Errorf("cmd: err = %v", err)
+	}
+	if got, err := Args("cmd", spec, Values{"Schnell": true}); err != nil || got != "-Schnell" {
+		t.Errorf("cmd ASCII flag = %q, %v", got, err)
+	}
+	if got, err := Args("pwsh", spec, Values{"Größe": "1"}); err != nil || got != "-Größe '1'" {
+		t.Errorf("pwsh = %q, %v", got, err)
+	}
+}

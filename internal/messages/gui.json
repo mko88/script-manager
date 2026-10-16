@@ -135,7 +135,9 @@
     "multiValueHint": "One value per line",
     "requiredMarker": "*",
     "requiredTitle": "Required",
-    "commandLine": "Command line"
+    "commandLine": "Command line",
+    "staleValues": "This preset sets {names}, which the script no longer documents. Update the preset to drop them.",
+    "staleValuesUndocumented": "This preset sets {names}, but this command has no documented parameters. Update the preset to drop them."
   },
   "about": {
     "title": "Script Manager",

@@ -73,10 +73,25 @@
     values[name] = (e.currentTarget as HTMLTextAreaElement).value.split('\n')
   }
 
-  // Leaves out what would pass nothing, so presets.yaml only holds choices.
+  // Matches the backend's UnknownNames: a value counts when it would pass
+  // something.
+  function carries(v: unknown): boolean {
+    if (v === true || typeof v === 'number') return true
+    if (Array.isArray(v)) return v.some((s) => s !== null && s !== undefined && String(s) !== '')
+    return typeof v === 'string' && v !== '' && v.toLowerCase() !== 'false' && v !== '0'
+  }
+
+  $: paramNames = new Set(params.map((p) => p.name))
+  $: staleNames = Object.keys(values)
+    .filter((k) => !paramNames.has(k) && carries(values[k]))
+    .sort()
+
+  // Leaves out what would pass nothing, and anything the script doesn't
+  // document, so Update drops values a preset no longer applies to.
   function savedValues(): Record<string, any> {
     const out: Record<string, any> = {}
     for (const [k, v] of Object.entries(values)) {
+      if (!paramNames.has(k)) continue
       if (v === true) out[k] = true
       else if (Array.isArray(v)) {
         const l = v.map((s) => String(s).trim()).filter((s) => s !== '')
@@ -144,6 +159,14 @@
     >
     <button class="btn" type="button" disabled={!selectedPreset} on:click={remove}>{t('params.deletePreset')}</button>
   </div>
+
+  {#if staleNames.length > 0}
+    <p class="stale-note">
+      {documented
+        ? t('params.staleValues', { names: staleNames.join(', ') })
+        : t('params.staleValuesUndocumented', { names: staleNames.join(', ') })}
+    </p>
+  {/if}
 
   {#if documented}
     <div class="param-list">
@@ -235,6 +258,12 @@
     flex: 1 1 160px;
     min-width: 0;
     margin: 0;
+  }
+
+  .stale-note {
+    margin: 0;
+    font-size: var(--sm-type-sm);
+    color: var(--sm-warning);
   }
 
   .param-list {

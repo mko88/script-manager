@@ -64,6 +64,15 @@ func Quote(shellBase, value string) (string, error) {
 	return "", unknownShellError(shellBase)
 }
 
+func isASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] >= 0x80 {
+			return false
+		}
+	}
+	return true
+}
+
 func unknownShellError(shellBase string) error {
 	return fmt.Errorf("parameter values can't be quoted for the %s shell; use the Arguments box instead", shellBase)
 }
@@ -240,6 +249,11 @@ func Args(shellBase string, spec Spec, values Values) (string, error) {
 	flag := func(p Param) (string, error) {
 		if !optionName.MatchString(p.Flag) {
 			return "", fmt.Errorf("%s: %q is not a usable option name", p.Name, p.Flag)
+		}
+		// cmd reads the stub in the OEM code page, which can't be relied on
+		// to hold anything beyond ASCII.
+		if fam == famCmd && !isASCII(p.Flag) {
+			return "", fmt.Errorf("%s: the option name %s can't be passed through cmd; use the Arguments box instead", p.Name, p.Flag)
 		}
 		return flagToken(fam, p.Flag), nil
 	}

@@ -1,11 +1,10 @@
 package gui
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
-	"os"
 	"strings"
-	"time"
 
 	"script-manager/internal/action"
 	"script-manager/internal/config"
@@ -50,38 +49,33 @@ func (a *App) actionAt(itemIndex, actionIndex int) (*config.Item, config.Action,
 }
 
 type specEntry struct {
-	modTime time.Time
-	size    int64
-	spec    scriptparams.Spec
+	sum  [sha256.Size]byte
+	spec scriptparams.Spec
 }
 
 // scriptSpec parses the script at path, reusing the last parse while the
-// file's size and modification time are unchanged: the preview asks on
-// every keystroke.
+// file's content is unchanged: the preview asks on every keystroke.
 func (a *App) scriptSpec(path string) scriptparams.Spec {
 	if path == "" {
 		return scriptparams.Spec{}
 	}
-	info, err := os.Stat(path)
-	if err != nil {
-		return scriptparams.Spec{}
-	}
-	a.specMu.Lock()
-	entry, ok := a.specCache[path]
-	a.specMu.Unlock()
-	if ok && entry.size == info.Size() && entry.modTime.Equal(info.ModTime()) {
-		return entry.spec
-	}
 	text, err := scriptsource.Read(path)
 	if err != nil {
 		return scriptparams.Spec{}
+	}
+	sum := sha256.Sum256([]byte(text))
+	a.specMu.Lock()
+	entry, ok := a.specCache[path]
+	a.specMu.Unlock()
+	if ok && entry.sum == sum {
+		return entry.spec
 	}
 	spec := scriptparams.Parse(path, text)
 	a.specMu.Lock()
 	if a.specCache == nil {
 		a.specCache = map[string]specEntry{}
 	}
-	a.specCache[path] = specEntry{modTime: info.ModTime(), size: info.Size(), spec: spec}
+	a.specCache[path] = specEntry{sum: sum, spec: spec}
 	a.specMu.Unlock()
 	return spec
 }
@@ -105,9 +99,9 @@ func (a *App) commandArgs(scriptPath string, merged map[string]any, input RunInp
 	spec := a.scriptSpec(scriptPath)
 	if names := scriptparams.UnknownNames(spec, input.Values); len(names) > 0 {
 		if !spec.Documented {
-			return "", fmt.Errorf("this command has no documented parameters, so these values can't be passed: %s; pick no preset or use the Arguments box", strings.Join(names, ", "))
+			return "", fmt.Errorf("This preset sets %s, but this command has no documented parameters. Update the preset to drop them.", strings.Join(names, ", "))
 		}
-		return "", fmt.Errorf("not parameters of this script: %s; update or delete the preset", strings.Join(names, ", "))
+		return "", fmt.Errorf("This preset sets %s, which the script no longer documents. Update the preset to drop them.", strings.Join(names, ", "))
 	}
 	rendered := ""
 	if spec.Documented {

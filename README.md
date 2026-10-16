@@ -274,7 +274,7 @@ How the values are passed:
 
 ### Presets
 
-Presets are stored in `presets.yaml`, in the same folder as the loaded config. Saving a preset only writes this file, never the config. Global actions are listed under `actions:` as `id:<id>`, or `title:<title>` for an action without an id; an item's `customActions` are listed under `customActions:` and the item's name, the same way. Renaming an action's id or title, or an item, leaves its presets behind under the old name.
+Presets are stored in `presets.yaml`, in the same folder as the loaded config. Saving a preset only writes this file, never the config. Global actions are listed under `actions:` as `id:<id>`, or `title:<title>` for an action without an id; an item's `customActions` are listed under `customActions:` and the item's name, the same way. Renaming an action's id or title, or an item, leaves its presets behind under the old name. Items with the same name share their custom actions' presets, and so do actions without an id that have the same title.
 
 ```yaml
 actions:

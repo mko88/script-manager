@@ -198,3 +198,35 @@ func TestPresetKeysSeparateIdsFromTitles(t *testing.T) {
 		t.Errorf("file:\n%s", data)
 	}
 }
+
+func TestScriptSpecCacheSeesSameSizeEdits(t *testing.T) {
+	a, script := paramsTestApp(t)
+	info, err := os.Stat(script)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := a.scriptSpec(script); got.Params[0].Name != "force" {
+		t.Fatalf("params = %+v", got.Params)
+	}
+	edited := strings.Replace(documentedScript, "--force", "--forcE", 1)
+	if len(edited) != len(documentedScript) {
+		t.Fatal("edit changed the size")
+	}
+	if err := os.WriteFile(script, []byte(edited), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(script, info.ModTime(), info.ModTime()); err != nil {
+		t.Fatal(err)
+	}
+	if got := a.scriptSpec(script); got.Params[0].Name != "forcE" {
+		t.Errorf("stale spec served: %+v", got.Params)
+	}
+}
+
+func TestStalePresetValuesError(t *testing.T) {
+	a, _ := paramsTestApp(t)
+	got := a.PreviewCommand(0, 0, RunInputDTO{Values: map[string]any{"env": "prod", "gone": "x", "old": true}})
+	if got.Error != "This preset sets gone, old, which the script no longer documents. Update the preset to drop them." {
+		t.Errorf("error = %q", got.Error)
+	}
+}
