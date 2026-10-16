@@ -38,12 +38,19 @@ func main() {
 	}
 	cfg, err := loadConfig()
 
-	exe, dir := exepath.Path(), exepath.Dir()
+	dir := exepath.Dir()
 	update.CleanupOld(dir, runtime.GOOS)
+	var exe string
+	if dir != "" {
+		exe = filepath.Join(dir, filepath.Base(exepath.Path()))
+	}
 
+	updater := update.NewClient(version.Version, runtime.GOOS, runtime.GOARCH)
+	if o := updater.Override(); o != "" {
+		fmt.Fprintln(os.Stderr, "update source overridden by", update.EnvBaseURL+":", o)
+	}
 	app := ui.NewApp(cfg, loadConfig, err)
-	app.EnableUpdates(update.NewClient(version.Version, runtime.GOOS, runtime.GOARCH), dir,
-		uiprefs.Load(appdata.Dir()).CheckForUpdates)
+	app.EnableUpdates(updater, exe, uiprefs.Load(appdata.Dir()).CheckForUpdates)
 
 	p := tea.NewProgram(app, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
@@ -53,7 +60,7 @@ func main() {
 
 	if app.RestartRequested() {
 		fmt.Println("Updated. Restarting…")
-		if err := update.RestartInPlace(filepath.Join(dir, filepath.Base(exe)), os.Args[1:]); err != nil {
+		if err := update.RestartInPlace(exe, os.Args[1:]); err != nil {
 			fmt.Fprintln(os.Stderr, "updated, but the restart failed; start script-manager again:", err)
 			os.Exit(1)
 		}

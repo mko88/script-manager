@@ -55,6 +55,7 @@
     CheckForUpdateOnStartup,
     InstallUpdate,
     SetCheckForUpdates,
+    CanCheckForUpdates,
     RecentConfigs,
     ConfigPath,
     GetUIPrefs,
@@ -651,6 +652,9 @@
 
   let checkForUpdates = true
   let updateLatest = ''
+  let updateInstallable = true
+  let updateReleaseUrl = ''
+  let canCheckForUpdates = true
   let updateNoticeDismissed = false
   let updateChecking = false
   let updateUpToDate = false
@@ -661,17 +665,28 @@
   // Startup check failures are logged by the backend and stay silent here.
   onMount(async () => {
     try {
+      canCheckForUpdates = await CanCheckForUpdates()
       const info = await CheckForUpdateOnStartup()
-      if (info?.available) updateLatest = info.latest
+      if (info?.available) setUpdate(info)
     } catch {}
   })
+
+  function setUpdate(info: gui.UpdateInfoDTO) {
+    updateLatest = info.available ? info.latest : ''
+    updateInstallable = info.installable
+    updateReleaseUrl = info.releaseUrl
+  }
+
+  function openReleasePage() {
+    BrowserOpenURL(updateReleaseUrl || GITHUB_URL + '/releases')
+  }
 
   async function checkForUpdateNow() {
     updateChecking = true
     updateUpToDate = false
     try {
       const info = await CheckForUpdate()
-      updateLatest = info.available ? info.latest : ''
+      setUpdate(info)
       updateUpToDate = !info.available
     } catch (err) {
       flash(t('toast.updateCheckFailed', { error: String(err) }))
@@ -819,10 +834,16 @@
     {#if updateNoticeShown}
       <div class="update-notice toolbar-right-start">
         <span>{t('update.available', { version: updateLatest })}</span>
-        <button class="btn btn-primary" type="button" disabled={updating} on:click={installUpdate}>
-          {updating ? t('about.updating') : t('about.updateAndRestart')}
-        </button>
-        <IconButton title={t('update.dismiss')} on:click={() => (updateNoticeDismissed = true)}><Icon name="cancel" /></IconButton>
+        {#if updateInstallable}
+          <button class="btn btn-primary" type="button" disabled={updating} on:click={installUpdate}>
+            {updating ? t('about.updating') : t('about.updateAndRestart')}
+          </button>
+        {:else}
+          <button class="btn" type="button" on:click={openReleasePage}>{t('about.openReleasePage')}</button>
+        {/if}
+        <IconButton title={t('update.dismiss')} aria={t('update.dismissAria')} on:click={() => (updateNoticeDismissed = true)}
+          ><Icon name="cancel" /></IconButton
+        >
       </div>
     {/if}
     <IconButton
@@ -868,11 +889,16 @@
           <p class="about-description">{t('about.description')}</p>
           <a class="about-github-link" href={GITHUB_URL} on:click|preventDefault={openGithub}>{t('about.githubLink')}</a>
           <div class="about-update">
-            {#if updateLatest}
+            {#if updateLatest && updateInstallable}
               <div class="about-update-status">{t('about.updateAvailable', { version: updateLatest })}</div>
               <button class="btn btn-primary" type="button" disabled={updating} on:click={installUpdate}>
                 {updating ? t('about.updating') : t('about.updateAndRestart')}
               </button>
+            {:else if updateLatest}
+              <div class="about-update-status">{t('about.notInstallable', { version: updateLatest })}</div>
+              <button class="btn" type="button" on:click={openReleasePage}>{t('about.openReleasePage')}</button>
+            {:else if !canCheckForUpdates}
+              <div class="about-update-status">{t('about.devBuild')}</div>
             {:else}
               <div class="about-update-row">
                 <button class="btn" type="button" disabled={updateChecking} on:click={checkForUpdateNow}>

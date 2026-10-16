@@ -11,6 +11,8 @@ export function AnswerConversion(arg1:boolean):Promise<void>;
 
 export function BrowseConfig():Promise<gui.OpenedConfigDTO>;
 
+export function CanCheckForUpdates():Promise<boolean>;
+
 export function CancelInlineAction(arg1:number,arg2:number):Promise<void>;
 
 export function CheckForUpdate():Promise<gui.UpdateInfoDTO>;

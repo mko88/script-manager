@@ -152,10 +152,14 @@
     "upToDate": "Up to date",
     "updateAvailable": "Version {version} is available",
     "updateAndRestart": "Update & restart",
-    "updating": "Updating…"
+    "updating": "Updating…",
+    "notInstallable": "Version {version} has no checksums, so it can't be installed automatically",
+    "openReleasePage": "Open release page",
+    "devBuild": "Development builds don't check for updates"
   },
   "update": {
     "available": "{version} available",
-    "dismiss": "Dismiss"
+    "dismiss": "Dismiss",
+    "dismissAria": "Dismiss the update notice"
   }
 }

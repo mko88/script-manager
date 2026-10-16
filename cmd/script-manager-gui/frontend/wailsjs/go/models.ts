@@ -279,6 +279,8 @@ export namespace gui {
 	    available: boolean;
 	    current: string;
 	    latest: string;
+	    installable: boolean;
+	    releaseUrl: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new UpdateInfoDTO(source);
@@ -289,6 +291,8 @@ export namespace gui {
 	        this.available = source["available"];
 	        this.current = source["current"];
 	        this.latest = source["latest"];
+	        this.installable = source["installable"];
+	        this.releaseUrl = source["releaseUrl"];
 	    }
 	}
 

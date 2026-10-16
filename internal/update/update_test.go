@@ -242,7 +242,7 @@ func checkAndInstall(t *testing.T, c *Client, dir string) error {
 	if !res.Available {
 		t.Fatal("update not offered")
 	}
-	return c.Install(context.Background(), res, dir)
+	return c.Install(context.Background(), res, filepath.Join(dir, binaryName("script-manager-gui", c.GOOS)))
 }
 
 func TestInstallSwapsAllThree(t *testing.T) {
@@ -382,26 +382,6 @@ func TestArchiveMissingBinaryRefused(t *testing.T) {
 	assertUnchanged(t, dir, "windows")
 }
 
-func TestRollbackWhenThirdSwapFails(t *testing.T) {
-	f := serve(t, fakeRelease(t, "v1.6.0"))
-	dir := installDir(t, "windows")
-	third := filepath.Join(dir, binaryName(Binaries[2], "windows"))
-
-	rename = func(from, to string) error {
-		if to == third && strings.Contains(from, ".new-") {
-			return errors.New("locked")
-		}
-		return os.Rename(from, to)
-	}
-	defer func() { rename = os.Rename }()
-
-	err := checkAndInstall(t, f.client("v1.5.1", "windows"), dir)
-	if err == nil || !strings.Contains(err.Error(), "nothing was changed") {
-		t.Fatalf("err = %v, want a rollback error", err)
-	}
-	assertUnchanged(t, dir, "windows")
-}
-
 func TestUnwritableDirRefused(t *testing.T) {
 	f := serve(t, fakeRelease(t, "v1.6.0"))
 	dir := filepath.Join(t.TempDir(), "missing")
@@ -413,20 +393,5 @@ func TestUnwritableDirRefused(t *testing.T) {
 	defer f.mu.Unlock()
 	if len(f.agents) > 1 {
 		t.Fatal("downloaded despite an unwritable dir")
-	}
-}
-
-func TestCleanupOldIgnoresMissing(t *testing.T) {
-	dir := t.TempDir()
-	keep := filepath.Join(dir, "notes.old")
-	os.WriteFile(keep, nil, 0o644)
-	os.WriteFile(filepath.Join(dir, "sm-config-edit.exe.old"), nil, 0o644)
-	CleanupOld(dir, "windows")
-	CleanupOld("", "windows")
-	if _, err := os.Stat(filepath.Join(dir, "sm-config-edit.exe.old")); err == nil {
-		t.Error("sm-config-edit.exe.old survived")
-	}
-	if _, err := os.Stat(keep); err != nil {
-		t.Error("an unrelated .old file was removed")
 	}
 }

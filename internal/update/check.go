@@ -9,7 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -20,15 +22,23 @@ const (
 	// read from <base>/releases/latest.
 	DefaultBaseURL = "https://api.github.com/repos/mko88/script-manager"
 	// EnvBaseURL overrides DefaultBaseURL, e.g. to point at a local test
-	// server.
+	// server. It must be https://, or http:// on the loopback host.
 	EnvBaseURL = "SCRIPT_MANAGER_UPDATE_URL"
 
 	ChecksumsAsset = "checksums.txt"
+
+	// downloadPrefix is the only place assets may come from when the default
+	// source is in use; GitHub redirects from there to its CDN.
+	downloadPrefix = "https://github.com/mko88/script-manager/releases/download/"
 
 	userAgent    = "script-manager-updater"
 	CheckTimeout = 10 * time.Second
 	maxJSONBytes = 1 << 20
 )
+
+// idleTimeout aborts a request whose response headers, or next body bytes,
+// take longer than this.
+var idleTimeout = 30 * time.Second
 
 // ErrNotCheckable is returned for builds without a release version (dev
 // builds, untagged commits), which never check for updates.
@@ -40,35 +50,88 @@ type Result struct {
 	Latest     string // the release tag, e.g. v1.6.0
 	Available  bool
 	ReleaseURL string
+	// Installable is false for a newer release that has no checksums.txt;
+	// it can only be installed by hand from ReleaseURL.
+	Installable bool
 
 	archiveName  string
 	archiveURL   string
 	checksumsURL string
 }
 
-// Client checks for and installs releases. The zero value is not usable;
-// build one with NewClient.
+// Client checks for and installs releases. Build one with NewClient.
 type Client struct {
 	BaseURL string
 	HTTP    *http.Client
 	GOOS    string
 	GOARCH  string
 	Current string
+
+	// strict pins asset URLs to the project's GitHub download path and
+	// refuses non-https redirects; it is on unless EnvBaseURL is set.
+	strict      bool
+	override    string
+	overrideErr error
 }
 
 // NewClient returns a client for the running build, honouring EnvBaseURL.
 func NewClient(current, goos, goarch string) *Client {
-	base := strings.TrimSpace(os.Getenv(EnvBaseURL))
-	if base == "" {
-		base = DefaultBaseURL
-	}
-	return &Client{
-		BaseURL: strings.TrimRight(base, "/"),
-		HTTP:    &http.Client{Timeout: 5 * time.Minute},
+	c := &Client{
+		BaseURL: DefaultBaseURL,
 		GOOS:    goos,
 		GOARCH:  goarch,
 		Current: current,
+		strict:  true,
 	}
+	if base := strings.TrimSpace(os.Getenv(EnvBaseURL)); base != "" {
+		c.strict = false
+		c.override = strings.TrimRight(base, "/")
+		c.BaseURL = c.override
+		c.overrideErr = validOverride(c.override)
+	}
+	c.HTTP = newHTTPClient(c.strict)
+	return c
+}
+
+// Override is the EnvBaseURL value in effect, or "".
+func (c *Client) Override() string { return c.override }
+
+func validOverride(base string) error {
+	u, err := url.Parse(base)
+	if err == nil {
+		switch {
+		case u.Scheme == "https" && u.Host != "":
+			return nil
+		case u.Scheme == "http":
+			switch u.Hostname() {
+			case "127.0.0.1", "::1", "localhost":
+				return nil
+			}
+		}
+	}
+	return fmt.Errorf("%s must be an https:// URL, or http:// on 127.0.0.1, ::1 or localhost", EnvBaseURL)
+}
+
+func newHTTPClient(strict bool) *http.Client {
+	tr := http.DefaultTransport.(*http.Transport).Clone()
+	tr.DialContext = (&net.Dialer{Timeout: 15 * time.Second, KeepAlive: 30 * time.Second}).DialContext
+	tr.TLSHandshakeTimeout = 15 * time.Second
+	tr.ResponseHeaderTimeout = idleTimeout
+	c := &http.Client{Transport: tr}
+	if strict {
+		c.CheckRedirect = httpsOnlyRedirect
+	}
+	return c
+}
+
+func httpsOnlyRedirect(req *http.Request, via []*http.Request) error {
+	if req.URL.Scheme != "https" {
+		return fmt.Errorf("refusing redirect to non-https %s", req.URL.Redacted())
+	}
+	if len(via) >= 10 {
+		return errors.New("too many redirects")
+	}
+	return nil
 }
 
 type ghAsset struct {
@@ -90,6 +153,9 @@ func (c *Client) Check(ctx context.Context) (Result, error) {
 	cur, ok := parseBuild(c.Current)
 	if !ok {
 		return Result{}, ErrNotCheckable
+	}
+	if c.overrideErr != nil {
+		return Result{}, c.overrideErr
 	}
 	ctx, cancel := context.WithTimeout(ctx, CheckTimeout)
 	defer cancel()
@@ -117,12 +183,18 @@ func (c *Client) Check(ctx context.Context) (Result, error) {
 			res.archiveName, res.archiveURL = a.Name, a.URL
 		case ChecksumsAsset:
 			res.checksumsURL = a.URL
+		default:
+			continue
+		}
+		if c.strict && a.URL != downloadPrefix+rel.TagName+"/"+a.Name {
+			return Result{}, fmt.Errorf("release %s: %s has an unexpected download URL %s", rel.TagName, a.Name, a.URL)
 		}
 	}
 	if res.archiveURL == "" {
 		return Result{}, fmt.Errorf("release %s has no %s download", rel.TagName, name)
 	}
 	res.Available = true
+	res.Installable = res.checksumsURL != ""
 	return res, nil
 }
 
@@ -140,10 +212,13 @@ func (c *Client) fetchLatest(ctx context.Context) (ghRelease, error) {
 	return rel, nil
 }
 
-// get performs a GET and fails on any non-200 status.
+// get performs a GET and fails on any non-200 status. The body is cancelled
+// when it stalls for idleTimeout.
 func (c *Client) get(ctx context.Context, url, accept string) (*http.Response, error) {
+	ctx, cancel := context.WithCancel(ctx)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	req.Header.Set("User-Agent", userAgent)
@@ -152,13 +227,37 @@ func (c *Client) get(ctx context.Context, url, accept string) (*http.Response, e
 	}
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
+		cancel()
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
 		resp.Body.Close()
+		cancel()
 		return nil, fmt.Errorf("%s returned %s", url, resp.Status)
 	}
+	resp.Body = &idleBody{rc: resp.Body, cancel: cancel, timer: time.AfterFunc(idleTimeout, cancel)}
 	return resp, nil
+}
+
+type idleBody struct {
+	rc     io.ReadCloser
+	cancel context.CancelFunc
+	timer  *time.Timer
+}
+
+func (b *idleBody) Read(p []byte) (int, error) {
+	n, err := b.rc.Read(p)
+	if n > 0 {
+		b.timer.Reset(idleTimeout)
+	}
+	return n, err
+}
+
+func (b *idleBody) Close() error {
+	b.timer.Stop()
+	err := b.rc.Close()
+	b.cancel()
+	return err
 }
 
 // archiveName is the release asset for a platform, as scripts/release.ps1

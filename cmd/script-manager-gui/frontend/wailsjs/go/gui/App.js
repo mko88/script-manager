@@ -14,6 +14,10 @@ export function BrowseConfig() {
   return window['go']['gui']['App']['BrowseConfig']();
 }
 
+export function CanCheckForUpdates() {
+  return window['go']['gui']['App']['CanCheckForUpdates']();
+}
+
 export function CancelInlineAction(arg1, arg2) {
   return window['go']['gui']['App']['CancelInlineAction'](arg1, arg2);
 }

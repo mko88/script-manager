@@ -50,7 +50,8 @@ type App struct {
 	pinPending   config.Action
 
 	updater        *update.Client
-	updateDir      string
+	updateExe      string
+	cancelInstall  func()
 	checkOnStartup bool
 	updateResult   update.Result
 	checkingUpdate bool
@@ -337,7 +338,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		if a.installing {
-			return a, nil
+			return a.installingKey(msg)
 		}
 		if a.updateConfirm {
 			return a.updateConfirmKey(msg)

@@ -29,6 +29,15 @@ for arg in "$@"; do
 	esac
 done
 
+# SM_VERSION stamps a fake version for testing the updater; never for releases.
+if [ -n "${SM_VERSION:-}" ]; then
+	if ! printf '%s' "$SM_VERSION" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then
+		echo "SM_VERSION must look like v1.2.3, got '$SM_VERSION'" >&2
+		exit 1
+	fi
+	echo "SM_VERSION override: test build ($SM_VERSION)"
+fi
+
 if [ "$run_vet" = 1 ]; then
 	echo "Running go vet..."
 	go vet ./...

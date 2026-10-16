@@ -38,7 +38,7 @@ func updateApp(t *testing.T, baseURL, current string, onStartup bool) (*App, str
 		os.WriteFile(filepath.Join(dir, b), []byte(b+" current"), 0o755)
 	}
 	a := NewApp(&config.Config{}, nil, nil)
-	a.EnableUpdates(update.NewClient(current, "linux", "amd64"), dir, onStartup)
+	a.EnableUpdates(update.NewClient(current, "linux", "amd64"), filepath.Join(dir, "script-manager"), onStartup)
 	return a, dir
 }
 
@@ -152,9 +152,91 @@ func TestUpdateKeyConfirmInstalls(t *testing.T) {
 
 func TestStatusBarShowsUpdateHint(t *testing.T) {
 	bar := newStatusBarTile()
-	bar.SetUpdateHint("v1.6.0")
+	bar.SetUpdateHint("v1.6.0", true)
 	bar.Size.Width = 120
 	if !strings.Contains(bar.View(), "Update to v1.6.0") {
 		t.Error("hint missing from the status bar")
+	}
+}
+
+func TestStartupCheckBlocksSecondCheck(t *testing.T) {
+	srv := updateServer(t, "v1.6.0")
+	a, _ := updateApp(t, srv.URL, "v1.5.1", true)
+	pending := a.startupUpdateCheck()
+	if !a.checkingUpdate {
+		t.Fatal("startup check not marked as running")
+	}
+	if _, cmd := a.Update(key("ctrl+u")); cmd != nil {
+		t.Error("Ctrl+U started a second check")
+	}
+	run(a, pending)
+	if a.checkingUpdate {
+		t.Error("still marked as checking")
+	}
+}
+
+func TestCheckResultUnderPINPromptOnlySetsHint(t *testing.T) {
+	srv := updateServer(t, "v1.6.0")
+	a, _ := updateApp(t, srv.URL, "v1.5.1", false)
+	_, cmd := a.Update(key("ctrl+u"))
+	a.pinPrompt = true
+	a.status.SetMessage("PIN: ")
+	run(a, cmd)
+	if a.updateConfirm {
+		t.Error("confirm opened over the PIN prompt")
+	}
+	if a.status.update != "v1.6.0" {
+		t.Errorf("hint = %q", a.status.update)
+	}
+	if a.status.message != "PIN: " {
+		t.Errorf("PIN prompt replaced by %q", a.status.message)
+	}
+}
+
+func TestCtrlCCancelsInstall(t *testing.T) {
+	srv := updateServer(t, "v1.6.0")
+	a, dir := updateApp(t, srv.URL, "v1.5.1", true)
+	run(a, a.startupUpdateCheck())
+	a.Update(key("ctrl+u"))
+	_, cmd := a.Update(key("y"))
+	a.Update(tea.KeyMsg{Type: tea.KeyCtrlC})
+	run(a, cmd)
+	if a.RestartRequested() || a.installing {
+		t.Fatal("install not cancelled")
+	}
+	if !strings.Contains(a.status.message, "cancelled") {
+		t.Errorf("message = %q", a.status.message)
+	}
+	data, _ := os.ReadFile(filepath.Join(dir, "script-manager"))
+	if string(data) != "script-manager current" {
+		t.Error("binary changed after cancel")
+	}
+}
+
+func TestNotInstallableReleasePointsToPage(t *testing.T) {
+	dir := t.TempDir()
+	for _, b := range update.Binaries {
+		os.WriteFile(filepath.Join(dir, b), []byte(b), 0o755)
+	}
+	rel, err := testserver.FromDir(dir, "v1.6.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	delete(rel.Assets, update.ChecksumsAsset)
+	srv := httptest.NewServer(testserver.Handler(rel, nil))
+	t.Cleanup(srv.Close)
+
+	a, _ := updateApp(t, srv.URL, "v1.5.1", true)
+	run(a, a.startupUpdateCheck())
+	a.status.Size.Width = 200
+	if !strings.Contains(a.status.View(), "v1.6.0 on the release page") {
+		t.Errorf("hint missing: %q", a.status.View())
+	}
+	a.Update(key("ctrl+u"))
+	if a.updateConfirm {
+		t.Error("offered to install a release without checksums")
+	}
+	if !strings.Contains(a.status.message, "release") {
+		t.Errorf("message = %q", a.status.message)
 	}
 }

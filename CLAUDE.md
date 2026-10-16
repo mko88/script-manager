@@ -164,6 +164,10 @@ checkout (or by a bare `go build`/`wails build`) says `dev`. That string
 is what `script-manager-gui`'s About panel shows, so a screenshot of it
 identifies the exact commit it came from.
 
+`SM_VERSION` (`build-container.ps1 -Version`) overrides that string with a
+`vX.Y.Z` of your choice. It is for testing the updater only — never for a
+release build; `scripts/release.ps1` refuses to run while it is set.
+
 Releasing is therefore: merge to `main`, then tag that merge commit.
 
 ```

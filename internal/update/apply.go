@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -19,16 +20,21 @@ import (
 
 const (
 	maxArchiveBytes   = 512 << 20
-	maxBinaryBytes    = 256 << 20
 	maxChecksumsBytes = 1 << 20
 )
+
+// maxBinaryBytes caps each extracted binary; a variable so tests can lower it.
+var maxBinaryBytes int64 = 256 << 20
 
 // Binaries are the executables a release ships; all three are replaced
 // together.
 var Binaries = []string{"script-manager", "script-manager-gui", "sm-config-edit"}
 
-// rename is swapped out in tests to inject failures.
-var rename = os.Rename
+// rename and remove are swapped out in tests to inject failures.
+var (
+	rename = os.Rename
+	remove = os.Remove
+)
 
 func binaryName(base, goos string) string {
 	if goos == "windows" {
@@ -37,19 +43,37 @@ func binaryName(base, goos string) string {
 	return base
 }
 
+func (c *Client) knownBinary(name string) bool {
+	for _, b := range Binaries {
+		if name == binaryName(b, c.GOOS) {
+			return true
+		}
+	}
+	return false
+}
+
 // Install downloads res's archive, verifies it against the release's
-// checksums.txt, and replaces the three binaries in dir. On any failure dir
-// is left as it was.
-func (c *Client) Install(ctx context.Context, res Result, dir string) error {
+// checksums.txt, and replaces the three binaries in the directory of exe,
+// the running executable. On any failure the directory is left as it was,
+// or the error names what could not be restored.
+func (c *Client) Install(ctx context.Context, res Result, exe string) error {
 	if !res.Available {
 		return errors.New("no update available")
 	}
-	if err := checkWritable(dir); err != nil {
-		return err
-	}
-	if res.checksumsURL == "" {
+	if !res.Installable || res.checksumsURL == "" {
 		return fmt.Errorf("release %s has no %s, so its download can't be verified; install it manually from %s",
 			res.Latest, ChecksumsAsset, res.ReleaseURL)
+	}
+	if exe == "" {
+		return errors.New("can't locate the running executable")
+	}
+	if name := filepath.Base(exe); !c.knownBinary(name) {
+		return fmt.Errorf("can't update: this program is named %s, but only %s can be updated in place; rename it back or update by hand",
+			name, strings.Join(Binaries, ", "))
+	}
+	dir := filepath.Dir(exe)
+	if err := checkWritable(dir); err != nil {
+		return err
 	}
 
 	want, err := c.expectedSum(ctx, res)
@@ -71,6 +95,9 @@ func (c *Client) Install(ctx context.Context, res Result, dir string) error {
 	}()
 	if err != nil {
 		return fmt.Errorf("unpacking %s: %w", res.archiveName, err)
+	}
+	if err := ctx.Err(); err != nil {
+		return err
 	}
 	return c.swap(staged, dir)
 }
@@ -100,24 +127,31 @@ func (c *Client) expectedSum(ctx context.Context, res Result) (string, error) {
 }
 
 // findChecksum reads sha256sum output ("<hex>  <name>", or "<hex> *<name>")
-// and returns the digest for name.
+// and returns the digest for name, which must appear exactly once.
 func findChecksum(r io.Reader, name string) (string, error) {
 	sc := bufio.NewScanner(r)
+	found := ""
 	for sc.Scan() {
 		fields := strings.Fields(sc.Text())
 		if len(fields) != 2 || strings.TrimPrefix(fields[1], "*") != name {
 			continue
 		}
+		if found != "" {
+			return "", fmt.Errorf("%s lists %s more than once", ChecksumsAsset, name)
+		}
 		sum := strings.ToLower(fields[0])
 		if b, err := hex.DecodeString(sum); err != nil || len(b) != sha256.Size {
 			return "", fmt.Errorf("%s has a malformed entry for %s", ChecksumsAsset, name)
 		}
-		return sum, nil
+		found = sum
 	}
 	if err := sc.Err(); err != nil {
 		return "", fmt.Errorf("reading %s: %w", ChecksumsAsset, err)
 	}
-	return "", fmt.Errorf("%s has no entry for %s, so it can't be verified", ChecksumsAsset, name)
+	if found == "" {
+		return "", fmt.Errorf("%s has no entry for %s, so it can't be verified", ChecksumsAsset, name)
+	}
+	return found, nil
 }
 
 // download saves url to a temp file and checks its SHA-256 against want.
@@ -252,7 +286,7 @@ func walkZip(archive string, add func(string, io.Reader) error) error {
 		if !mode.IsRegular() {
 			continue
 		}
-		if f.UncompressedSize64 > maxBinaryBytes {
+		if f.UncompressedSize64 > uint64(maxBinaryBytes) {
 			return fmt.Errorf("archive entry %q is larger than allowed", f.Name)
 		}
 		rc, err := f.Open()
@@ -309,55 +343,97 @@ func walkTarGz(archive string, add func(string, io.Reader) error) error {
 }
 
 // swap moves each staged binary into place, keeping the current one as
-// <name>.old. Any failure restores every file already swapped.
+// <name>.old. Any failure restores every file already moved; files that
+// can't be restored are named in the error.
 func (c *Client) swap(staged map[string]string, dir string) error {
-	type done struct {
-		target, old string
-		hadOld      bool
+	type moved struct {
+		target, old string // old is "" when there was no previous file
+		replaced    bool   // the new file is in place at target
 	}
-	var swapped []done
-	rollback := func() {
-		for i := len(swapped) - 1; i >= 0; i-- {
-			s := swapped[i]
-			if s.hadOld {
-				rename(s.old, s.target)
-			} else {
-				os.Remove(s.target)
+	var done []moved
+
+	restore := func() []string {
+		var failed []string
+		for i := len(done) - 1; i >= 0; i-- {
+			m := done[i]
+			if m.replaced {
+				if err := remove(m.target); err != nil && !os.IsNotExist(err) && m.old == "" {
+					failed = append(failed, fmt.Sprintf("could not remove the new %s; delete it by hand", filepath.Base(m.target)))
+					continue
+				}
+			}
+			if m.old != "" {
+				if err := rename(m.old, m.target); err != nil {
+					failed = append(failed, fmt.Sprintf("could not restore %s; rename %s back to %s by hand",
+						filepath.Base(m.target), filepath.Base(m.old), filepath.Base(m.target)))
+				}
 			}
 		}
+		return failed
+	}
+	fail := func(target string, err error) error {
+		msg := fmt.Sprintf("replacing %s: %v", filepath.Base(target), err)
+		if failed := restore(); len(failed) > 0 {
+			return fmt.Errorf("%s; %s", msg, strings.Join(failed, "; "))
+		}
+		return fmt.Errorf("%s; nothing was changed", msg)
 	}
 
 	for _, b := range Binaries {
 		target := filepath.Join(dir, binaryName(b, c.GOOS))
-		old := target + ".old"
-		d := done{target: target, old: old}
+		m := moved{target: target}
 		if _, err := os.Stat(target); err == nil {
-			os.Remove(old)
+			old, err := oldName(target)
+			if err != nil {
+				return fail(target, err)
+			}
 			if err := rename(target, old); err != nil {
-				rollback()
-				return fmt.Errorf("replacing %s: %w; nothing was changed", filepath.Base(target), err)
+				return fail(target, err)
 			}
-			d.hadOld = true
+			m.old = old
 		}
+		done = append(done, m)
 		if err := rename(staged[b], target); err != nil {
-			if d.hadOld {
-				rename(old, target)
-			}
-			rollback()
-			return fmt.Errorf("replacing %s: %w; nothing was changed", filepath.Base(target), err)
+			return fail(target, err)
 		}
-		swapped = append(swapped, d)
+		done[len(done)-1].replaced = true
 	}
 	return nil
 }
 
-// CleanupOld removes the .old copies a previous update left in dir. A copy
-// that is still running (Windows locks it) stays until a later start.
+// oldName is where target's current file is kept: <name>.old, or a unique
+// <name>.old-<random> when a previous .old can't be removed (on Windows, an
+// old copy that is still running).
+func oldName(target string) (string, error) {
+	old := target + ".old"
+	if err := remove(old); err == nil || os.IsNotExist(err) {
+		return old, nil
+	}
+	b := make([]byte, 4)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return old + "-" + hex.EncodeToString(b), nil
+}
+
+// CleanupOld removes what earlier updates left in dir: <name>.old* copies
+// and .<name>.new-* staging files. A copy that is still running (Windows
+// locks it) stays until a later start.
 func CleanupOld(dir, goos string) {
 	if dir == "" {
 		return
 	}
 	for _, b := range Binaries {
-		os.Remove(filepath.Join(dir, binaryName(b, goos)+".old"))
+		n := binaryName(b, goos)
+		for _, pattern := range []string{n + ".old", n + ".old-*", "." + n + ".new-*"} {
+			matches, _ := filepath.Glob(filepath.Join(dir, pattern))
+			for _, m := range matches {
+				os.Remove(m)
+			}
+		}
+	}
+	matches, _ := filepath.Glob(filepath.Join(dir, ".sm-update-probe-*"))
+	for _, m := range matches {
+		os.Remove(m)
 	}
 }
