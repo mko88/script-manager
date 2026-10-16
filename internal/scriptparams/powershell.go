@@ -12,7 +12,7 @@ var (
 	psStringLit    = regexp.MustCompile(`'((?:[^']|'')*)'|"((?:[^"` + "`" + `]|` + "`" + `.)*)"`)
 	psBlockComment = regexp.MustCompile(`(?s)<#(.*?)#>`)
 	psParamStart   = regexp.MustCompile(`(?i)^param\s*\(`)
-	psVariable     = regexp.MustCompile(`^\$(?:\{([^}]+)\}|([A-Za-z_][A-Za-z0-9_]*))`)
+	psVariable     = regexp.MustCompile(`^\$(?:\{([^}]+)\}|([\p{L}_][\p{L}\p{N}_]*))`)
 )
 
 type psHelp struct {

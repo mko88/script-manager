@@ -146,7 +146,7 @@ func TestValidate(t *testing.T) {
 		want   string
 	}{
 		{Values{}, "required: env"},
-		{Values{"env": "qa"}, "not a valid value"},
+		{Values{"env": "qa"}, "isn't one of dev, prod"},
 		{Values{"env": []any{"dev", "prod"}}, "single value"},
 		{Values{"env": "dev", "second": "x"}, "first needs a value"},
 		{Values{"env": "dev", "first": "x", "second": "y"}, ""},
@@ -198,5 +198,87 @@ func TestExpandValues(t *testing.T) {
 	}
 	if l := got["b"].([]string); l[0] != "Y" || l[1] != "Z" {
 		t.Errorf("got %v", got["b"])
+	}
+}
+
+func TestQuoteErrorsNeverEchoTheValue(t *testing.T) {
+	const secret = "hunter2-s3cr3t"
+	for _, v := range []string{secret + "%", secret + `"`, secret + `\`, secret + "\n", secret + "\x00"} {
+		_, err := Quote("cmd", v)
+		if err == nil {
+			t.Errorf("cmd accepted %q", v)
+			continue
+		}
+		if strings.Contains(err.Error(), "hunter2") {
+			t.Errorf("error leaks the value: %v", err)
+		}
+	}
+	spec := Spec{Params: []Param{
+		{Name: "token", Flag: "--token", Kind: Value},
+		{Name: "env", Flag: "--env", Kind: Choice, Choices: []string{"dev"}},
+	}}
+	for _, values := range []Values{{"token": secret + "&calc"}, {"env": secret}} {
+		_, err := Args("cmd", spec, values)
+		if err == nil || strings.Contains(err.Error(), "hunter2") {
+			t.Errorf("Args(%v) error = %v, want a refusal without the value", values, err)
+		}
+	}
+}
+
+func TestQuoteCmdRejectsTrailingBackslash(t *testing.T) {
+	if _, err := Quote("cmd", `C:\dir\`); err == nil {
+		t.Error("cmd accepted a value ending in a backslash")
+	}
+	if _, err := Quote("cmd", `C:\dir\x`); err != nil {
+		t.Errorf("inner backslashes refused: %v", err)
+	}
+}
+
+func TestArgsUnknownShell(t *testing.T) {
+	spec := Spec{Params: []Param{
+		{Name: "force", Flag: "--force", Kind: Flag},
+		{Name: "env", Flag: "--env", Kind: Value},
+	}}
+	for _, values := range []Values{{"force": true}, {"env": "dev"}} {
+		_, err := Args("fish", spec, values)
+		if err == nil || !strings.Contains(err.Error(), "Arguments box") {
+			t.Errorf("fish %v: err = %v", values, err)
+		}
+	}
+	if got, err := Args("fish", spec, Values{}); err != nil || got != "" {
+		t.Errorf("fish with nothing set = %q, %v", got, err)
+	}
+	for _, sh := range []string{"bash", "sh", "zsh", "dash", "ksh", "ash", "busybox"} {
+		if _, err := Args(sh, spec, Values{"env": "dev"}); err != nil {
+			t.Errorf("%s: %v", sh, err)
+		}
+	}
+}
+
+func TestArgsQuotesSpecialFlagsForSh(t *testing.T) {
+	spec := Spec{Params: []Param{{Name: "help", Flag: "-?", Kind: Flag}}}
+	if got, _ := Args("bash", spec, Values{"help": true}); got != "'-?'" {
+		t.Errorf("bash = %q", got)
+	}
+	if got, _ := Args("pwsh", spec, Values{"help": true}); got != "-?" {
+		t.Errorf("pwsh = %q", got)
+	}
+}
+
+func TestArgsChecksOnlyEmittedFlags(t *testing.T) {
+	spec := Spec{Params: []Param{
+		{Name: "odd", Flag: "-x;y", Kind: Flag},
+		{Name: "ok", Flag: "--ok", Kind: Flag},
+	}}
+	if got, err := Args("bash", spec, Values{"ok": true}); err != nil || got != "--ok" {
+		t.Errorf("got %q, %v", got, err)
+	}
+}
+
+func TestUnknownValues(t *testing.T) {
+	spec := Spec{Params: []Param{{Name: "a", Flag: "-a", Kind: Value}}}
+	got := UnknownNames(spec, Values{"a": "1", "b": "x", "c": "", "d": false, "e": []any{}, "f": "false", "g": true})
+	if strings.Join(got, ",") != "b,g" {
+		t.Errorf("UnknownNames = %v", got)
 	}
 }

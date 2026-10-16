@@ -56,6 +56,11 @@ type App struct {
 
 	configEditorMu  sync.Mutex
 	configEditorCmd *exec.Cmd
+
+	presetsMu sync.Mutex // serialises read-modify-write of presets.yaml
+
+	specMu    sync.Mutex
+	specCache map[string]specEntry
 }
 
 // NewApp defers loading to Startup: an old-format config has to be approved
@@ -299,7 +304,7 @@ func (a *App) GetActionDetail(itemIndex, actionIndex int) ActionDetailDTO {
 			scriptErr = err.Error()
 		} else {
 			scriptContent = content
-			spec = scriptparams.Parse(script, content)
+			spec = a.scriptSpec(script)
 		}
 	}
 	return ActionDetailDTO{

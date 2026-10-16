@@ -14,7 +14,7 @@ var (
 	descNotRequired = regexp.MustCompile(`(?i)\b(not|optional)\b[^.]*\brequired\b`)
 	descDefault     = regexp.MustCompile("(?i)\\bdefault(?:s)?(?:\\s+is|\\s*[:=])?\\s+[\"'`]?([^\\s\"'`),;\\]]+)")
 	getoptsCall     = regexp.MustCompile(`\bgetopts\s+["']?([A-Za-z0-9:]+)["']?`)
-	optionName      = regexp.MustCompile(`^(--?|/)([A-Za-z0-9?][A-Za-z0-9_.-]*)$`)
+	optionName      = regexp.MustCompile(`^(--?|/)([\p{L}\p{N}?][\p{L}\p{N}_.-]*)$`)
 	usageIgnored    = map[string]bool{"options": true, "option": true, "opts": true, "flags": true, "args": true, "arguments": true, "...": true}
 )
 

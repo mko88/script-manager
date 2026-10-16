@@ -24,8 +24,8 @@ type Preset struct {
 	Args string `yaml:"args,omitempty" json:"args"`
 }
 
-// File is the whole presets.yaml. Global actions are keyed by action id;
-// an item's custom actions sit under the item's name, so their ids can't
+// File is the whole presets.yaml. Global actions are keyed by ActionKey;
+// an item's custom actions sit under the item's name, so they can't
 // collide with global ones.
 type File struct {
 	Actions       map[string][]Preset            `yaml:"actions,omitempty"`
@@ -33,10 +33,20 @@ type File struct {
 }
 
 // Key locates an action's presets. Item is empty for a global action.
+// Action is ActionKey's form of the action's id or title.
 type Key struct {
 	Item   string
 	Action string
 	Custom bool
+}
+
+// ActionKey names an action in the file: "id:<id>", or "title:<title>"
+// for an action without an id, so the two can't collide.
+func ActionKey(id, title string) string {
+	if id != "" {
+		return "id:" + id
+	}
+	return "title:" + title
 }
 
 func PathFor(configPath string) string {
@@ -184,6 +194,15 @@ func Save(path string, f *File) error {
 		return err
 	}
 	name := tmp.Name()
+	mode := fs.FileMode(0o644)
+	if info, err := os.Stat(path); err == nil {
+		mode = info.Mode().Perm()
+	}
+	if err := tmp.Chmod(mode); err != nil {
+		tmp.Close()
+		os.Remove(name)
+		return err
+	}
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
 		os.Remove(name)

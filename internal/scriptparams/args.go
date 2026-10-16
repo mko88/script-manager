@@ -1,9 +1,13 @@
 package scriptparams
 
 import (
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
+	"unicode"
+
+	"script-manager/internal/shellquote"
 )
 
 // Values maps a parameter name to its value: a bool for a flag, a string,
@@ -13,7 +17,8 @@ type Values map[string]any
 type family int
 
 const (
-	famSh family = iota
+	famUnknown family = iota
+	famSh
 	famPwsh
 	famCmd
 )
@@ -24,8 +29,10 @@ func familyOf(shellBase string) family {
 		return famPwsh
 	case "cmd":
 		return famCmd
+	case "bash", "sh", "zsh", "dash", "ksh", "ash", "busybox":
+		return famSh
 	}
-	return famSh
+	return famUnknown
 }
 
 // cmdUnsafe are the characters cmd.exe still interprets inside double
@@ -33,45 +40,46 @@ func familyOf(shellBase string) family {
 const cmdUnsafe = "\"%!^&|<>\r\n"
 
 // Quote renders value as one literal argument in the stub language of
-// shellBase.
+// shellBase. Errors never include the value, which may hold a secret.
 func Quote(shellBase, value string) (string, error) {
 	if strings.ContainsRune(value, 0) {
-		return "", fmt.Errorf("a value contains a NUL character")
+		return "", errors.New("the value contains a NUL character")
 	}
 	switch familyOf(shellBase) {
 	case famPwsh:
-		return psQuote(value), nil
+		return shellquote.PowerShell(value), nil
+	case famSh:
+		return shellquote.POSIX(value), nil
 	case famCmd:
-		if i := strings.IndexAny(value, cmdUnsafe); i >= 0 {
-			return "", fmt.Errorf("the value %q contains %s, which can't be passed safely to cmd; use the Arguments field instead", value, describeChar(value[i]))
+		if strings.ContainsAny(value, cmdUnsafe) {
+			return "", errors.New(`the value contains a character cmd can't take inside quotes (" % ! ^ & | < > or a line break); use the Arguments box instead`)
+		}
+		// A trailing backslash would escape the closing quote for the
+		// program reading its command line.
+		if strings.HasSuffix(value, `\`) {
+			return "", errors.New("the value ends in a backslash, which can't be passed safely through cmd; use the Arguments box instead")
 		}
 		return `"` + value + `"`, nil
 	}
-	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'", nil
+	return "", unknownShellError(shellBase)
 }
 
-func describeChar(c byte) string {
-	switch c {
-	case '\r', '\n':
-		return "a line break"
+func unknownShellError(shellBase string) error {
+	return fmt.Errorf("parameter values can't be quoted for the %s shell; use the Arguments box instead", shellBase)
+}
+
+// flagToken quotes an option name for sh when it holds a character the
+// shell would treat specially, such as the ? in -?.
+func flagToken(fam family, flag string) string {
+	if fam != famSh {
+		return flag
 	}
-	return fmt.Sprintf("%q", string(c))
-}
-
-// psQuote doubles every character PowerShell treats as a single quote,
-// including the typographic ones.
-func psQuote(s string) string {
-	var b strings.Builder
-	b.WriteByte('\'')
-	for _, r := range s {
-		switch r {
-		case '\'', 0x2018, 0x2019, 0x201A, 0x201B:
-			b.WriteRune(r)
+	for _, r := range flag {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && !strings.ContainsRune("-_./=", r) {
+			return shellquote.POSIX(flag)
 		}
-		b.WriteRune(r)
 	}
-	b.WriteByte('\'')
-	return b.String()
+	return flag
 }
 
 // Strings reads a value as a list of non-empty strings.
@@ -174,7 +182,7 @@ func Validate(spec Spec, values Values) error {
 		if len(p.Choices) > 0 {
 			for _, s := range vals {
 				if !contains(p.Choices, s) {
-					return fmt.Errorf("%q is not a valid value for %s (choose from %s)", s, p.Name, strings.Join(p.Choices, ", "))
+					return fmt.Errorf("%s: the value isn't one of %s", p.Name, strings.Join(p.Choices, ", "))
 				}
 			}
 		}
@@ -195,6 +203,31 @@ func contains(list []string, s string) bool {
 	return false
 }
 
+// UnknownNames lists the names in values that carry something to pass but
+// aren't parameters of spec.
+func UnknownNames(spec Spec, values Values) []string {
+	known := make(map[string]bool, len(spec.Params))
+	for _, p := range spec.Params {
+		known[p.Name] = true
+	}
+	var out []string
+	for k, v := range values {
+		if known[k] {
+			continue
+		}
+		if len(Strings(v)) > 0 && !isOff(v) {
+			out = append(out, k)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+func isOff(v any) bool {
+	s, ok := v.(string)
+	return ok && (strings.EqualFold(s, "false") || s == "0")
+}
+
 // Args renders the values of spec's parameters as argument text for the
 // stub shellBase runs the script from: flags as bare switches, every value
 // a separate quoted argument, empty values left out.
@@ -204,14 +237,21 @@ func Args(shellBase string, spec Spec, values Values) (string, error) {
 	}
 	fam := familyOf(shellBase)
 	var tokens, positional []string
-	for _, p := range spec.Params {
-		if !p.Positional() && !optionName.MatchString(p.Flag) {
+	flag := func(p Param) (string, error) {
+		if !optionName.MatchString(p.Flag) {
 			return "", fmt.Errorf("%s: %q is not a usable option name", p.Name, p.Flag)
 		}
+		return flagToken(fam, p.Flag), nil
+	}
+	for _, p := range spec.Params {
 		v := values[p.Name]
 		if p.Kind == Flag {
 			if isOn(v) {
-				tokens = append(tokens, p.Flag)
+				f, err := flag(p)
+				if err != nil {
+					return "", err
+				}
+				tokens = append(tokens, f)
 			}
 			continue
 		}
@@ -242,16 +282,24 @@ func Args(shellBase string, spec Spec, values Values) (string, error) {
 			positional = append(positional, quoted...)
 			continue
 		}
+		f, err := flag(p)
+		if err != nil {
+			return "", err
+		}
 		if p.Repeat {
 			for _, q := range quoted {
-				tokens = append(tokens, p.Flag, q)
+				tokens = append(tokens, f, q)
 			}
 			continue
 		}
-		tokens = append(tokens, p.Flag)
+		tokens = append(tokens, f)
 		tokens = append(tokens, quoted...)
 	}
-	return strings.Join(append(tokens, positional...), " "), nil
+	all := append(tokens, positional...)
+	if fam == famUnknown && len(all) > 0 {
+		return "", unknownShellError(shellBase)
+	}
+	return strings.Join(all, " "), nil
 }
 
 // Join appends the free-text arguments, which are passed through as

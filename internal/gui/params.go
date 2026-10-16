@@ -3,6 +3,9 @@ package gui
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+	"time"
 
 	"script-manager/internal/action"
 	"script-manager/internal/config"
@@ -38,10 +41,7 @@ func (a *App) actionAt(itemIndex, actionIndex int) (*config.Item, config.Action,
 		return nil, config.Action{}, presets.Key{}, fmt.Errorf("invalid action")
 	}
 	act := actions[actionIndex]
-	key := presets.Key{Action: act.ID}
-	if key.Action == "" {
-		key.Action = act.Title
-	}
+	key := presets.Key{Action: presets.ActionKey(act.ID, act.Title)}
 	if actionIndex >= len(actions)-len(item.CustomActions) {
 		key.Item = item.Name
 		key.Custom = true
@@ -49,15 +49,41 @@ func (a *App) actionAt(itemIndex, actionIndex int) (*config.Item, config.Action,
 	return item, act, key, nil
 }
 
-func scriptSpec(path string) scriptparams.Spec {
+type specEntry struct {
+	modTime time.Time
+	size    int64
+	spec    scriptparams.Spec
+}
+
+// scriptSpec parses the script at path, reusing the last parse while the
+// file's size and modification time are unchanged: the preview asks on
+// every keystroke.
+func (a *App) scriptSpec(path string) scriptparams.Spec {
 	if path == "" {
 		return scriptparams.Spec{}
+	}
+	info, err := os.Stat(path)
+	if err != nil {
+		return scriptparams.Spec{}
+	}
+	a.specMu.Lock()
+	entry, ok := a.specCache[path]
+	a.specMu.Unlock()
+	if ok && entry.size == info.Size() && entry.modTime.Equal(info.ModTime()) {
+		return entry.spec
 	}
 	text, err := scriptsource.Read(path)
 	if err != nil {
 		return scriptparams.Spec{}
 	}
-	return scriptparams.Parse(path, text)
+	spec := scriptparams.Parse(path, text)
+	a.specMu.Lock()
+	if a.specCache == nil {
+		a.specCache = map[string]specEntry{}
+	}
+	a.specCache[path] = specEntry{modTime: info.ModTime(), size: info.Size(), spec: spec}
+	a.specMu.Unlock()
+	return spec
 }
 
 func (a *App) shellBase() string {
@@ -68,16 +94,23 @@ func (a *App) shellBase() string {
 }
 
 // commandArgs renders input as argument text for the action's stub, with
-// templates in the values expanded against merged. Values only apply to a
-// script whose parameters are documented.
+// templates in the values expanded against merged. A value for a
+// parameter the script doesn't document is refused rather than dropped.
 func (a *App) commandArgs(scriptPath string, merged map[string]any, input RunInputDTO) (string, error) {
 	expand := func(s string) (string, error) { return action.Expand(s, merged) }
 	extra, err := expand(input.Args)
 	if err != nil {
 		return "", fmt.Errorf("arguments template error: %w", err)
 	}
+	spec := a.scriptSpec(scriptPath)
+	if names := scriptparams.UnknownNames(spec, input.Values); len(names) > 0 {
+		if !spec.Documented {
+			return "", fmt.Errorf("this command has no documented parameters, so these values can't be passed: %s; pick no preset or use the Arguments box", strings.Join(names, ", "))
+		}
+		return "", fmt.Errorf("not parameters of this script: %s; update or delete the preset", strings.Join(names, ", "))
+	}
 	rendered := ""
-	if spec := scriptSpec(scriptPath); spec.Documented {
+	if spec.Documented {
 		values, err := scriptparams.ExpandValues(input.Values, expand)
 		if err != nil {
 			return "", fmt.Errorf("parameter template error: %w", err)
@@ -161,6 +194,8 @@ func (a *App) DeletePreset(itemIndex, actionIndex int, name string) (PresetsDTO,
 // editPresets refuses to write over a presets file that doesn't parse, so
 // a typo made by hand doesn't cost every other preset in it.
 func (a *App) editPresets(itemIndex, actionIndex int, edit func(*presets.File, presets.Key) error) (PresetsDTO, error) {
+	a.presetsMu.Lock()
+	defer a.presetsMu.Unlock()
 	_, _, key, err := a.actionAt(itemIndex, actionIndex)
 	if err != nil {
 		return PresetsDTO{}, err

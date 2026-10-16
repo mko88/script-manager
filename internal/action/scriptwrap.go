@@ -3,6 +3,8 @@ package action
 import (
 	"os"
 	"strings"
+
+	"script-manager/internal/shellquote"
 )
 
 const TempScriptPattern = "script-manager-action-*"
@@ -27,7 +29,7 @@ func WrapScriptFileArgs(shellBase, scriptPath, args string, stayOpen bool) strin
 		b.WriteString("\n")
 		if stayOpen {
 			b.WriteString("__status=$?\n")
-			b.WriteString("printf '\n[exit status %s] Press Enter to close...' \"$__status\"\n")
+			b.WriteString("printf '\\n[exit status %s] Press Enter to close...' \"$__status\"\n")
 			b.WriteString("read -r __line\n")
 		}
 		return b.String()
@@ -59,8 +61,9 @@ func AppendArgs(cmd, args string) string {
 	return strings.TrimRight(cmd, " \t\r\n") + " " + args
 }
 
-func psQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", "''") + "'" }
-func shQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
+func psQuote(s string) string { return shellquote.PowerShell(s) }
+func shQuote(s string) string { return shellquote.POSIX(s) }
+
 func WriteTempScript(shellBin, script string) (string, error) {
 	ext := ".txt"
 	switch ShellBasename(shellBin) {

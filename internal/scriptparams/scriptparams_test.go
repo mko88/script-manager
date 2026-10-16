@@ -4,7 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strings"
 	"testing"
+	"time"
 )
 
 func parseFixture(t *testing.T, name string) Spec {
@@ -251,6 +253,48 @@ func TestDetect(t *testing.T) {
 	for _, c := range cases {
 		if got := Detect(c.path, c.text); got != c.want {
 			t.Errorf("Detect(%q, %q) = %q, want %q", c.path, c.text, got, c.want)
+		}
+	}
+}
+
+func TestParseDropsUnusableOptionNames(t *testing.T) {
+	spec := Parse("x.ps1", "param([string]${weird name}, [string]$Größe, [switch]$Ok)")
+	if got := names(spec); !reflect.DeepEqual(got, []string{"Größe", "Ok"}) {
+		t.Errorf("names = %v", got)
+	}
+	if p := param(t, spec, "Größe"); p.Flag != "-Größe" {
+		t.Errorf("Größe = %+v", p)
+	}
+}
+
+func TestPythonCallAfterHashInString(t *testing.T) {
+	spec := Parse("x.py", `x = "#"; p.add_argument("--e", help="e")
+s = "p.add_argument('--fake')"
+`)
+	if got := names(spec); !reflect.DeepEqual(got, []string{"e"}) {
+		t.Errorf("names = %v", got)
+	}
+}
+
+func TestParseIsLinearOnPathologicalInput(t *testing.T) {
+	const size = 256 * 1024
+	inputs := map[string]string{
+		"open.py":    strings.Repeat(".add_argument(", size/14),
+		"strings.py": strings.Repeat(`p.add_argument("--x", help="`, size/28),
+		"triple.py":  `p.add_argument(` + strings.Repeat(`"""a`, size/4),
+		"nested.py":  strings.Repeat("ArgumentParser(description=(", size/28),
+		"open.ps1":   "param(" + strings.Repeat("[", size),
+		"attrs.ps1":  strings.Repeat("[x(", size/3),
+		"help.ps1":   strings.Repeat("<# .PARAMETER x\n", size/16),
+		"quotes.ps1": "param(" + strings.Repeat("'", size),
+		"opts.sh":    strings.Repeat("#  -a, --aa A  {x|y} default: z\n", size/32),
+		"opts.bat":   strings.Repeat("REM  /a A  (x|y)\n", size/16),
+	}
+	for name, text := range inputs {
+		start := time.Now()
+		Parse(name, text)
+		if d := time.Since(start); d > 500*time.Millisecond {
+			t.Errorf("%s: %v for %d bytes", name, d, len(text))
 		}
 	}
 }

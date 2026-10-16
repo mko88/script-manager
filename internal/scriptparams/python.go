@@ -7,30 +7,36 @@ import (
 )
 
 var (
-	pyAddArgument = regexp.MustCompile(`\.add_argument\s*\(`)
-	pyDescription = regexp.MustCompile(`ArgumentParser\s*\(`)
-	pyKeyword     = regexp.MustCompile(`(?s)^([A-Za-z_][A-Za-z0-9_]*)\s*=([^=].*|)$`)
-	pyNumber      = regexp.MustCompile(`^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$`)
+	pyKeyword = regexp.MustCompile(`(?s)^([A-Za-z_][A-Za-z0-9_]*)\s*=([^=].*|)$`)
+	pyNumber  = regexp.MustCompile(`^[+-]?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$`)
 )
 
+type pyCall struct {
+	start, open int
+	parser      bool
+}
+
 func parsePython(text string) Spec {
+	calls := pyFindCalls(text)
 	var spec Spec
-	if loc := pyDescription.FindStringIndex(text); loc != nil {
-		if args, ok := pyCallArgs(text, loc[1]-1); ok {
-			_, kw := pySplitArgs(args)
-			if d, ok := kw["description"]; ok {
-				if s, ok := pyString(d); ok {
+	for n, c := range calls {
+		// A call can't run into the next one, which keeps an unclosed
+		// call from rescanning the rest of the file for every match.
+		limit := len(text)
+		if n+1 < len(calls) {
+			limit = calls[n+1].start
+		}
+		args, ok := pyCallArgs(text[:limit], c.open)
+		if !ok {
+			continue
+		}
+		if c.parser {
+			if spec.Synopsis == "" {
+				_, kw := pySplitArgs(args)
+				if s, ok := pyString(kw["description"]); ok {
 					spec.Synopsis = collapseSpace(s)
 				}
 			}
-		}
-	}
-	for _, loc := range pyAddArgument.FindAllStringIndex(text, -1) {
-		if pyInComment(text, loc[0]) {
-			continue
-		}
-		args, ok := pyCallArgs(text, loc[1]-1)
-		if !ok {
 			continue
 		}
 		if p, ok := pyParam(args); ok {
@@ -40,9 +46,35 @@ func parsePython(text string) Spec {
 	return spec
 }
 
-func pyInComment(text string, i int) bool {
-	start := strings.LastIndexByte(text[:i], '\n') + 1
-	return strings.Contains(text[start:i], "#")
+// pyFindCalls finds the add_argument and ArgumentParser calls in code,
+// passing over strings and comments, in one pass.
+func pyFindCalls(text string) []pyCall {
+	var calls []pyCall
+	for i := 0; i < len(text); {
+		if j := pySkip(text, i); j != i {
+			i = j
+			continue
+		}
+		name, parser := "", false
+		switch {
+		case text[i] == '.' && strings.HasPrefix(text[i:], ".add_argument"):
+			name = ".add_argument"
+		case text[i] == 'A' && strings.HasPrefix(text[i:], "ArgumentParser") && (i == 0 || !isIdent(text[i-1])):
+			name, parser = "ArgumentParser", true
+		default:
+			i++
+			continue
+		}
+		j := i + len(name)
+		for j < len(text) && (text[j] == ' ' || text[j] == '\t') {
+			j++
+		}
+		if j < len(text) && text[j] == '(' {
+			calls = append(calls, pyCall{start: i, open: j, parser: parser})
+		}
+		i = j
+	}
+	return calls
 }
 
 func pyParam(args []string) (Param, bool) {

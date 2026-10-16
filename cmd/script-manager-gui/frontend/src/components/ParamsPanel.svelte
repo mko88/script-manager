@@ -41,6 +41,11 @@
     return []
   }
 
+  // Matches the backend: a flag is on for true or "true", in any case.
+  function isOn(v: unknown): boolean {
+    return v === true || (typeof v === 'string' && v.toLowerCase() === 'true')
+  }
+
   function applyPreset(name: string) {
     selectedPreset = name
     const p = presetList.find((x) => x.name === name)
@@ -51,7 +56,9 @@
     }
     const next: Record<string, any> = { ...(p.values ?? {}) }
     for (const param of params) {
-      if (isMulti(param) && param.name in next) next[param.name] = list(next[param.name])
+      if (!(param.name in next)) continue
+      if (isMulti(param)) next[param.name] = list(next[param.name])
+      else if (param.kind === 'flag') next[param.name] = isOn(next[param.name])
     }
     values = next
     args = p.args ?? ''
@@ -115,7 +122,7 @@
       selectedPreset = ''
       flash(t('toast.presetDeleted', { name }))
     } catch (err) {
-      flash(t('toast.presetFailed', { error: String(err) }))
+      flash(t('toast.presetDeleteFailed', { error: String(err) }))
     }
   }
 </script>

@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -129,5 +130,52 @@ func TestPathFor(t *testing.T) {
 	got := PathFor(filepath.Join("a", "b", "config.yaml"))
 	if got != filepath.Join("a", "b", FileName) {
 		t.Errorf("PathFor = %q", got)
+	}
+}
+
+func TestActionKeySeparatesIdsFromTitles(t *testing.T) {
+	if ActionKey("deploy", "Deploy") != "id:deploy" || ActionKey("", "deploy") != "title:deploy" {
+		t.Errorf("keys = %q, %q", ActionKey("deploy", "Deploy"), ActionKey("", "deploy"))
+	}
+}
+
+func TestSaveKeepsFileMode(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("permission bits are not kept on Windows")
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, FileName)
+	if err := Save(path, &File{}); err != nil {
+		t.Fatal(err)
+	}
+	if info, _ := os.Stat(path); info.Mode().Perm() != 0o644 {
+		t.Errorf("new file mode = %v, want 0644", info.Mode().Perm())
+	}
+	if err := os.Chmod(path, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := Save(path, &File{}); err != nil {
+		t.Fatal(err)
+	}
+	if info, _ := os.Stat(path); info.Mode().Perm() != 0o600 {
+		t.Errorf("mode after save = %v, want 0600", info.Mode().Perm())
+	}
+}
+
+func TestLoadUnquotedPrefixedKeys(t *testing.T) {
+	path := filepath.Join(t.TempDir(), FileName)
+	data := "actions:\n  id:build:\n    - name: release\ncustomActions:\n  web-1:\n    title:Restart now:\n      - name: quick\n"
+	if err := os.WriteFile(path, []byte(data), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	f, err := Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(f.List(Key{Action: ActionKey("build", "")})) != 1 {
+		t.Errorf("id key not read: %+v", f.Actions)
+	}
+	if len(f.List(Key{Item: "web-1", Action: ActionKey("", "Restart now"), Custom: true})) != 1 {
+		t.Errorf("title key not read: %+v", f.CustomActions)
 	}
 }

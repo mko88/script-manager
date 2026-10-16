@@ -18,6 +18,7 @@
     "presetSaved": "Preset \"{name}\" saved",
     "presetDeleted": "Preset \"{name}\" deleted",
     "presetFailed": "Preset not saved: {error}",
+    "presetDeleteFailed": "Preset not deleted: {error}",
     "presetsWarning": "Presets not loaded: {warning}",
     "invalidParams": "Not run: {error}"
   },

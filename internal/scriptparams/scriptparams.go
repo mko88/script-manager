@@ -76,7 +76,7 @@ func Parse(path, text string) Spec {
 		spec = parseBatch(text)
 	}
 	spec.Language = lang
-	spec.Params = dedupe(spec.Params)
+	spec.Params = usable(dedupe(spec.Params))
 	spec.Documented = len(spec.Params) > 0
 	return spec
 }
@@ -131,6 +131,20 @@ func dedupe(params []Param) []Param {
 		}
 		seen[p.Name] = true
 		out = append(out, p)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// usable drops parameters whose option name couldn't be emitted safely.
+func usable(params []Param) []Param {
+	out := params[:0]
+	for _, p := range params {
+		if p.Positional() || optionName.MatchString(p.Flag) {
+			out = append(out, p)
+		}
 	}
 	if len(out) == 0 {
 		return nil

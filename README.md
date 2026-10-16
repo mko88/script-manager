@@ -59,10 +59,10 @@ The OUTPUT section shows the colours and text styles a command writes as termina
 The **PARAMETERS** section above the command sets the arguments both kinds of run pass:
 
 - **Documented scripts** get a control per parameter: a checkbox for a switch, a text box for a value, a drop-down for a fixed set of choices, a multi-select list for several choices, and a box with one value per line for a list of values. Required parameters are marked `*`, and each parameter shows its description from the script. An empty control passes nothing, so the script uses its own default (shown in grey).
-- **Other scripts and `cmd:` actions** get one **Arguments** box. Its text is added to the end of the command exactly as written, in the shell's own syntax. Documented scripts have it too, as **Additional arguments**.
+- **Other scripts and `cmd:` actions** get one **Arguments** box. Its text is added to the end of the command exactly as written, in the shell's own syntax. For a `cmd:` that spans several lines it goes at the end of the last line, so after a comment there it is commented out too. Documented scripts have it too, as **Additional arguments**.
 - **Presets** save the current values under a name: pick one from **Preset** to fill in the controls, **Save as…** to store the current values, **Update** to overwrite the selected preset and **Delete** to remove it. See [Presets](#presets).
 - The COMMAND section shows the **command line** that runs, with the arguments, and updates as you type. It also shows what is wrong, such as a missing required value or a value that isn't one of the choices; **Run** and **Run here** refuse to start until it is fixed.
-- Values and arguments can use templates such as `{{.name}}`, filled in from the selected item.
+- Values and the **Arguments** text can use templates such as `{{.name}}`, filled in from the selected item, so a literal `{{` in either is read as a template.
 
 Several actions can run inline at once. A dot next to an item or action shows a run in progress or finished: green for success, red for failure. Selecting the action again brings its output back.
 
@@ -265,18 +265,20 @@ Option lines in a shell or batch header look like this:
 
 How the values are passed:
 
-- Each value is quoted as one argument for the configured `shell:`, so spaces and quotes reach the script unchanged.
+- Each value is quoted as one argument for the configured `shell:` (`pwsh`/`powershell`, `cmd`, or `sh`, `bash`, `zsh`, `dash`, `ksh`, `ash`, `busybox`), so the shell passes it on without expanding anything in it. How the script itself then splits its command line is up to the script.
 - A list for a PowerShell script run from a PowerShell `shell:` is passed as `-Name 'a','b'`; other lists repeat the value (`--arch 'x64' 'arm64'`), or the option for repeatable options.
-- With `cmd` as the shell, a value that contains `" % ! ^ & | < >` or a line break is refused. Use the **Arguments** box for those.
+- With `cmd` as the shell, a value that contains `" % ! ^ & | < >` or a line break, or that ends in `\`, is refused. Use the **Arguments** box for those.
+- With any other shell, documented parameter values are refused; use the **Arguments** box.
+- A value for a parameter the script no longer documents is refused rather than left out, for example from a preset saved before the script changed.
 - The **Arguments** text is never quoted or checked.
 
 ### Presets
 
-Presets are stored in `presets.yaml`, in the same folder as the loaded config. Saving a preset only writes this file, never the config. Global actions are listed by `id` (or by `title` when they have none) under `actions:`; an item's `customActions` are listed under `customActions:` and the item's name.
+Presets are stored in `presets.yaml`, in the same folder as the loaded config. Saving a preset only writes this file, never the config. Global actions are listed under `actions:` as `id:<id>`, or `title:<title>` for an action without an id; an item's `customActions` are listed under `customActions:` and the item's name, the same way. Renaming an action's id or title, or an item, leaves its presets behind under the old name.
 
 ```yaml
 actions:
-  build:                      # the action's id
+  id:build:                   # the action's id
     - name: release
       values:
         Configuration: Release     # a value
@@ -286,10 +288,12 @@ actions:
       args: -Verbose               # free text, added as written
 customActions:
   web-1:                      # the item's name
-    restart:
+    id:restart:
       - name: quick
         args: --no-wait
 ```
+
+Values typed into a preset are saved as plain text, so keep secrets in PIN-locked variables and refer to them with a template.
 
 The GUI reads the file each time an action is selected, so edits made by hand show up on the next selection. If the file can't be read, the GUI says so and won't save presets until it is fixed.
 
