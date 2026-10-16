@@ -6,6 +6,7 @@ import (
 	"script-manager/internal/action"
 	"script-manager/internal/config"
 	"script-manager/internal/secret"
+	"script-manager/internal/update"
 
 	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
@@ -47,6 +48,15 @@ type App struct {
 	pinPrompt    bool
 	pinEntry     string
 	pinPending   config.Action
+
+	updater        *update.Client
+	updateDir      string
+	checkOnStartup bool
+	updateResult   update.Result
+	checkingUpdate bool
+	updateConfirm  bool
+	installing     bool
+	restart        bool
 }
 
 func NewApp(cfg *config.Config, reload func() (*config.Config, error), loadErr error) *App {
@@ -295,9 +305,9 @@ func (a *App) flashMessage(text string, d time.Duration) tea.Cmd {
 
 func (a *App) Init() tea.Cmd {
 	if a.loadErr != nil {
-		return tea.Batch(a.layout.Init(), a.flashMessage("Config load failed: "+a.loadErr.Error(), 5*time.Second))
+		return tea.Batch(a.layout.Init(), a.startupUpdateCheck(), a.flashMessage("Config load failed: "+a.loadErr.Error(), 5*time.Second))
 	}
-	return a.layout.Init()
+	return tea.Batch(a.layout.Init(), a.startupUpdateCheck())
 }
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -314,12 +324,24 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return a, nil
 
+	case updateCheckedMsg:
+		return a, a.onUpdateChecked(msg)
+
+	case updateInstalledMsg:
+		return a, a.onUpdateInstalled(msg)
+
 	case tea.WindowSizeMsg:
 		a.windowSize = msg
 		_, cmd := a.layout.Update(msg)
 		return a, cmd
 
 	case tea.KeyMsg:
+		if a.installing {
+			return a, nil
+		}
+		if a.updateConfirm {
+			return a.updateConfirmKey(msg)
+		}
 		if a.pinPrompt {
 			return a.updatePINPrompt(msg)
 		}
@@ -328,6 +350,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, tea.Quit
 		case "f5":
 			return a, a.reloadConfig()
+		case "ctrl+u":
+			return a, a.onUpdateKey()
 		case "esc":
 			if a.description.IsCopyMode() {
 				a.description.ExitCopyMode()

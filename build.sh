@@ -61,8 +61,9 @@ mkdir -p bin
 # which build they are instead of carrying a hand-edited constant.
 # `git describe` gives "v1.4.0" on a release tag, "v1.4.0-4-g94b2835"
 # past one, and a "-dirty" suffix with uncommitted changes. Outside a git
-# checkout the defaults in the package stand ("dev").
-version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)
+# checkout the defaults in the package stand ("dev"). SM_VERSION overrides
+# it, for building a fake "old" or "new" release to test the updater with.
+version=${SM_VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo dev)}
 commit=$(git rev-parse --short HEAD 2>/dev/null || echo "")
 date=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 ldflags="-X script-manager/internal/version.Version=$version"

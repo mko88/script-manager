@@ -369,6 +369,7 @@ export namespace uiprefs {
 	    fontUi: string;
 	    fontMono: string;
 	    scalePercent: number;
+	    checkForUpdates: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Prefs(source);
@@ -379,6 +380,7 @@ export namespace uiprefs {
 	        this.fontUi = source["fontUi"];
 	        this.fontMono = source["fontMono"];
 	        this.scalePercent = source["scalePercent"];
+	        this.checkForUpdates = source["checkForUpdates"];
 	    }
 	}
 

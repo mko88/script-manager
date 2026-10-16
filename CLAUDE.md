@@ -21,8 +21,13 @@ internal/
   ansi/               ← terminal escape-sequence parsing (Parse → plain text +
                         styled spans) for the GUI's inline run output; the
                         frontend half is frontend-shared/ansi.ts
-  exepath/            ← executable-directory resolution (Dir()), shared by gui
-                        and configedit
+  exepath/            ← executable path/directory resolution (Path(), Dir()),
+                        shared by gui, configedit and the TUI main
+  update/             ← self-update: release check (GitHub API, overridable via
+                        SCRIPT_MANAGER_UPDATE_URL), checksums.txt verification,
+                        safe extraction, in-place swap of all three binaries
+                        with rollback, .old cleanup, restart. update/testserver
+                        serves a fake release (tests + a dev cmd)
   terminal/           ← terminal emulator detection/argv assembly (Launcher,
                         Names(), Resolve()), shared by gui and configedit
   gui/                ← Wails-bound App backend (DTOs, bindings); bound under
@@ -298,6 +303,25 @@ confirmed and let the user check it — don't run it yourself.
 Static verification is still expected and unaffected: `go build`, `go vet`,
 `go test`, and `npm run check` are not "running the app" — scale them to
 what the diff touched, per "Build discipline while iterating" above.
+
+## Testing the updater by hand
+
+Releases must carry `checksums.txt` (`sha256sum` of both archives) or the
+updater refuses them; `scripts/release.ps1` uploads it.
+
+`internal/update/testserver/cmd` serves a directory of binaries as a fake
+latest release. `build-container.ps1 -Version vX.Y.Z` (`SM_VERSION` for
+`build.sh`) stamps a chosen version instead of `git describe`, so an "old"
+and a "new" build can be made without tags. The user runs these steps;
+don't run the apps yourself.
+
+```
+.\build-container.ps1 -Windows -Version v9.9.9    # "new": copy the 3 exes to C:\temp\sm-new
+.\build-container.ps1 -Windows -Version v1.0.0    # "old": copy the 3 exes to C:\temp\sm-old
+docker exec <container> sh -c 'cd /workspaces/script-manager && GOOS=windows go build -o bin/update-test-server.exe ./internal/update/testserver/cmd'
+.\bin\update-test-server.exe -dir C:\temp\sm-new -tag v9.9.9    # also -bad-checksum, -no-checksums, -prerelease
+$env:SCRIPT_MANAGER_UPDATE_URL = "http://127.0.0.1:8765"; C:\temp\sm-old\script-manager-gui.exe
+```
 
 ## .vscode/launch.json
 

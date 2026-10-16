@@ -275,6 +275,22 @@ export namespace gui {
 	        this.hasLocked = source["hasLocked"];
 	    }
 	}
+	export class UpdateInfoDTO {
+	    available: boolean;
+	    current: string;
+	    latest: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UpdateInfoDTO(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.available = source["available"];
+	        this.current = source["current"];
+	        this.latest = source["latest"];
+	    }
+	}
 
 }
 
@@ -393,6 +409,7 @@ export namespace uiprefs {
 	    fontUi: string;
 	    fontMono: string;
 	    scalePercent: number;
+	    checkForUpdates: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new Prefs(source);
@@ -403,6 +420,7 @@ export namespace uiprefs {
 	        this.fontUi = source["fontUi"];
 	        this.fontMono = source["fontMono"];
 	        this.scalePercent = source["scalePercent"];
+	        this.checkForUpdates = source["checkForUpdates"];
 	    }
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os/exec"
+	"runtime"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"script-manager/internal/scriptparams"
 	"script-manager/internal/scriptsource"
 	"script-manager/internal/secret"
+	"script-manager/internal/update"
 	"script-manager/internal/version"
 
 	"github.com/atotto/clipboard"
@@ -61,16 +63,24 @@ type App struct {
 
 	specMu    sync.Mutex
 	specCache map[string]specEntry
+
+	exePath      string
+	updateMu     sync.Mutex
+	updateResult update.Result
+	installMu    sync.Mutex
 }
 
 // NewApp defers loading to Startup: an old-format config has to be approved
 // for conversion first, and that dialog needs a context.
 func NewApp(cfgPath string) *App {
 	go cleanupTempScripts()
+	exeDir := exepath.Dir()
+	go update.CleanupOld(exeDir, runtime.GOOS)
 	return &App{
 		configPath: cfgPath,
 		loadConfig: loadConfigFile,
-		exeDir:     exepath.Dir(),
+		exePath:    exepath.Path(),
+		exeDir:     exeDir,
 		appDataDir: appdata.Dir(),
 		cfg:        &config.Config{},
 		inlineRuns: make(map[inlineKey]*inlineRun),

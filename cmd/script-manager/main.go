@@ -5,13 +5,20 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"script-manager/internal/appdata"
 	"script-manager/internal/config"
 	"script-manager/internal/configmigrate"
+	"script-manager/internal/exepath"
 	"script-manager/internal/ui"
+	"script-manager/internal/uiprefs"
+	"script-manager/internal/update"
+	"script-manager/internal/version"
 )
 
 func main() {
@@ -31,10 +38,25 @@ func main() {
 	}
 	cfg, err := loadConfig()
 
-	p := tea.NewProgram(ui.NewApp(cfg, loadConfig, err), tea.WithAltScreen())
+	exe, dir := exepath.Path(), exepath.Dir()
+	update.CleanupOld(dir, runtime.GOOS)
+
+	app := ui.NewApp(cfg, loadConfig, err)
+	app.EnableUpdates(update.NewClient(version.Version, runtime.GOOS, runtime.GOARCH), dir,
+		uiprefs.Load(appdata.Dir()).CheckForUpdates)
+
+	p := tea.NewProgram(app, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		os.Exit(1)
+	}
+
+	if app.RestartRequested() {
+		fmt.Println("Updated. Restarting…")
+		if err := update.RestartInPlace(filepath.Join(dir, filepath.Base(exe)), os.Args[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, "updated, but the restart failed; start script-manager again:", err)
+			os.Exit(1)
+		}
 	}
 }
 

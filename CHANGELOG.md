@@ -12,6 +12,9 @@ the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 - `script-manager-gui`: undocumented scripts and `cmd:` actions take free-text arguments, added to the command as written.
 - `script-manager-gui`: named presets of parameter values per action, saved in `presets.yaml` next to the config.
 - `script-manager-gui`: the COMMAND section shows the full command line with its arguments as you edit them, and **Run** / **Run here** check required values and choices first.
+- `script-manager-gui` and `script-manager` check for a newer release at startup and can install it with one click (GUI) or `Ctrl+U` (terminal UI), replacing all three apps and restarting.
+- Updates are verified against the release's SHA-256 checksums; a release without them can't be installed by the updater.
+- `script-manager-gui`: the About panel has **Check now** and a **Check for updates on startup** setting, on by default and shared with the terminal UI.
 
 ## 1.5.1
 

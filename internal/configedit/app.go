@@ -5,15 +5,18 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	goruntime "runtime"
 	"sync"
 
 	"script-manager/internal/appdata"
 	"script-manager/internal/config"
 	"script-manager/internal/configmigrate"
+	"script-manager/internal/exepath"
 	"script-manager/internal/filewatch"
 	"script-manager/internal/recent"
 	"script-manager/internal/secret"
 	"script-manager/internal/terminal"
+	"script-manager/internal/update"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
@@ -34,6 +37,7 @@ type App struct {
 }
 
 func NewApp(cfgPath string) *App {
+	go update.CleanupOld(exepath.Dir(), goruntime.GOOS)
 	return &App{cfgPath: cfgPath, appDataDir: appdata.Dir()}
 }
 

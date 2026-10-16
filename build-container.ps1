@@ -22,7 +22,10 @@ param(
     [switch]$Test,
     [switch]$Check,
     [switch]$Full,
-    [switch]$Devtools
+    [switch]$Devtools,
+    # Stamps this version instead of `git describe`, e.g. -Version v9.9.9 to
+    # build a fake release for the update test server.
+    [string]$Version
 )
 
 $ErrorActionPreference = "Stop"
@@ -54,5 +57,8 @@ if ($Check) { $buildArgs += "--check" }
 if ($Full) { $buildArgs += "--full" }
 if ($Devtools) { $buildArgs += "--devtools" }
 
-docker exec $container bash -c "cd /workspaces/script-manager && bash build.sh $($buildArgs -join ' ')"
+$envArgs = @()
+if ($Version) { $envArgs += @("-e", "SM_VERSION=$Version") }
+
+docker exec @envArgs $container bash -c "cd /workspaces/script-manager && bash build.sh $($buildArgs -join ' ')"
 exit $LASTEXITCODE
