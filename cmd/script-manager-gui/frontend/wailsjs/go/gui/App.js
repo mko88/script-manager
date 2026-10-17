@@ -14,8 +14,20 @@ export function BrowseConfig() {
   return window['go']['gui']['App']['BrowseConfig']();
 }
 
+export function CanCheckForUpdates() {
+  return window['go']['gui']['App']['CanCheckForUpdates']();
+}
+
 export function CancelInlineAction(arg1, arg2) {
   return window['go']['gui']['App']['CancelInlineAction'](arg1, arg2);
+}
+
+export function CheckForUpdate() {
+  return window['go']['gui']['App']['CheckForUpdate']();
+}
+
+export function CheckForUpdateOnStartup() {
+  return window['go']['gui']['App']['CheckForUpdateOnStartup']();
 }
 
 export function ClearRecentConfigs() {
@@ -82,6 +94,10 @@ export function InitConfig() {
   return window['go']['gui']['App']['InitConfig']();
 }
 
+export function InstallUpdate() {
+  return window['go']['gui']['App']['InstallUpdate']();
+}
+
 export function LaunchConfigEditor() {
   return window['go']['gui']['App']['LaunchConfigEditor']();
 }
@@ -144,6 +160,10 @@ export function SecretsState() {
 
 export function SetAlwaysOnTop(arg1) {
   return window['go']['gui']['App']['SetAlwaysOnTop'](arg1);
+}
+
+export function SetCheckForUpdates(arg1) {
+  return window['go']['gui']['App']['SetCheckForUpdates'](arg1);
 }
 
 export function SetTheme(arg1) {

@@ -78,14 +78,25 @@ The toolbar is also the window's title bar: drag an empty part of it to move the
 
 - **Load config**: the last 10 configs you opened, **Browse…** to pick another file, and **Clear recent**. The list is shared with the Config Editor.
 - **Refresh config**: same as `F5`.
+- **Update notice**: shown when a newer release is available. **Update & restart** installs it (see [Updating](#updating)); the × hides the notice until the next start. For a release that can't be installed automatically (see below), the button is **Open release page** instead.
 - **Pin**: keeps the window on top of other windows.
 - **Opacity** (checkerboard icon): a slider from 20% to 100%. It only has an effect on Windows.
   - **Shrink on focus loss** is available while the window is pinned. When you click away, the window shrinks to a small nub on the right edge of the screen. Hover the nub to enlarge it, and click it to restore the window.
-- **About** ("i" icon): version and project link.
+- **About** ("i" icon): version and project link, **Check now** for a newer release, and **Check for updates on startup** (on by default; also applies to the terminal UI).
 - **Config Editor** (gear icon, `Ctrl+E`): opens the loaded config in the Config Editor.
 - Minimize, maximize and close.
 
 `Ctrl +` / `Ctrl -` scale the interface from 70% to 200%, and `Ctrl 0` resets it. The pin and opacity are remembered. The scale and the theme are shared with the Config Editor, where themes are chosen.
+
+### Updating
+
+`script-manager-gui` and the terminal UI check for a newer release each time they start, unless **Check for updates on startup** is off. Nothing is installed until you choose to update:
+
+- **All three apps are replaced together**, in the folder they run from. That folder must be writable; if it isn't, the update stops without changing anything. The apps must keep their original file names.
+- **Downloads are verified** against the release's SHA-256 checksums. A download that doesn't match is refused. A release published without checksums is only offered as a link to its release page, to install by hand.
+- After installing, the app restarts with the same arguments. Other apps from the folder that are still open keep running the old version until you restart them.
+- A failed update puts every file back as it was. If a file can't be put back, the error names it and the `.old` copy to rename back by hand.
+- Builds made from source without a release tag don't check for updates.
 
 ## Config Editor
 
@@ -393,6 +404,7 @@ It works in two modes: pick an item with `Enter`, then pick and run an action; `
 | `↑` / `k`, `↓` / `j` | move |
 | `Enter` / `Tab` | select the item |
 | `F5` | reload the config |
+| `Ctrl+U` | update (see below) |
 | `Q` / `Esc` / `Ctrl+C` | quit |
 
 **Choosing an action**
@@ -405,8 +417,11 @@ It works in two modes: pick an item with `Enter`, then pick and run an action; `
 | `Enter` | run the action (Actions pane) / copy a value (Details pane) |
 | `y` | copy the expanded command |
 | `F5` | reload the config |
+| `Ctrl+U` | update (see below) |
 | `Esc` | back to items |
 | `Q` / `Ctrl+C` | quit |
+
+When a newer release is available, the status bar shows `Ctrl+U Update to <version>`. `Ctrl+U` asks for confirmation (`y`) and then installs it and restarts; `Ctrl+C` cancels while it downloads. With no update known, `Ctrl+U` checks first. A release that can't be installed automatically shows as `<version> on the release page`, and `Ctrl+U` shows its link. See [Updating](#updating).
 
 ## Building
 

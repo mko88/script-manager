@@ -11,7 +11,13 @@ export function AnswerConversion(arg1:boolean):Promise<void>;
 
 export function BrowseConfig():Promise<gui.OpenedConfigDTO>;
 
+export function CanCheckForUpdates():Promise<boolean>;
+
 export function CancelInlineAction(arg1:number,arg2:number):Promise<void>;
+
+export function CheckForUpdate():Promise<gui.UpdateInfoDTO>;
+
+export function CheckForUpdateOnStartup():Promise<gui.UpdateInfoDTO>;
 
 export function ClearRecentConfigs():Promise<Array<string>>;
 
@@ -45,6 +51,8 @@ export function GetVersion():Promise<Record<string, string>>;
 
 export function InitConfig():Promise<string>;
 
+export function InstallUpdate():Promise<void>;
+
 export function LaunchConfigEditor():Promise<boolean>;
 
 export function LoadError():Promise<string>;
@@ -76,6 +84,8 @@ export function SavePreset(arg1:number,arg2:number,arg3:presets.Preset):Promise<
 export function SecretsState():Promise<gui.SecretsStateDTO>;
 
 export function SetAlwaysOnTop(arg1:boolean):Promise<void>;
+
+export function SetCheckForUpdates(arg1:boolean):Promise<uiprefs.Prefs>;
 
 export function SetTheme(arg1:string):Promise<void>;
 

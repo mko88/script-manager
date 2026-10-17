@@ -63,8 +63,10 @@ var contextHelp = map[statusContext][]struct{ key, desc string }{
 
 type StatusBarTile struct {
 	*tl.BaseTile
-	message string
-	context statusContext
+	message     string
+	context     statusContext
+	update      string
+	installable bool
 }
 
 func newStatusBarTile() *StatusBarTile {
@@ -79,6 +81,12 @@ func newStatusBarTile() *StatusBarTile {
 func (t *StatusBarTile) SetMessage(msg string)      { t.message = msg }
 func (t *StatusBarTile) ClearMessage()              { t.message = "" }
 func (t *StatusBarTile) SetContext(c statusContext) { t.context = c }
+
+// SetUpdateHint advertises a newer release ahead of the key help; "" hides
+// it. A release that isn't installable points to the release page instead.
+func (t *StatusBarTile) SetUpdateHint(tag string, installable bool) {
+	t.update, t.installable = tag, installable
+}
 
 func (t *StatusBarTile) Init() tea.Cmd                           { return nil }
 func (t *StatusBarTile) Update(msg tea.Msg) (tea.Model, tea.Cmd) { return t, nil }
@@ -95,6 +103,13 @@ func (t *StatusBarTile) View() string {
 	}
 
 	entries := contextHelp[t.context]
+	if t.update != "" {
+		hint := struct{ key, desc string }{"Ctrl+U", "Update to " + t.update}
+		if !t.installable {
+			hint.desc = t.update + " on the release page"
+		}
+		entries = append([]struct{ key, desc string }{hint}, entries...)
+	}
 	sep := statusSepStyle.Render("  │  ")
 	sepW := lipgloss.Width(sep)
 	avail := w - 2

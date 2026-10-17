@@ -20,10 +20,12 @@ type Prefs struct {
 	FontUI       string `json:"fontUi"`
 	FontMono     string `json:"fontMono"`
 	ScalePercent int    `json:"scalePercent"`
+	// CheckForUpdates is shared by script-manager-gui and the TUI.
+	CheckForUpdates bool `json:"checkForUpdates"`
 }
 
 func Defaults() Prefs {
-	return Prefs{ScalePercent: ScaleDefault}
+	return Prefs{ScalePercent: ScaleDefault, CheckForUpdates: true}
 }
 
 func Load(dir string) Prefs {
@@ -34,7 +36,7 @@ func Load(dir string) Prefs {
 	if err != nil {
 		return Defaults()
 	}
-	var p Prefs
+	p := Defaults()
 	if err := json.Unmarshal(data, &p); err != nil {
 		return Defaults()
 	}

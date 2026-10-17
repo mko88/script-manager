@@ -20,7 +20,9 @@
     "presetFailed": "Preset not saved: {error}",
     "presetDeleteFailed": "Preset not deleted: {error}",
     "presetsWarning": "Presets not loaded: {warning}",
-    "invalidParams": "Not run: {error}"
+    "invalidParams": "Not run: {error}",
+    "updateCheckFailed": "Update check failed: {error}",
+    "updateFailed": "Update failed: {error}"
   },
   "panel": {
     "items": "Items",
@@ -101,7 +103,8 @@
     "convertCancelButton": "Cancel"
   },
   "option": {
-    "shrinkOnBlur": "Shrink on focus loss"
+    "shrinkOnBlur": "Shrink on focus loss",
+    "checkForUpdates": "Check for updates on startup"
   },
   "text": {
     "allGroupsChip": "All",
@@ -143,6 +146,20 @@
     "title": "Script Manager",
     "version": "Version {version}",
     "description": "A tool for organising and running shell scripts across a list of configurable items, driven by a single YAML config.",
-    "githubLink": "View on GitHub"
+    "githubLink": "View on GitHub",
+    "checkNow": "Check now",
+    "checking": "Checking…",
+    "upToDate": "Up to date",
+    "updateAvailable": "Version {version} is available",
+    "updateAndRestart": "Update & restart",
+    "updating": "Updating…",
+    "notInstallable": "Version {version} has no checksums, so it can't be installed automatically",
+    "openReleasePage": "Open release page",
+    "devBuild": "Development builds don't check for updates"
+  },
+  "update": {
+    "available": "{version} available",
+    "dismiss": "Dismiss",
+    "dismissAria": "Dismiss the update notice"
   }
 }

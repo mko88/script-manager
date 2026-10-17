@@ -1,6 +1,10 @@
 package uiprefs
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
 func TestSaveLoadRoundTrip(t *testing.T) {
 	dir := t.TempDir()
@@ -55,5 +59,24 @@ func TestMissingFileAndDirGiveDefaults(t *testing.T) {
 	}
 	if got := Load(""); got != Defaults() {
 		t.Errorf("Load(\"\") = %+v, want defaults", got)
+	}
+}
+
+func TestCheckForUpdatesDefaultsOn(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, Filename), []byte(`{"scalePercent":120}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := Load(dir); !got.CheckForUpdates {
+		t.Error("a prefs file without checkForUpdates should leave it on")
+	}
+
+	p := Load(dir)
+	p.CheckForUpdates = false
+	if _, err := Save(dir, p); err != nil {
+		t.Fatal(err)
+	}
+	if got := Load(dir); got.CheckForUpdates || got.ScalePercent != 120 {
+		t.Errorf("Load() = %+v, want updates off and scale kept", got)
 	}
 }
