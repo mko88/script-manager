@@ -96,3 +96,28 @@ func TestWriteTempScript(t *testing.T) {
 		}
 	}
 }
+
+func TestScriptInvocationArgs(t *testing.T) {
+	cases := []struct{ shell, path, args, want string }{
+		{"pwsh", `C:\s\it's.ps1`, "-Fail", `& 'C:\s\it''s.ps1' -Fail`},
+		{"cmd", `C:\s\b.bat`, `"x"`, `call "C:\s\b.bat" "x"`},
+		{"bash", "/s/d.sh", "", "'/s/d.sh'"},
+	}
+	for _, c := range cases {
+		if got := ScriptInvocation(c.shell, c.path, c.args); got != c.want {
+			t.Errorf("ScriptInvocation(%q) = %q, want %q", c.shell, got, c.want)
+		}
+	}
+	if got := WrapScriptFileArgs("bash", "/s/d.sh", "--x 'y'", false); !strings.Contains(got, "'/s/d.sh' --x 'y'\n") {
+		t.Errorf("stub = %q", got)
+	}
+}
+
+func TestAppendArgs(t *testing.T) {
+	if got := AppendArgs("echo hi\n", "--x"); got != "echo hi --x" {
+		t.Errorf("got %q", got)
+	}
+	if got := AppendArgs("echo hi\n", ""); got != "echo hi\n" {
+		t.Errorf("got %q", got)
+	}
+}

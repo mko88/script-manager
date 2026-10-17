@@ -3,6 +3,7 @@
 import {gui} from '../models';
 import {theme} from '../models';
 import {uiprefs} from '../models';
+import {presets} from '../models';
 
 export function ActionNeedsUnlock(arg1:number,arg2:number):Promise<boolean>;
 
@@ -18,6 +19,8 @@ export function ConfigPath():Promise<string>;
 
 export function CopyToClipboard(arg1:string):Promise<void>;
 
+export function DeletePreset(arg1:number,arg2:number,arg3:string):Promise<gui.PresetsDTO>;
+
 export function GetActionDetail(arg1:number,arg2:number):Promise<gui.ActionDetailDTO>;
 
 export function GetActionGroups():Promise<Array<gui.ActionGroupDTO>>;
@@ -31,6 +34,8 @@ export function GetItemDetails(arg1:number):Promise<gui.DetailsDTO>;
 export function GetItems():Promise<Array<gui.ItemDTO>>;
 
 export function GetMessages():Promise<Record<string, any>>;
+
+export function GetPresets(arg1:number,arg2:number):Promise<gui.PresetsDTO>;
 
 export function GetTheme():Promise<theme.State>;
 
@@ -54,15 +59,19 @@ export function LogPath():Promise<string>;
 
 export function OpenScriptInEditor(arg1:string):Promise<void>;
 
+export function PreviewCommand(arg1:number,arg2:number,arg3:gui.RunInputDTO):Promise<gui.CommandPreviewDTO>;
+
 export function RecentConfigs():Promise<Array<string>>;
 
 export function ReloadConfig():Promise<string>;
 
 export function ReloadConfigOnChange():Promise<string>;
 
-export function RunAction(arg1:number,arg2:number):Promise<void>;
+export function RunAction(arg1:number,arg2:number,arg3:gui.RunInputDTO):Promise<void>;
 
-export function RunActionInline(arg1:number,arg2:number):Promise<void>;
+export function RunActionInline(arg1:number,arg2:number,arg3:gui.RunInputDTO):Promise<void>;
+
+export function SavePreset(arg1:number,arg2:number,arg3:presets.Preset):Promise<gui.PresetsDTO>;
 
 export function SecretsState():Promise<gui.SecretsStateDTO>;
 

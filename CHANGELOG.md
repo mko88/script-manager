@@ -4,6 +4,15 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
+## Unreleased
+
+### Changes
+
+- `script-manager-gui`: a PARAMETERS section sets a script's arguments with controls read from its own documentation (PowerShell help and `param()`, Python argparse, shell and batch usage headers).
+- `script-manager-gui`: undocumented scripts and `cmd:` actions take free-text arguments, added to the command as written.
+- `script-manager-gui`: named presets of parameter values per action, saved in `presets.yaml` next to the config.
+- `script-manager-gui`: the COMMAND section shows the full command line with its arguments as you edit them, and **Run** / **Run here** check required values and choices first.
+
 ## 1.5.1
 
 ### Changes

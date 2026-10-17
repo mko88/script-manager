@@ -15,6 +15,8 @@
   import CodeMirror from '@shared/components/CodeMirror.svelte'
   import Panel from './components/Panel.svelte'
   import GroupFilter from './components/GroupFilter.svelte'
+  import ParamsPanel from './components/ParamsPanel.svelte'
+  import PresetNameDialog from './components/PresetNameDialog.svelte'
   import { t } from './messages'
   import { buildGroupColors, groupChipStyle } from './lib/groupColors'
   import { inlineStates, inlineKey, startInlineRun, cancelInlineRun, resetInlineRuns } from './lib/inlineRuns'
@@ -59,8 +61,9 @@
     OpenScriptInEditor,
     WatchScript,
     UnlockSecrets,
+    PreviewCommand,
   } from '../wailsjs/go/gui/App.js'
-  import type { gui } from '../wailsjs/go/models'
+  import { gui } from '../wailsjs/go/models'
 
   let items: gui.ItemDTO[] = []
   let actions: gui.ActionDTO[] = []
@@ -194,6 +197,9 @@
     if (selectedItem < 0) return
     selectedActionIndex = index
     resetCommandPaneSections()
+    preview = null
+    runValues = {}
+    runArgs = ''
     actionDetail = await GetActionDetail(selectedItem, index)
   }
 
@@ -231,7 +237,7 @@
   // Copies what the pane shows: the script's contents, or its path when the
   // file wouldn't open.
   function copyCmd() {
-    const value = actionDetail?.scriptContent || actionDetail?.cmd || actionDetail?.script
+    const value = actionDetail?.scriptContent || (actionDetail?.cmd && preview?.line) || actionDetail?.cmd || actionDetail?.script
     if (!value) return
     copyToClipboard(value)
   }
@@ -271,11 +277,48 @@
     pinPending = null
   }
 
-  function runAction() {
+  let runValues: Record<string, any> = {}
+  let runArgs = ''
+  let preview: gui.CommandPreviewDTO | null = null
+  let previewSeq = 0
+
+  function onParamsChange(values: Record<string, any>, args: string) {
+    runValues = values
+    runArgs = args
+  }
+
+  function runInput(): gui.RunInputDTO {
+    return gui.RunInputDTO.createFrom({ values: { ...runValues }, args: runArgs })
+  }
+
+  $: if (actionDetail) refreshPreview(selectedItem, selectedActionIndex, runValues, runArgs, actionDetail)
+
+  async function refreshPreview(item: number, action: number, values: Record<string, any>, args: string, _detail: gui.ActionDetailDTO) {
+    const seq = ++previewSeq
+    const result = await PreviewCommand(item, action, gui.RunInputDTO.createFrom({ values: { ...values }, args }))
+    if (seq === previewSeq) preview = result
+  }
+
+  // The backend checks the same rules again; this only keeps an invalid
+  // run from opening a terminal or asking for the PIN first.
+  async function checkRunInput(item: number, action: number, input: gui.RunInputDTO): Promise<boolean> {
+    const result = await PreviewCommand(item, action, input)
+    if (result.error) {
+      flash(t('toast.invalidParams', { error: result.error }))
+      return false
+    }
+    return true
+  }
+
+  async function runAction() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
+    const item = selectedItem
+    const action = selectedActionIndex
+    const input = runInput()
+    if (!(await checkRunInput(item, action, input))) return
     withUnlocked(async () => {
       try {
-        await RunAction(selectedItem, selectedActionIndex)
+        await RunAction(item, action, input)
         flash(t('toast.runningInTerminal'))
       } catch (err) {
         flash(t('toast.runFailed', { error: String(err) }))
@@ -283,12 +326,40 @@
     })
   }
 
-  function runActionInline() {
+  async function runActionInline() {
     if (selectedItem < 0 || selectedActionIndex < 0) return
+    const item = selectedItem
+    const action = selectedActionIndex
+    const input = runInput()
+    if (!(await checkRunInput(item, action, input))) return
     withUnlocked(() => {
       resetCommandPaneSections()
-      startInlineRun(selectedItem, selectedActionIndex)
+      startInlineRun(item, action, input)
     })
+  }
+
+  let presetNameOpen = false
+  let presetNameInitial = ''
+  let presetNameExisting: string[] = []
+  let presetNameResolve: ((name: string | null) => void) | null = null
+
+  function askPresetName(initial: string, existing: string[]): Promise<string | null> {
+    presetNameResolve?.(null)
+    presetNameInitial = initial
+    presetNameExisting = existing
+    presetNameOpen = true
+    return new Promise((resolve) => (presetNameResolve = resolve))
+  }
+
+  function answerPresetName(name: string | null) {
+    presetNameOpen = false
+    const resolve = presetNameResolve
+    presetNameResolve = null
+    resolve?.(name)
+  }
+
+  function copyPreviewLine() {
+    if (preview?.line) copyToClipboard(preview.line)
   }
 
   function cancelInlineAction() {
@@ -589,6 +660,7 @@
   let commandCollapsed = false
   let groupChipsCollapsed = true
   let detailsWarningCollapsed = true
+  let paramsCollapsed = false
   let cmdCollapsedOverride: boolean | null = null
   let outputCollapsedOverride: boolean | null = null
 
@@ -603,6 +675,7 @@
       commandCollapsed,
       groupChipsCollapsed,
       detailsWarningCollapsed,
+      paramsCollapsed,
     } = loadPersisted(LAYOUT_KEY, {
       leftWidth: 320,
       itemsHeight: 340,
@@ -613,6 +686,7 @@
       commandCollapsed: false,
       groupChipsCollapsed: false,
       detailsWarningCollapsed: true,
+      paramsCollapsed: false,
     }))
   })
 
@@ -627,6 +701,7 @@
       commandCollapsed,
       groupChipsCollapsed,
       detailsWarningCollapsed,
+      paramsCollapsed,
     })
   }
 
@@ -899,6 +974,30 @@
                   <IconButton class="copy-cmd-btn icon-btn" title={t('tooltip.cancel')} on:click={cancelInlineAction}><Icon name="cancel" /></IconButton>
                 {/if}
               </div>
+              <div class="messages-group cmd-section" class:cmd-section-open={!paramsCollapsed}>
+                <button
+                  class="messages-group-header"
+                  type="button"
+                  on:click={() => {
+                    paramsCollapsed = !paramsCollapsed
+                    saveLayout()
+                  }}
+                >
+                  <span class="messages-group-title">{t('section.parameters')}</span>
+                  <span class="collapse-glyph">{paramsCollapsed ? '▸' : '▾'}</span>
+                </button>
+                <div class="cmd-section-body" class:params-hidden={paramsCollapsed}>
+                  {#key `${selectedItem}:${selectedActionIndex}`}
+                    <ParamsPanel
+                      itemIndex={selectedItem}
+                      actionIndex={selectedActionIndex}
+                      spec={actionDetail.params}
+                      onChange={onParamsChange}
+                      askName={askPresetName}
+                    />
+                  {/key}
+                </div>
+              </div>
             {/if}
             <div class="messages-group cmd-section" class:cmd-section-open={!cmdSectionCollapsed}>
               <button class="messages-group-header" type="button" on:click={() => (cmdCollapsedOverride = !cmdSectionCollapsed)}>
@@ -918,6 +1017,12 @@
                   </div>
                 {/if}
                 {#if actionDetail.script}
+                  <p class="cmd-desc cmd-line-label">{t('params.commandLine')}</p>
+                  <div class="code-block">
+                    <CodeMirror value={preview?.line ?? ''} language={actionDetail.commandLanguage} readOnly showLineNumbers={false} />
+                    <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyPreviewLine}><Icon name="copy" /></IconButton>
+                  </div>
+                  {#if preview?.error}<p class="cmd-error">{preview.error}</p>{/if}
                   <p class="cmd-desc script-path-line">
                     <span class="script-path">{t('text.scriptLabel')}{actionDetail.script}</span>
                     <IconButton
@@ -940,9 +1045,10 @@
                   {/if}
                 {:else if actionDetail.cmd}
                   <div class="code-block">
-                    <CodeMirror value={actionDetail.cmd} language={actionDetail.language} readOnly />
+                    <CodeMirror value={preview?.line || actionDetail.cmd} language={actionDetail.language} readOnly />
                     <IconButton class="cmd-copy-btn cmd-line-copy-btn" title={t('tooltip.copyCommand')} on:click={copyCmd}><Icon name="copy" /></IconButton>
                   </div>
+                  {#if preview?.error}<p class="cmd-error">{preview.error}</p>{/if}
                 {/if}
                 </div>
               {/if}
@@ -1003,6 +1109,14 @@
     onSubmit={submitPin}
     onCancel={cancelPin}
   />
+
+    <PresetNameDialog
+      open={presetNameOpen}
+      initial={presetNameInitial}
+      existing={presetNameExisting}
+      onSubmit={(name) => answerPresetName(name)}
+      onCancel={() => answerPresetName(null)}
+    />
 </main>
 </div>
 {/if}
@@ -1391,6 +1505,14 @@
   .code-block {
     position: relative;
     margin-bottom: 8px;
+  }
+
+  .params-hidden {
+    display: none;
+  }
+
+  .cmd-line-label {
+    margin-bottom: 4px;
   }
 
   .script-path-line {
