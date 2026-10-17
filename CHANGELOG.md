@@ -4,7 +4,7 @@ Notable changes across all three binaries, newest first. Versions follow
 the `Major.Minor.Patch` scheme described in `CLAUDE.md`. Releases before
 1.4.0 carry a fourth segment, from the scheme this replaced.
 
-## Unreleased
+## 1.6.0
 
 ### Changes
 
